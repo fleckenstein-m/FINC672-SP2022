@@ -18,10 +18,10 @@ The latter allows you to plug in values that you would have defined here.
              `prepath` to an empty string. Finally, adjust this if you want the
              deployed page to be in a subfolder e.g.: `YourPackage.jl/web/`.
 -->
-@def title       = "Workshop in Finance: Empirical Research"
-@def prepath     = "FINC672-SP2022"
+@def title       = "Fixed Income Securities"
+@def prepath     = "FINC462-662-SP2022"
 @def description = """
-                   Empirial research in Finance using the Julia programming language.
+                   Introduction to Fixed Income Securities.
                    """
 @def author     = "Matthias Fleckenstein"
 
@@ -78,7 +78,7 @@ The latter allows you to plug in values that you would have defined here.
 
 @def add_github_view  = true
 @def add_github_star  = true
-@def github_repo      = "fleckenstein-m/FINC672-SP2022"
+@def github_repo      = "fleckenstein-m/FINC462-662-SP2022"
 
 <!-- SECTION LAYOUT
 NOTE:
