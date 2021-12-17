@@ -1,1 +1,1 @@
-# FINC672-SP2022
+# FINC 672 - Spring 2022
