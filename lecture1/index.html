@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   
   
-  <link rel="stylesheet" href="/FINC672-SP2022/css/franklin.css">
-<link rel="stylesheet" href="/FINC672-SP2022/css/poole_hyde.css">
-<link rel="stylesheet" href="/FINC672-SP2022/css/custom.css">
+  <link rel="stylesheet" href="/FINC462-662-SP2022/css/franklin.css">
+<link rel="stylesheet" href="/FINC462-662-SP2022/css/poole_hyde.css">
+<link rel="stylesheet" href="/FINC462-662-SP2022/css/custom.css">
 <!-- style adjustments -->
 <style>
   html {font-size: 17px;}
@@ -19,33 +19,30 @@
     .franklin-content {padding-left: 6%; padding-right: 6%;}
   }
 </style>
-<link rel="icon" href="/FINC672-SP2022/assets/favicon.png">
+<link rel="icon" href="/FINC462-662-SP2022/assets/favicon.png">
 
-   <title>Workshop in Finance: Empirical Research</title>  
+   <title>Fixed Income Securities</title>  
 </head>
 <body>
 <div class="sidebar">
   <div class="container sidebar-sticky">
     <div class="sidebar-about">
       <br>
-      <img src="/FINC672-SP2022/assets/UDMonogramCweb.jpg" style="width: 80px; height: auto; display: inline">
-      <img src="/FINC672-SP2022/assets/julia-logo.svg" style="margin-left:1em; width: 80px; height: auto; display: inline">
+      <img src="/FINC462-662-SP2022/assets/UDMonogramCweb.jpg" style="width: 80px; height: auto; display: inline">
+      <img src="/FINC462-662-SP2022/assets/julia-logo.svg" style="margin-left:1em; width: 80px; height: auto; display: inline">
       <div style="opacity: 0.85; font-weight: bold; margin-bottom: 0.5em">University of Delaware, Spring 2022</div>
-      <h1 style="font-size:1em; opacity: 0.95;"><a href="/FINC672-SP2022/">FINC-672 Workshop in Finance: Empirial Research</a></h1>
+      <h1 style="font-size:1em; opacity: 0.95;"><a href="/FINC462-662-SP2022/">FINC-462/662 Fixed Income Securities</a></h1>
       <div style="line-height:18px; font-size: 15px; opacity: 0.85">by <a href="http://www.mfleckenstein.com">Matthias Fleckenstein</a></div>
     </div>
     <br>
     <style>
     </style>
     <nav class="sidebar-nav" style="opacity: 0.9">
-      <a class="sidebar-nav-item " href="/FINC672-SP2022/">Course home</a>
-      <a class="sidebar-nav-item " href="/FINC672-SP2022/installation/">Software installation</a>
-      <a class="sidebar-nav-item " href="/FINC672-SP2022/cheatsheets/">Cheatsheets</a>
+      <a class="sidebar-nav-item " href="/FINC462-662-SP2022/">Course home</a>
       <br>
       <small style="text-transform: uppercase; font-size: 0.75em">Course content</small>
-      <a class="sidebar-nav-item active" href="/FINC672-SP2022/lecture1/"><b>Lecture 1</b> - <em>Why Julia?</em></a>
-      <a class="sidebar-nav-item " href="/FINC672-SP2022/lecture2/"><b>Lecture 2</b> - <em>First Examples</em></a>
-      <a class="sidebar-nav-item " href="/FINC672-SP2022/hw1/"><b>Homework 1</b></a>
+      <a class="sidebar-nav-item active" href="/FINC462-662-SP2022/lecture1/"><b>Lecture 1</b> - <em>Lecture 1</em></a>
+      <a class="sidebar-nav-item " href="/FINC462-662-SP2022/hw1/"><b>Homework 1</b></a>
     </nav>
 
   </div>
@@ -56,30 +53,16 @@
 
 <!-- Content appended here -->
 <div class="franklin-content">
-<h1>Programming Languages and Why Julia?</h1>
+<h1>TITLE</h1>
 
 <p><strong>Table of Contents</strong></p>
-<div class="franklin-toc"><ol><li><a href="#prerequisites_installing_the_software_environment">Prerequisites: Installing the software environment</a></li><li><a href="#rendered_notebooks">&#40;Rendered&#41; Notebooks</a></li><li><a href="#introduction_and_why_julia">Introduction and: Why Julia?</a><ol><li><a href="#resources">Resources</a></li></ol></li></ol></div>
-<h2 id="prerequisites_installing_the_software_environment"><a href="#prerequisites_installing_the_software_environment">Prerequisites: Installing the software environment</a></h2>
-<p>Check out the <a href="/FINC672-SP2022/installation/">installation</a> page on this website which was copied from the MIT course <em>Computational Thinking</em>, or just watch the following video to learn how to set up Julia and Pluto – two pieces of software you will need to run the course materials on your own computer.</p>
-<br/>
-<iframe id="installation" width="100%" height="360"
-src="https://www.youtube.com/embed/OOjKEgbt8AI"
-frameborder="0"
-allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
-allowfullscreen></iframe>
-
-<h2 id="rendered_notebooks"><a href="#rendered_notebooks">&#40;Rendered&#41; Notebooks</a></h2>
-<p>We used several Pluto.jl notebooks in this lecture. Here is an example of a rendered notebook:</p>
-<table><tr><th align="center">Topic</th><th align="center">Notebook</th></tr><tr><td align="center">Tmp</td><td align="center"><a href="../lecture1-arrays">click for notebook</a></td></tr></table>
-<h2 id="introduction_and_why_julia"><a href="#introduction_and_why_julia">Introduction and: Why Julia?</a></h2>
-<p>In this section we want to understand why julia is a good choice for computational tasks - for Economists and others.</p>
-<p><a href="../assets/tex/dp-estimation/dp-estimation.pdf">Slides for intro:</a> Why Julia? </p>
+<div class="franklin-toc"><ol><li><a href="#prerequisites">Prerequisites: </a></li><li><a href="#lecture_notebook">Lecture Notebook</a><ol><li><a href="#resources">Resources</a></li></ol></li></ol></div>
+<h2 id="prerequisites"><a href="#prerequisites">Prerequisites: </a></h2>
+<h2 id="lecture_notebook"><a href="#lecture_notebook">Lecture Notebook</a></h2>
+<table><tr><th align="center">Topic</th><th align="center">Notebook</th></tr><tr><td align="center">Tmp</td><td align="center"><a href="../lecture1-arrays">click for notebook</a></td></tr><tr><td align="center">Tmp</td><td align="center"><a href="../assets/tex/dp-estimation/dp-estimation.pdf">PDF slides</a></td></tr></table>
 <h3 id="resources"><a href="#resources">Resources</a></h3>
 <ul>
-<li><p><a href="https://www.sas.upenn.edu/~jesusfv/comparison_languages.pdf">Aruoba and Fernandez-Villaverde</a></p>
-</li>
-<li><p><a href="https://www.sas.upenn.edu/~jesusfv/Chapter_HPC_8_Julia.pdf">Jesus&#39; Julia Tutorial</a></p>
+<li><p><a href="Link">Resource 1</a></p>
 </li>
 </ul>
 <div class="page-foot">

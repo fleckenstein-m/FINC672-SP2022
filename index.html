@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   
-   <link rel="stylesheet" href="/FINC672-SP2022/libs/highlight/github.min.css">
+   <link rel="stylesheet" href="/FINC462-662-SP2022/libs/highlight/github.min.css">
    
-  <link rel="stylesheet" href="/FINC672-SP2022/css/franklin.css">
-<link rel="stylesheet" href="/FINC672-SP2022/css/poole_hyde.css">
-<link rel="stylesheet" href="/FINC672-SP2022/css/custom.css">
+  <link rel="stylesheet" href="/FINC462-662-SP2022/css/franklin.css">
+<link rel="stylesheet" href="/FINC462-662-SP2022/css/poole_hyde.css">
+<link rel="stylesheet" href="/FINC462-662-SP2022/css/custom.css">
 <!-- style adjustments -->
 <style>
   html {font-size: 17px;}
@@ -20,33 +20,30 @@
     .franklin-content {padding-left: 6%; padding-right: 6%;}
   }
 </style>
-<link rel="icon" href="/FINC672-SP2022/assets/favicon.png">
+<link rel="icon" href="/FINC462-662-SP2022/assets/favicon.png">
 
-   <title>Workshop in Finance: Empirical Research</title>  
+   <title>Fixed Income Securities</title>  
 </head>
 <body>
 <div class="sidebar">
   <div class="container sidebar-sticky">
     <div class="sidebar-about">
       <br>
-      <img src="/FINC672-SP2022/assets/UDMonogramCweb.jpg" style="width: 80px; height: auto; display: inline">
-      <img src="/FINC672-SP2022/assets/julia-logo.svg" style="margin-left:1em; width: 80px; height: auto; display: inline">
+      <img src="/FINC462-662-SP2022/assets/UDMonogramCweb.jpg" style="width: 80px; height: auto; display: inline">
+      <img src="/FINC462-662-SP2022/assets/julia-logo.svg" style="margin-left:1em; width: 80px; height: auto; display: inline">
       <div style="opacity: 0.85; font-weight: bold; margin-bottom: 0.5em">University of Delaware, Spring 2022</div>
-      <h1 style="font-size:1em; opacity: 0.95;"><a href="/FINC672-SP2022/">FINC-672 Workshop in Finance: Empirial Research</a></h1>
+      <h1 style="font-size:1em; opacity: 0.95;"><a href="/FINC462-662-SP2022/">FINC-462/662 Fixed Income Securities</a></h1>
       <div style="line-height:18px; font-size: 15px; opacity: 0.85">by <a href="http://www.mfleckenstein.com">Matthias Fleckenstein</a></div>
     </div>
     <br>
     <style>
     </style>
     <nav class="sidebar-nav" style="opacity: 0.9">
-      <a class="sidebar-nav-item active" href="/FINC672-SP2022/">Course home</a>
-      <a class="sidebar-nav-item " href="/FINC672-SP2022/installation/">Software installation</a>
-      <a class="sidebar-nav-item " href="/FINC672-SP2022/cheatsheets/">Cheatsheets</a>
+      <a class="sidebar-nav-item active" href="/FINC462-662-SP2022/">Course home</a>
       <br>
       <small style="text-transform: uppercase; font-size: 0.75em">Course content</small>
-      <a class="sidebar-nav-item " href="/FINC672-SP2022/lecture1/"><b>Lecture 1</b> - <em>Why Julia?</em></a>
-      <a class="sidebar-nav-item " href="/FINC672-SP2022/lecture2/"><b>Lecture 2</b> - <em>First Examples</em></a>
-      <a class="sidebar-nav-item " href="/FINC672-SP2022/hw1/"><b>Homework 1</b></a>
+      <a class="sidebar-nav-item " href="/FINC462-662-SP2022/lecture1/"><b>Lecture 1</b> - <em>Lecture 1</em></a>
+      <a class="sidebar-nav-item " href="/FINC462-662-SP2022/hw1/"><b>Homework 1</b></a>
     </nav>
 
   </div>
@@ -56,11 +53,11 @@
 
 
 <!-- Content appended here -->
-<div class="franklin-content"><h1 id="finc_672_workshop_in_finance_empirical_methods"><a href="#finc_672_workshop_in_finance_empirical_methods">FINC 672 Workshop in Finance: Empirical Methods</a></h1>
+<div class="franklin-content"><h1 id="finc_462662_fixed_income_securities"><a href="#finc_462662_fixed_income_securities">FINC 462/662: Fixed Income Securities</a></h1>
 <ul>
 <li><p><strong>Instructor:</strong> Matthias Fleckenstein, <a href="mailto:mflecken@udel.edu">mflecken@udel.edu</a></p>
 </li>
-<li><p><strong>Class Times:</strong> Tuesdays and Thursdays 11:00-12:15</p>
+<li><p><strong>Class Times:</strong> Tuesdays and Thursdays 9.30-10:45am</p>
 </li>
 <li><p><strong>Class Location:</strong> TBD</p>
 </li>
@@ -70,72 +67,11 @@
 
 <hr />
 <p><strong>Table of Contents:</strong></p>
-<div class="franklin-toc"><ol><li><a href="#course_overview">Course Overview</a></li><li><a href="#prerequisites">Prerequisites</a><ol><li><a href="#getting_programming_skills">Getting Programming Skills</a></li></ol></li><li><a href="#term_project">Term Project</a><ol><li><a href="#replication">Replication</a></li></ol></li><li><a href="#grade">Grade</a></li><li><a href="#textbooks">Textbooks</a><ol><li><a href="#other_resources">Other resources</a></li></ol></li><li><a href="#license">License</a></li></ol></div>
+<div class="franklin-toc"><ol><li><a href="#course_overview">Course Overview</a></li><li><a href="#course_syllabus">Course Syllabus</a></li><li><a href="#license">License</a></li></ol></div>
 <hr />
 <h2 id="course_overview"><a href="#course_overview">Course Overview</a></h2>
 <p>This is a course </p>
-<h2 id="prerequisites"><a href="#prerequisites">Prerequisites</a></h2>
-<ol>
-<li><p>You need a laptop. </p>
-</li>
-<li><p><strong>Before</strong> you come the first class, please do this:</p>
-<ol>
-<li><p>Download the latest <a href="https://julialang.org/downloads/">stable <code>julia</code> release</a> for your OS.</p>
-</li>
-<li><p>Download the <a href="https://code.visualstudio.com"><code>VSCode Editor</code></a></p>
-</li>
-</ol>
-</li>
-</ol>
-<h3 id="getting_programming_skills"><a href="#getting_programming_skills">Getting Programming Skills</a></h3>
-<ol>
-<li><p>Check out <a href="https://cms27.github.io/teaching/">Clement Mazet&#39;s materials</a>. You must know this level.</p>
-</li>
-<li><p>We will be using <a href="http://julialang.org/">Julia</a> for this course. </p>
-<ul>
-<li><p><a href="https://docs.julialang.org/en/v1/manual/noteworthy-differences/">Noteworthy Differences from Other Languages</a></p>
-</li>
-<li><p><a href="http://cheatsheets.quantecon.org/">MATLAB, Python, Julia Syntax Comparison</a></p>
-</li>
-</ul>
-</li>
-<li><p>Clement in his course will introduce you to things like the <a href="https://en.wikipedia.org/wiki/Unix_shell">Unix Shell</a> and the verion control system Git. Both of those are very useful - for this course, and for the rest of your life as a scientist. </p>
-</li>
-<li><p><a href="http://git-scm.com/video/what-is-version-control">What is Version Control? watch this 5 minute video.</a> and go back to Clement&#39;s stuff if unclear.</p>
-</li>
-</ol>
-<h2 id="term_project"><a href="#term_project">Term Project</a></h2>
-<p>There are two options:</p>
-<ol>
-<li><p>Replicate a published paper.</p>
-</li>
-<li><p>Develop the computational aspects of your own work.</p>
-</li>
-</ol>
-<h3 id="replication"><a href="#replication">Replication</a></h3>
-<p>The requirements for choice of paper to replicate are:</p>
-<ol>
-<li><p>It&#39;s an financial economics paper.</p>
-</li>
-<li><p>The paper to replicate must not use julia.</p>
-</li>
-<li><p>You must use julia for your replication.</p>
-</li>
-</ol>
-<h2 id="grade"><a href="#grade">Grade</a></h2>
-<p>Your grade will be 60&#37; homeworks, 40&#37; term project.</p>
-<h2 id="textbooks"><a href="#textbooks">Textbooks</a></h2>
-<ul>
-<li><p><strong>Text 1</strong> &#40;200X&#41;, Title, Publisher</p>
-</li>
-</ul>
-<h3 id="other_resources"><a href="#other_resources">Other resources</a></h3>
-<ul>
-<li><p><a href="https://statisticswithjulia.org"><strong>Statistics with Julia</strong></a></p>
-</li>
-<li><p><a href="https://julia.quantecon.org/intro.html"><strong>Quantitative Economics with Julia</strong></a> by Perla, Sargent and Stachurski is a wonderful resource and we use it a lot in this course. </p>
-</li>
-</ul>
+<h2 id="course_syllabus"><a href="#course_syllabus">Course Syllabus</a></h2>
 <h2 id="license"><a href="#license">License</a></h2>
 <p>The copyright notice to be included in any copies and other derivative work of this material is:</p>
 <pre><code class="language-julia">Copyright 2022 Matthias Fleckenstein, University of Delaware, Lerner College of Business &amp; Economics, mflecken@udel.edu</code></pre>
@@ -164,7 +100,7 @@
         }
     </script>
     
-        <script src="/FINC672-SP2022/libs/highlight/highlight.pack.js"></script>
+        <script src="/FINC462-662-SP2022/libs/highlight/highlight.pack.js"></script>
 <script>hljs.initHighlightingOnLoad();hljs.configure({tabReplace: '    '});</script>
 
     
