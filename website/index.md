@@ -1,9 +1,9 @@
 
-# FINC 462/662: Fixed Income Securities
+# FINC 672: Workshop in Finance - Empirical Research
 
 
 * **Instructor:** Matthias Fleckenstein, [mflecken@udel.edu](mailto:mflecken@udel.edu)
-* **Class Times:** Tuesdays and Thursdays 9.30-10:45am
+* **Class Times:** Tuesdays and Thursdays 11.00-12:15pm
 * **Class Location:** TBD
 
 @def mintoclevel=2 
