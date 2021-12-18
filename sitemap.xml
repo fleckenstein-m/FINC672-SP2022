@@ -2,6 +2,12 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 
 <url>
+    <loc>installation/index.html</loc>
+    <lastmod>2021-12-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+</url>
+<url>
     <loc>hw1/index.html</loc>
     <lastmod>2021-12-18</lastmod>
     <changefreq>monthly</changefreq>
@@ -20,7 +26,7 @@
     <priority>0.5</priority>
 </url>
 <url>
-    <loc>HOW%20TO%20run%20the%20course%20page%20locally/index.html</loc>
+    <loc>cheatsheets/index.html</loc>
     <lastmod>2021-12-18</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
