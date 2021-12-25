@@ -6,6 +6,6 @@
 
 Topic | Slides
 :-----: | :--------:
-Data Visualization  | [PDF slides](../slides/main_06.pdf)
+Data Visualization  | [PDF slides](../assets/slides/main_06.pdf)
 
 

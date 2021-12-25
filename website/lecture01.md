@@ -6,7 +6,5 @@
 
 Topic | Slides
 :-----: | :--------:
-Intro to Julia   | [PDF slides](../slides/main_00.pdf)
-Setting up Julia and Pluto | [PDF slides](../slides/main_01.pdf)
-
-
+Intro to Julia   | [PDF slides](../assets/slides/main_00.pdf)
+Setting up Julia and Pluto | [PDF slides](../assets/slides/main_01.pdf)

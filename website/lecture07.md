@@ -5,6 +5,6 @@
 
 Topic | Slides
 :-----: | :--------:
-TBD   | [PDF slides](../slides/main_00.pdf)
+TBD   | [PDF slides](../assets/slides/main_00.pdf)
 
 
