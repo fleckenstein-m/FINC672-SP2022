@@ -52,6 +52,7 @@ jobs:
           optimize(;minify=false);
           "== Place rendered notebooks in the website folder ==";
           cp("../notebooks", "__site/notebooks");'
+          cp("../slides", "__site/slides");'
     - name: Build and Deploy
       uses: JamesIves/github-pages-deploy-action@releases/v3
       with:
