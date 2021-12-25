@@ -30,7 +30,7 @@ The objective of this course is to provide an overview of empirical research in 
 After completing this course, students will have a thorough understanding of fundamental programming concepts and tools in financial data science, and be able to apply these skills to real-world problems in empirical asset pricing.
 
 ## Course Syllabus
-[Syllabus](../assets/syllabus.pdf)
+[Syllabus](./assets/syllabus.pdf)
 
 ## Course Materials
 All course materials will be posted on the course webpage at [https://fleckenstein-m.github.io/FINC672-SP2022/](https://fleckenstein-m.github.io/FINC672-SP2022/).
