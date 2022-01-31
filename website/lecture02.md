@@ -6,7 +6,7 @@
 
 Topic | Slides
 :-----: | :--------:
-Julia Basics  | [PDF slides](./assets/slides/main_02.pdf)
+Julia Basics  | [PDF slides](../assets/slides/main_02.pdf)
 
 
 
