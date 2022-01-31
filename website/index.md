@@ -5,6 +5,7 @@
 * **Instructor:** Matthias Fleckenstein, [mflecken@udel.edu](mailto:mflecken@udel.edu)
 * **Class Times:** Tuesdays and Thursdays 11.00am-12:15pm
 * **Class Location:** Allfred Lerner Hall, Room 230
+* **Office Hours:** Fridays, 8.00am - 10.00am, Zoom, [Link](https://udel.zoom.us/j/94893372312)
 
 @def mintoclevel=2 
 @def maxtoclevel=3
@@ -35,68 +36,25 @@ After completing this course, students will have a thorough understanding of fun
 ## Course Materials
 All course materials will be posted on the course webpage at [https://fleckenstein-m.github.io/FINC672-SP2022/](https://fleckenstein-m.github.io/FINC672-SP2022/).
 
-## Course Requirements
+# Office Hours
+Office hours will be held via Zoom on Fridays from 8.00am to 10.00am, or by appointment.
+The Zoom link is: [https://udel.zoom.us/j/94893372312](https://udel.zoom.us/j/94893372312)
 
-- 10% Class Participation
-- 30% Midterm
-  - *March 22, 2022*
+# Grading Policy
+
+Your final grade is based on i) two midterm exams, ii) a final exam, and iii) class participation. Grading is on a curve. This means that you will be ranked relative to all students in both sections based on your two midterms, the final exam, and quizzes. The weighting shown below under Final Grade Breakdown determines your final rank among all students enrolled in the sections I teach.
+
+- 10% Class Participation/ Quizzes
+- 30% Midterm 1
+  - *March 8, 2022*
+- 30% Midterm 2
+  - *April 12, 2022*
 - 30% Final Exam
   - *May 17, 2022*
-- 30% Class Project
-  - *Due May 24, 2022*
 
+# Assessment Component: Class Participation
 
-# Schedule
-
-#### Week 1 (February 8/10)
-  - Course Syllabus
-  - Introduction to the Julia programming language
-  - Julia Programming Basics
-
-#### Week 2 (February, 15/17)
-  - TBD
-
-#### Week 3 (February, 22/24)
-  - TBD
-
-#### Week 4 (March, 1/3)
-  - TBD
-
-#### Week 5 (March, 8/10)
-  - TBD
-
-#### Week 6 (March, 15/17)
-  - TBD
-
-#### Week 7 (March, 22/24)
-  - Midterm
-
-#### Week 8 (March, 29/31)
-  - Spring Break
-
-#### Week 9 (April, 5/7)
-  - TBD
-
-#### Week 10 (April, 12/14)
-  - TBD
-
-#### Week 11 (April, 19/21)
-  - TBD
-
-#### Week 12 (April, 26/28)
-  - TBD
-
-#### Week 13 (May 3, 5)
-  - TBD
-
-#### Week 14 (May, 10/12)
-  - TBD
-
-#### Week 15 (May, 17/19)
-  - Final Exam.
-
-
-
+- You are expected to come to class and be prepared to answer questions on the material. *Homework assignments* are self-graded and will not be collected. I reserve the right to give *quizzes* in class. These will not officially be announced beforehand. The in-class quizzes will be modeled on the examples in the lecture material, after the topic is covered. Quizzes are graded and count towards your Class Participation score. 
 
 
 ## License
