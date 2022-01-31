@@ -6,6 +6,6 @@
 
 Topic | Slides
 :-----: | :--------:
-Tabular Data  | [PDF slides](./assets/slides/main_05.pdf)
+Tabular Data  | [PDF slides](../assets/slides/main_05.pdf)
 
 

@@ -6,7 +6,7 @@
 
 Topic | Slides
 :-----: | :--------:
-Julia Data Structures   | [PDF slides](./assets/slides/main_03.pdf)
+Julia Data Structures   | [PDF slides](../assets/slides/main_03.pdf)
 
 
 
