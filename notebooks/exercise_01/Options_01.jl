@@ -344,7 +344,7 @@ md"""
 
 # ╔═╡ 40b9ec30-9523-4252-9c99-ee441d71225b
 let 
-	Sₘ = 0:0.1:10          #possible outcomes, for plotting
+	Sₘ = 0:0.1:10          #possible outcomes for plotting
 
 	CallProfit = max.(0,Sₘ.-K) .- exp(m*y)*C
 	PutProfit  = max.(0,K.-Sₘ) .- exp(m*y)*P
