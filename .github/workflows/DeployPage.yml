@@ -27,7 +27,7 @@ jobs:
     - name: Install Julia
       uses: julia-actions/setup-julia@v1
       with:
-        version: 1.7
+        version: 1.6
     - name: Run Pluto notebooks
       run: julia --project=pluto-deployment-environment -e '
           import Pkg;
