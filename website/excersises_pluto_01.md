@@ -1,1 +1,1 @@
-{{ plutonotebookpage  ../notebooks/notebook_sample/SampleBasicMathematics.jl }}
+{{ plutonotebookpage  ../notebooks//exercise_01/Options_01.jl }}
