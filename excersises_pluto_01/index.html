@@ -52,7 +52,7 @@
       <a class="sidebar-nav-item " href="/FINC672-SP2022/lecture07/"><b>Lecture 07</b> - <em>TBD</em></a>
       <br>
       <small style="text-transform: uppercase; font-size: 0.75em">Exercises</small>
-      <a class="sidebar-nav-item active" href="/FINC672-SP2022/exercises/"><b>Pluto Notbooks</b></a>
+      <a class="sidebar-nav-item " href="/FINC672-SP2022/exercises/"><b>Pluto Notbooks</b></a>
     </nav>
   </div>
 </div>
@@ -61,10 +61,41 @@
 
 
 <!-- Content appended here -->
-<div class="franklin-content">
-<h1>Exercises</h1>
+<div class="franklin-content"><style>
+.content {
+    max-width: 100%;
+    margin-right: 0px;
+    padding: 0px;
+    overflow-y: hidden;
+    height: 100vh;
+}
+.franklin-content {
+    padding: 0px;
+}
+.page-foot {
+    display: none;
+}
+.plutopage {
+    height: 100vh;
+}
+.smallscreenlink {
+    display: none;
+}
+@media (max-width: 768px) {
+    .franklin-content {
+        padding: 0px;
+    }
+}
+</style>
 
-<table><tr><th align="center">Topic</th><th align="center">Pluto Notebook</th></tr><tr><td align="center">01 - Options</td><td align="center"><a href="../excersises_pluto_01">click for notebook</a></td></tr></table>
+<iframe width="100%" height="100%"
+src="../notebooks/notebook_sample/SampleBasicMathematics.html"
+class="plutopage"
+frameborder="0"
+allow="accelerometer; ambient-light-sensor; autoplay; battery; camera; display-capture; document-domain; encrypted-media; execution-while-not-rendered; execution-while-out-of-viewport; fullscreen; geolocation; gyroscope; layout-animations; legacy-image-formats; magnetometer; microphone; midi; navigation-override; oversized-images; payment; picture-in-picture; publickey-credentials-get; sync-xhr; usb; wake-lock; screen-wake-lock; vr; web-share; xr-spatial-tracking"
+allowfullscreen></iframe>
+<a class="smallscreenlink" href="../notebooks/notebook_sample/SampleBasicMathematics.html"></a>
+
 <div class="page-foot">
   <div class="copyright">
     <a href="https://github.com/fleckenstein-m/FINC672-SP2022/"><b>Edit this page on <img class="github-logo" src="https://unpkg.com/ionicons@5.1.2/dist/svg/logo-github.svg"></img></b></a></br>
