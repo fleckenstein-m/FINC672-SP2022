@@ -26,12 +26,6 @@
     <priority>0.5</priority>
 </url>
 <url>
-    <loc>hw1/index.html</loc>
-    <lastmod>2022-02-12</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
-</url>
-<url>
     <loc>lecture01/index.html</loc>
     <lastmod>2022-02-12</lastmod>
     <changefreq>monthly</changefreq>

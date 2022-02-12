@@ -1,559 +1,397 @@
 ### A Pluto.jl notebook ###
-# v0.17.0
+# v0.17.1
 
 using Markdown
 using InteractiveUtils
 
-# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
-macro bind(def, element)
-    quote
-        local el = $(esc(element))
-        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : missing
-        el
-    end
-end
-
-# ╔═╡ 47c94cc0-6706-11eb-03ed-9937e34af506
-using PlutoUI
-
-# ╔═╡ c348f288-55a9-11eb-1683-a7438f911f11
+# ╔═╡ 2a0d5b9b-8983-4c5b-b16c-1a98a695cfaa
 using Plots
 
-# ╔═╡ 42ecaf0c-5585-11eb-07bf-05f964ffc325
-md"
-
-
-# ScPo Numerical Methods Week 1
-
-Florian Oswald, 2021
-"
-
-
-# ╔═╡ 7cf6ef84-6700-11eb-3cb3-6531e82cbb52
-html"<button onclick='present()'>present</button>"
-
-# ╔═╡ 6930bc28-6700-11eb-0505-f7c546f1acea
-
-md"
-# Arrays
- 
-In this notebook we introduce some concepts important for work with arrays in julia. First though:
-
-> What is an Array?
-
-An array is a *container* for elements with **identical** data type. This is different from a spreadsheet or a `DataFrame`, which can have different data types in each column. It's also different from a `Dict`, which can have fully different datatypes (similar to a `python` dict or an `R` `list`)
-
-#
-"
-
-
-# ╔═╡ 8140a376-5587-11eb-1372-cbf4cb8db60d
-	md"""
-	!!! info
-	    The official [documentation](https://docs.julialang.org/en/v1/manual/arrays/) is **really** good. Check it out!
-	"""
-
-# ╔═╡ 2b1ab8e6-5588-11eb-03bc-0f1b03719f35
-md"
-# Creating Arrays
-"
-
-# ╔═╡ ded79d1e-5587-11eb-0e88-c56751e46abc
-a = [1.0, 2.0, 3.0]
-
-# ╔═╡ f8100ff0-5587-11eb-0731-f7b839004f3c
-b = [1, 2, 3]
-
-# ╔═╡ fdf808d2-5587-11eb-0302-1b739aaf6be5
-typeof(a)
-
-# ╔═╡ 0a8879f6-5588-11eb-023e-afe1ef6a1eb1
-typeof(b)
-
-# ╔═╡ 578ff698-5588-11eb-07fc-633d03c23062
-md"
-Notice the different types of those arrays.
-
-We can get size and dimension info about an array with `size` and `ndims`. `length` returns the total number of elements.
-"
-
-# ╔═╡ ba5dcb58-6706-11eb-3b6f-c5f94de03e0d
-md"#"
-
-# ╔═╡ 79c9e5ac-5588-11eb-0341-01ca0aa2e411
-size(a)
-
-# ╔═╡ 9e5ec180-5588-11eb-34a2-f325d272532d
-typeof(size(a))
-
-# ╔═╡ a6b4ad92-5588-11eb-233f-63c5737ad710
-md"*Tuple*! That's useful for *short* containers and is used a lot in function arguments or when we want to return multiple things from a function. [here](https://docs.julialang.org/en/v1/manual/functions/#Tuples) is the relevant documentation. Notice that you cannot *change* a tuple once it's created. it is **immutable**:
-"
-
-# ╔═╡ f6b5bbe2-5588-11eb-08e7-59236a4a35bf
-tu = (1,2,1)
-
-# ╔═╡ ff363182-5588-11eb-2f7e-3180d1537941
-tu[2] = 3  # I want to access the second element and change it to value 3!
-
-# ╔═╡ 7fa5274e-55aa-11eb-0399-17c0fbccac1b
-md"
-#
-
-
-There are also *named tuples*:
-"
-
-# ╔═╡ 8b36c8c4-55aa-11eb-357f-abc29a42300f
-(a = 1.1, b = 2.3)
-
-# ╔═╡ 1e3cf52a-5589-11eb-3d72-45b0f25f1edf
-md"
-# Array Creators
-
-Here are some functions that create arrays:
-"
-
-# ╔═╡ 30db8bc4-5589-11eb-25cb-39afacd9bada
-ones(2,3)
-
-# ╔═╡ 35694d0c-5589-11eb-01a7-1d710daa7c08
-zeros(Int,2,4)
-
-# ╔═╡ 99605a26-5589-11eb-031b-bd7709085dbf
-falses(3)
-
-# ╔═╡ 9dceb348-5589-11eb-254c-b1b8cf0781c2
-trues(1,3)
-
-# ╔═╡ b26ddb82-6700-11eb-2375-71c73ceeeea2
-md"
-#
-"
-
-# ╔═╡ a254b474-5589-11eb-101d-253f75350205
-ra = rand(3,2)
-
-# ╔═╡ aada0c02-5589-11eb-3d3f-d5d5cf9b8e0f
-rand(1:5,3,4)
-
-# ╔═╡ 39d9bfa4-5589-11eb-265b-5bedf62d6266
-fill(1.3,2,5)
-
-# ╔═╡ 4edab028-5589-11eb-1d4e-df07f93cd986
-md"
-#
-
-Here you see how to create an *empty* array with the `undef` object. notice that those numbers are garbage (they are just whatever value is currently stored in a certain location of your computer's RAM). Sometimes it's useful to *preallocate* a large array, before we do a long-running computation, say. We will see that *allocating* memory is an expensive operation in terms of computing time and we should try to minimize it.
-
-The function `similar` is a *similar* idea: you create an array of same shape and type as the input arg, but it's filled with garbage:
-"
-
-# ╔═╡ 40472640-5589-11eb-19eb-838837e9fdc0
-Array{Float64}(undef, 3,3)
-
-# ╔═╡ f5109d62-5588-11eb-0abc-2d21b95a3477
-similar(ra)
-
-# ╔═╡ fa21d678-5589-11eb-391a-633dbadf9558
-md"
-## Manually creating arrays
-
-We can create arrays manually, as above, with the `[` operator:
-"
-
-# ╔═╡ cadb8b28-55a4-11eb-1600-5739c2a95a9c
-a2 = [ 1 2 ;
-	   3 4 ]
-
-# ╔═╡ d97da51c-55a4-11eb-305c-1bb0e1634cb0
-ndims(a2)
-
-# ╔═╡ e27215b8-55a4-11eb-21c5-2738c0897729
-a2'
-
-# ╔═╡ 09e97578-55a5-11eb-1042-0d7ea64aa830
-vcat(ones(3),1.1)
-
-# ╔═╡ 516b88a0-55a5-11eb-105e-17c75539d751
-hcat(rand(2,2),falses(2,3))
-
-# ╔═╡ 2835338a-679a-11eb-1557-a75b2d2d657a
-typeof(falses(2,2))
-
-# ╔═╡ 6242d548-55a5-11eb-22e4-531a821011c9
- promote_type(Float64, Bool)
-
-# ╔═╡ c66ff85c-55a5-11eb-042a-836b641d0bc9
-hcat(rand(2,2),fill("hi",2,5))
-
-# ╔═╡ f81c4ae0-6789-11eb-2289-333a2f14725b
-md"
-
-# `push`ing onto an existing (or empty) array
-
-* Oftentimes it's useful to accumulate elements along the way, e.g. in a loop.
-* In general *preallocating* arrays is good practice, particularly if you repeatedly modify the elements of an array.
-* But sometimes we don't know the eventual size of an array (it may depend on the outcome of some other operation)."
-
-# ╔═╡ 4a16caaa-678a-11eb-1818-5f72eb0bb0bb
-z = Int[]   
-
-# ╔═╡ 592f0b86-678a-11eb-39f4-55ec3bd7989a
-typeof(z)
-
-# ╔═╡ 5d2906c8-678a-11eb-3e11-05f1efd3f778
-length(z)
-
-# ╔═╡ 60b6d98a-678a-11eb-34f0-91b61835ccc2
-push!(z, "hi")
-
-# ╔═╡ b77ae9fe-679a-11eb-19de-678b04bcc042
-pushfirst!(z, 1, 1)
-
-# ╔═╡ be5f5cf0-679a-11eb-2b4f-f7d5ab85c6a0
-z
-
-# ╔═╡ 686337f0-678a-11eb-09bd-2badaadba117
-pop!(z)
-
-# ╔═╡ 6dd1411e-678a-11eb-047a-a1bc3fdea332
-z
-
-# ╔═╡ 7c1e52b4-678a-11eb-1a97-3d56ba213b3b
-append!(z, 14)
-
-# ╔═╡ f53088a2-55a5-11eb-3b9b-8b91844c5384
-md"
-
-# Comprehensions
-
-are a very powerful way to create arrays following from an expression:
-"
-
-# ╔═╡ 17ef63ac-55a6-11eb-3713-77dfe04fa601
-comp = [ i + j for i in 1:3, j in 1:2]
-
-# ╔═╡ 2cfde6f6-55a6-11eb-0a12-6b336a02c015
-md"
-so we could have also done before:
-"
-
-# ╔═╡ 3c4111cc-55a6-11eb-198b-458475b9b85f
-hcat(rand(2,2), ["hi" for i in 1:2, j in 1:5 ])
-
-# ╔═╡ b5182a08-679c-11eb-01c4-21be55d14ac0
-md"
-$$\sum_{i=1}^3 \sum_{j=i}^{16} i^2 + y^3$$
-"
-
-# ╔═╡ 3f2fb44a-55a5-11eb-1bc6-aba9b4f794c7
-md"
-# Ranges
-
-We have `Range` objects in julia. this is similar to `linspace`.
-"
-
-# ╔═╡ 2d7852b8-55a8-11eb-07e6-e1dc3016acfd
-typeof(0:10)
-
-# ╔═╡ 36e1f93a-55a8-11eb-3c41-bf266aa44859
-collect(0:10)
-
-# ╔═╡ fdb8e9b4-6706-11eb-2016-3b0323a35d58
-myrange = 0:14
-
-# ╔═╡ 07c4a8a8-6707-11eb-1c69-892820a63270
-myrange[5]
-
-# ╔═╡ 0aad3756-6707-11eb-1980-4b52a8129d5d
-md"#"
-
-# ╔═╡ 667ca08c-55a8-11eb-1944-dbd8171bd5ad
-@bind 📍 Slider(2:10, show_value=true)
-
-# ╔═╡ 3ba19e1c-55a8-11eb-0268-d333107b4ccc
-scatter(exp.(range(log(2.0), stop = log(4.0), length = 📍)), ones(📍),ylims = (0.8,1.2))
-
-# ╔═╡ ee1f71a8-55a4-11eb-352b-396905c8b20e
-md"
-# Array Indexing - *Getting* values
-
-We can use the square bracket operator `[ix]` to get element number `ix`. There is a difference between **linear indexing**, ie. traversing the array in *storage order*, vs **Cartesian indexing**, i.e. addressing the element by its location in the cartesian grid. Julia does both.  
-"
-
-# ╔═╡ 2920a9e6-55a7-11eb-235a-d9f89dbdc86d
-x = [i + 3*(j-1) for i in 1:3, j in 1:4]
-
-# ╔═╡ b65533cc-55a7-11eb-22ce-fb51e1d6a4c2
-x[1,1]
-
-# ╔═╡ c0efcdec-55a7-11eb-15a5-e700195132aa
-x[1,3]
-
-# ╔═╡ c749dcbe-55a7-11eb-3b6e-4917aaff9e88
-x[1,:]
-
-# ╔═╡ cace8fa8-55a7-11eb-083b-d5050a6ad009
-x[:,1]
-
-# ╔═╡ d087566c-55a7-11eb-22cf-493144e9f225
-x[4]  # the 4th linear index in storage order. julia stores arrays column major
-
-# ╔═╡ dff566ca-55a7-11eb-1b8c-335c0aaf3ac4
-x[end] #reserved word `end`
-
-# ╔═╡ 1a1eb880-55b0-11eb-31af-7572840ce1a2
-md"
-#
-
-we can also use logical indexing by supplying  a boolean array saying which elements to pick:
-"
-
-# ╔═╡ 2fae8126-55b0-11eb-17ac-c54318e62c5e
-which_ones = rand([true false], 12)
-
-# ╔═╡ 430925e6-55b0-11eb-1637-6fe56713e397
-x[ which_ones ]
-
-# ╔═╡ 59708954-55b1-11eb-0e62-b72b3f3f65f0
-md"
-# Broadcasting and *setting* values
-
-* How can we modify the value of an array?
-"
-
-# ╔═╡ 7295c79e-6701-11eb-3ec4-2ba3c1f45bfe
-x[1,2] = -9
-
-# ╔═╡ 85456dc2-6701-11eb-3348-379f534568c8
-x
-
-# ╔═╡ a21d3740-6701-11eb-3009-4da56916e76c
-md"
-#
-
-Ok. But now consider this vector here and a range of indices:
-"
-
-# ╔═╡ d8a704bc-6701-11eb-2b46-090ac1815774
-v = ones(Int, 10)
-
-# ╔═╡ fe354836-6701-11eb-191c-2de25e7daacf
-v[2:3] = 2
-
-# ╔═╡ 074dccd8-6702-11eb-038c-0b8c14b62647
-md"
-## Broadcasting
-
-* This operation was not allowed.
-* Why? on the left we had an `Array` and on the right we had a scalar.
-* What we really wanted was to use the operation `=` (*assign to object*) in an **element-by-element** fashion on the array on the LHS. 
-* **element-by-element** means to *broadcast* over a colleciton in julia.
-* We use the dot `.` to mark broadcasting:
-"
-
-# ╔═╡ 58d5e0ce-6702-11eb-2130-b1e9f84e5a65
-v[2:3] .= 2
-
-# ╔═╡ 64be4458-6702-11eb-02f9-37de11e2b41f
-v
-
-# ╔═╡ 7268d01a-6702-11eb-057d-a33ff7b6dff5
-md"
-## Question
-
-* If you were followign along, what is this going to do?
-
-```julia
-v[4:7] = [0, 0, 0, 0]
-```
-
-#
-"
-
-# ╔═╡ 9aad3dec-6702-11eb-15c9-75d6b2d3713e
-v[4:7] = [0, 0, 0, 0]
-
-# ╔═╡ 9e35cf88-6702-11eb-2a92-0f9271383c8f
-v
-
-# ╔═╡ ad8175b6-6702-11eb-2edf-c9b3304a5ddd
-md"
-That worked because the right and left of `=` had the same type!
-"
-
-# ╔═╡ c8319ed4-6702-11eb-1651-5bb3675f8aa2
-md"
-## Working with Slices
-
-* Let's give a name to that slice now
-"
-
-# ╔═╡ d91a964c-6702-11eb-12ad-f7d5398c1591
-s = v[4:7]
-
-# ╔═╡ 578f31c2-6703-11eb-05a7-11f472bc9ee5
-md"
-#
-
-Well let's try of course. We are here currently:
-"
-
-# ╔═╡ 64ebb606-6703-11eb-332b-2d933e7bddec
-s
-
-# ╔═╡ 6696f222-6703-11eb-3862-8938b0a92edb
-md"Now let's set one of those values:"
-
-# ╔═╡ 6f9b3284-6703-11eb-1d85-9366ffbb66f0
-s[2] = 3333
-
-# ╔═╡ 7929685c-6703-11eb-3f14-61ebf493ecde
-s
-
-# ╔═╡ 7dc0ec32-6703-11eb-2cd7-27b1f1dcca3a
-md"So far so good. But what happend to the original array `v`?
-
-#
-
-"
-
-# ╔═╡ a37e8fd0-6703-11eb-3d69-85511daf9720
-v
-
-# ╔═╡ a6732366-6703-11eb-36da-110356d80106
-md"Nothing!
-
-Surprised? 
-
-We take note that the operator `[]` makes a *copy* of the data. Our object `s` is allocated on a *different* set of memory locations than the original array `v`, hence changing `s` does not affect `v`.
-
-Here is an alternative:
-
-# Views
-
-Sometimes we don't want to take a copy, but just operate on some subset of array. Literally *on the same memory* in RAM. a `view` creates a *window* into the original array:
-"
-
-# ╔═╡ c810b5ec-6703-11eb-293c-69fc0a8e573f
-w = view(v, 4:7)
-
-# ╔═╡ 35ae4a94-6704-11eb-3ebd-a75cbd2ca619
-typeof(w)
-
-# ╔═╡ 3d914642-6704-11eb-00a4-c1011ff61fdd
-
-md"
-#
-
-Ok let's try to modify that again:
-"
-
-# ╔═╡ 9e79d118-6704-11eb-3cff-613653dd369b
-w[3:4] .= -999
-
-# ╔═╡ a1ca494c-6704-11eb-3bfd-b520e12ac37a
-v
-
-# ╔═╡ a7e0ee82-6704-11eb-258e-e77dee71e929
-md"
-It did modify the original array! ✅
-
-# `@view` macro
-
-* There is a nicer way to write it as well
-"
-
-# ╔═╡ 729bda00-6704-11eb-126a-439d41284c1c
-w2 = @view v[3:5]
-
-# ╔═╡ 9b2565fa-6703-11eb-26d0-d5a4c520bfef
-md"
-What's this trickery? The macro @view literally takes the piece of Julia code v[3:5] and replaces it with the new piece of code view(v, 3:5)
-
-# Matrices
-
-This works in the same way on matrices or higher dimensional arrays.
-"
-
-# ╔═╡ 5b3f73ac-6705-11eb-3fc3-a7132d790ddc
-M = [10i + j for i in 0:5, j in 1:4]
-
-# ╔═╡ 5c8f0d58-6705-11eb-0415-afa1032e72b3
-M[3:5, 1:2]
-
-# ╔═╡ 63b39b30-6705-11eb-11ef-31053508273a
-md"
-# Reshaping
-
-* Reshaping a matrix or a general array is done with the `reshape` function:
-"
-
-# ╔═╡ 7e404c62-6705-11eb-2886-6b9da420f7b0
-reshape(M, 3, 8)
-
-# ╔═╡ a07a1634-6705-11eb-0342-61fd861a94a9
-md"Notice that julia is *column-major* storage: i.e. we travers first columns, then rows through memory. This is reflected in how the reshaping picks elements
-
-* Some times we also want to convert an array back to a simple vector (we strip all dimensionality info away from a vector)
-* You can again see the storage order of the data in your computer's memory
-
-"
-
-# ╔═╡ e0180ac6-6705-11eb-3fe0-1ffdb3809f11
-M[:]
-
-# ╔═╡ e4dca698-6705-11eb-2e54-e751eb17d068
-vec(M)
-
-# ╔═╡ 7fb9ae2e-6704-11eb-0db7-abc17c115185
-md"library"
-
-# ╔═╡ 1e745340-6703-11eb-0853-2d40b6d3bc46
-info(text) = Markdown.MD(Markdown.Admonition("info", "Info", [text]));
-
-# ╔═╡ e48c1410-6702-11eb-06c4-8300fc6614af
-info(md"
-What's going to happen if you modify the values in `s`?
-That's not a simple question!")
-
-# ╔═╡ 7dc2bb38-6704-11eb-2aed-8563be2b3d89
+# ╔═╡ bafa86e5-b340-4b99-b3d6-c31908824eaa
 begin
-	struct TwoColumn{L, R}
-		left::L
-		right::R
-	end
+	using LaTeXStrings, HypertextLiteral, PlutoUI,Printf
+#------------------------------------------------------------------------------
+"""
+    printmat([fh::IO],x...;colNames=[],rowNames=[],
+             width=10,prec=3,NoPrinting=false,StringFmt="",cell00="")
+Print all elements of a matrix (or several) with predefined formatting. It can also handle
+OffsetArrays. StringFmt = "csv" prints using a csv format.
+# Input
+- `fh::IO`:            (optional) file handle. If not supplied, prints to screen
+- `x::Array(s)`:       (of numbers, dates, strings, ...) to print
+- `colNames::Array`:   of strings with column headers
+- `rowNames::Array`:   of strings with row labels
+- `width::Int`:        (keyword) scalar, minimum width of printed cells
+- `prec::Int`:         (keyword) scalar, precision of printed cells
+- `NoPrinting::Bool`:  (keyword) bool, true: no printing, just return formatted string [false]
+- `StringFmt::String`: (keyword) string, "", "csv"
+- `cell00::String`:    (keyword) string, for row 0, column 0
+# Output
+- str         (if NoPrinting) string, (otherwise nothing)
+# Examples
+```
+x = [11 12;21 22]
+printmat(x)
+```
+```
+x = [1 "ab"; Date(2018,10,7) 3.14]
+printmat(x,width=20,colNames=["col 1","col 2"])
+```
+```
+printmat([11,12],[21,22])
+```
+Can also call as
+```
+opt = Dict(:rowNames=>["1";"4"],:width=>10,:prec=>3,:NoPrinting=>false,:StringFmt=>"")
+printmat(x;colNames=["a","b"],opt...)     #notice ; and ...
+```
+(not all keywords are needed)
+# Requires
+- fmtNumPs
+# Notice
+- The prefixN and suffixN could potentially be made function inputs. This would allow
+a fairly flexible way to format tables.
+Paul.Soderlind@unisg.ch
+"""
+function printmat(fh::IO,x...;colNames=[],rowNames=[],
+                  width=10,prec=3,NoPrinting=false,StringFmt="",cell00="")
 
-	function Base.show(io, mime::MIME"text/html", tc::TwoColumn)
-		write(io, """<div style="display: flex;"><div style="flex: 50%;">""")
-		show(io, mime, tc.left)
-		write(io, """</div><div style="flex: 50%;">""")
-		show(io, mime, tc.right)
-		write(io, """</div></div>""")
-	end
+  isempty(x) && return nothing                         #do nothing is isempty(x)
+
+  typeTestQ = any(!=(eltype(x[1])),[eltype(z) for z in x])  #test if eltype(x[i]) differs
+  if typeTestQ                                      #create matrix from tuple created by x...
+    x = hcat(Matrix{Any}(hcat(x[1])),x[2:end]...)   #preserving types of x[i]
+  else
+    x = hcat(x...)
+  end
+
+  (m,n) = (size(x,1),size(x,2))
+
+  (length(rowNames) == 1 < m) && (rowNames = [string(rowNames[1],i) for i = 1:m])  #"ri"
+  (length(colNames) == 1 < n) && (colNames = [string(colNames[1],i) for i = 1:n])  #"ci"
+
+  if StringFmt == "csv"
+    (prefixN,suffixN)   = (fill("",n),vcat(fill(",",n-1),""))  #prefix and suffix for column 1:n
+    (prefixC0,suffixC0) = ("",",")                             #prefix and suffix for column 0
+  else
+    (prefixN,suffixN) = (fill("",n),fill("",n))
+    (prefixC0,suffixC0) = ("","")
+  end
+
+  if length(rowNames) == 0                         #width of column 0 (cell00 and rowNames)
+    col0Width = 0
+  else
+    col0Width = maximum(length,vcat(cell00,rowNames)) + length(prefixC0) + length(suffixC0)
+  end
+
+  colWidth = [width + length(prefixN[j]) + length(suffixN[j]) for j=1:n]  #widths of column 1:n
+
+  iob = IOBuffer()
+
+  if !isempty(colNames)                                #print (cell00,colNames), if any
+    !isempty(cell00) ?  txt0 = string(prefixC0,cell00,suffixC0) : txt0 = ""
+    print(iob,rpad(txt0,col0Width))
+    for j = 1:n                                #loop over columns
+      print(iob,lpad(string(prefixN[j],colNames[j],suffixN[j]),colWidth[j]))
+    end
+    print(iob,"\n")
+  end
+                                                       #print rowNames and x
+  (i0,j0) = (1 - first(axes(x,1)),1 - first(axes(x,2)))   #i+i0,j+j0 give traditional indices
+  for i in axes(x,1)                           #loop over rows
+    !isempty(rowNames) && print(iob,rpad(string(prefixC0,rowNames[i+i0],suffixC0),col0Width))
+    for j in axes(x,2)                         #loop over columns
+      print(iob,fmtNumPs(x[i,j],width,prec,"right",prefix=prefixN[j+j0],suffix=suffixN[j+j0]))
+    end
+    print(iob,"\n")
+  end
+  str = String(take!(iob))
+
+  if NoPrinting                              #no printing, just return str
+    return str
+  else                                       #print, return nothing
+    print(fh,str,"\n")
+    return nothing
+  end
+
+end
+                        #when fh is not supplied: printing to screen
+printmat(x...;colNames=[],rowNames=[],width=10,prec=3,NoPrinting=false,StringFmt="",cell00="") =
+    printmat(stdout::IO,x...;colNames,rowNames,width,prec,NoPrinting,StringFmt,cell00)
+#------------------------------------------------------------------------------
+
+
+#------------------------------------------------------------------------------
+"""
+    printlnPs([fh::IO],z...;width=10,prec=3)
+Subsitute for println, with predefined formatting.
+# Input
+- `fh::IO`:    (optional) file handle. If not supplied, prints to screen
+- `z::String`: string, numbers and arrays to print
+Paul.Soderlind@unisg.ch
+"""
+function printlnPs(fh::IO,z...;width=10,prec=3)
+
+  for x in z                              #loop over inputs in z...
+    if isa(x,AbstractArray)
+      iob = IOBuffer()
+      for i = 1:length(x)
+        print(iob,fmtNumPs(x[i],width,prec,"right"))
+      end
+      print(fh,String(take!(iob)))
+    else
+      print(fh,fmtNumPs(x,width,prec,"right"))
+    end
+  end
+
+  print(fh,"\n")
+
+end
+                      #when fh is not supplied: printing to screen
+printlnPs(z...;width=10,prec=3) = printlnPs(stdout::IO,z...;width,prec)
+#------------------------------------------------------------------------------
+
+
+#------------------------------------------------------------------------------
+"""
+    fmtNumPs(z,width=10,prec=2,justify="right";prefix="",suffix="")
+Create a formatted string of a float (eg, "%10.4f"), nothing (""),
+while other values are passed through. Strings are right (or left) justified
+and can optionally be given prefix and suffix (eg, ",")
+# Notice
+- With prec > 0 and isa(z,Integer), then the string is padded with 1+prec spaces
+to align with the printing of floats with the same prec.
+# Requires
+- Printf (for 1.6-), fmtNumPsC (for < 1.6)
+"""
+function fmtNumPs(z,width=10,prec=2,justify="right";prefix="",suffix="")
+
+  isa(z,Bool) && (z = convert(Int,z))             #Bool -> Int
+
+  if isa(z,AbstractFloat)                         #example: 101.0234, prec=3
+    if VERSION < v"1.6-"
+      fmt    = "%$(width).$(prec)f"
+      zRound = round(z,digits=prec)
+      strLR  = fmtNumPsC(fmt,zRound)                #C fallback solution
+    else
+      fmt   = Printf.Format("%$(width).$(prec)f")
+      strLR = Printf.format(fmt,z)
+    end
+  elseif isa(z,Nothing)
+    strLR = ""
+  elseif isa(z,Integer) && prec > 0               #integer followed by (1+prec spaces)
+    strLR = string(z," "^(1+prec))
+  else                                            #Int, String, Date, Missing, etc
+    strLR = string(z)
+  end
+
+  strLR = string(prefix,strLR,suffix)
+
+  if justify == "left"                            #justification
+    strLR = rpad(strLR,width+length(prefix)+length(suffix))
+  else
+    strLR = lpad(strLR,width+length(prefix)+length(suffix))
+  end
+
+  return strLR
+
+end
+#------------------------------------------------------------------------------
+
+
+#------------------------------------------------------------------------------
+"""
+    fmtNumPsC(fmt,z)
+c fallback solution for formatting of floating point number. Used if VERSION < v"1.6-"
+"""
+function fmtNumPsC(fmt,z)                           #c fallback solution
+  if ismissing(z) || isnan(z) || isinf(z)    #asprintf does not work for these cases
+    str = string(z)
+  else
+    strp = Ref{Ptr{Cchar}}(0)
+    len = ccall(:asprintf,Cint,(Ptr{Ptr{Cchar}},Cstring,Cdouble...),strp,fmt,z)
+    str = unsafe_string(strp[],len)
+    Libc.free(strp[])
+  end
+  return str
+end
+#------------------------------------------------------------------------------
+
+
+#------------------------------------------------------------------------------
+function printblue(x...)
+  foreach(z->printstyled(z,color=:blue,bold=true),x)
+  print("\n")
+end
+function printred(x...)
+  foreach(z->printstyled(z,color=:red,bold=true),x)
+  print("\n")
+end
+function printmagenta(x...)
+  foreach(z->printstyled(z,color=:magenta,bold=true),x)
+  print("\n")
+end
+function printyellow(x...)
+  foreach(z->printstyled(z,color=:yellow,bold=true),x)
+  print("\n")
+end
+#------------------------------------------------------------------------------
+
+display("Custom Printing functions")
+end
+
+# ╔═╡ 83806080-8c00-11ec-0f46-01e9cff3af6f
+md"""
+## FINC 672: Exercise 01 - Options
+"""
+
+# ╔═╡ 3580b62d-fe8a-499c-8551-cac1a81d1b55
+md"""
+### Load Packages
+"""
+
+# ╔═╡ 35e6b686-2daa-40f6-b348-6987406ba95b
+begin
+html"""<style>
+		main {
+			max-width: 900px;
+		}
+		"""
+end
+
+# ╔═╡ d2b28c8c-f2d2-4a6d-8569-98b76f38303c
+md"""
+## Payoffs and Profits of Options
+"""
+
+# ╔═╡ b744d4a6-7aa9-43a1-b5c8-cd21f3d60106
+md"""
+Let $K$ be the strike price and  $S_m$ the price of the underlying at expiration ($m$ years ahead) of the option contract.
+
+The call and put profits (at expiration) are
+
+$\textrm{call profit} = \max(0,S_m - K) - e^{m y} C$
+$\textrm{put profit} = \max(0, K-S_m) - e^{m y} P$
+
+where $C$ and $P$ are the call and put option prices (paid today). In both cases the first term $\max()$ represents the payoff at expiration, while the second term ($e^{m y}C$ or $e^{m y}P$) subtracts the capitalised value of the option price (premium) paid at inception of the contract.
+
+The profit of a straddle is the sum of those of a call and a put.
+"""
+
+# ╔═╡ 2cbb1298-5fae-450e-aa6d-fe44ca57fb3f
+md"""
+#### Remark on the code
+"""
+
+# ╔═╡ f1594d40-4a3c-487c-bfda-1657ccfdad32
+md"""
+- `Sₘ.>K` creates a vector of false/true.
+- `= ifelse.(Sₘ.>K,"yes","no")` creates a vector of "yes" or "no" depending on whether `Sₘ.>K` or not.
+- The code block `with_terminal() do ... end` is used to display Julia console output in the notebook.
+- The function `printmat` is a custom function in this notebook which shows a matrix as a table.
+  - The first input argument is a row vector in this example and the second is a string for the corresponding column names in tha table.
+"""
+
+# ╔═╡ 0bcaf0ba-4b40-42b4-b641-9b2fc765c7ec
+#CODE
+begin
+	Sₘ = [4.5,5.5]         #possible values of underlying at expiration
+	K  = 5                 #strike price
+	C  = 0.4               #call price (just a number that I made up)
+	P  = 0.4               #put price 
+	(y,m) = (0,1)          #zero interest to keep it simple, 1 year to expiration
+	
+	CallPayoff = max.(0,Sₘ.-K)               #payoff at expiration
+	CallProfit = CallPayoff .- exp(m*y)*C    #profit at expiration
+	
+	ExerciseIt  = ifelse.(Sₘ.>K,"yes","no")  #"no"/"yes" for exercise
+	display("")
+end
+
+# ╔═╡ 39f82397-0b15-4b25-bcc3-2395ae36c9dd
+with_terminal() do
+	println("Payoff and profit of a call option with strike price $K and price (premium) of $C:\n")
+printmat([Sₘ ExerciseIt CallPayoff CallProfit],colNames=["Sₘ","Exercise","Payoff","Profit"])
+end
+
+# ╔═╡ edaa81dd-3344-4631-86ea-b7176f682231
+md"""
+## Plotting Call and Put Profit Functions
+"""
+
+# ╔═╡ aa3cc6bc-045b-436a-8f7f-e89e9ae41a87
+let
+	Sₘ = 0:0.1:10          #more possible outcomes, for plotting
+	
+	CallProfit = max.(0,Sₘ.-K) .- exp(m*y)*C
+	PutProfit  = max.(0,K.-Sₘ) .- exp(m*y)*P
+	
+	p1 = plot( Sₘ,[CallProfit PutProfit],
+	           linecolor = [:red :green],
+	           linestyle = [:dash :dot],
+	           linewidth = 2,
+	           label = ["call" "put"],
+	           ylim = (-1,5),
+	           legend = :top,
+	           title = "Profits of call and put options, strike = $K",
+	           xlabel = "Asset price at expiration" )
+end
+
+# ╔═╡ 17cfc37b-7740-4eb7-a188-c44d991d1837
+md"""
+## Plotting Profit Function of a Straddle
+"""
+
+# ╔═╡ 40b9ec30-9523-4252-9c99-ee441d71225b
+let 
+	Sₘ = 0:0.1:10          #possible outcomes, for plotting
+
+	CallProfit = max.(0,Sₘ.-K) .- exp(m*y)*C
+	PutProfit  = max.(0,K.-Sₘ) .- exp(m*y)*P
+	
+	StraddleProfit = CallProfit + PutProfit   #a straddle: 1 call and 1 put
+		
+p1 = plot( Sₘ,StraddleProfit,
+           linecolor = :blue,
+           linewidth = 2,
+           label = "call+put",
+           ylim = (-1,5),
+           legend = :top,
+           title = "Profit of a straddle, strike = $K",
+           xlabel = "Asset price at expiration" )
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
+HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
+LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [compat]
-Plots = "~1.22.6"
-PlutoUI = "~0.7.16"
+HypertextLiteral = "~0.9.3"
+LaTeXStrings = "~1.3.0"
+Plots = "~1.25.9"
+PlutoUI = "~0.7.34"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
+[[AbstractPlutoDingetjes]]
+deps = ["Pkg"]
+git-tree-sha1 = "8eaf9f1b4921132a4cff3f36a1d9ba923b14a481"
+uuid = "6e696c72-6542-2067-7265-42206c756150"
+version = "1.1.4"
+
 [[Adapt]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "84918055d15b3114ede17ac6a7182f68870c16f7"
+git-tree-sha1 = "af92965fb30777147966f58acb05da51c5616b5f"
 uuid = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
-version = "3.3.1"
+version = "3.3.3"
 
 [[ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -572,21 +410,27 @@ version = "1.0.8+0"
 
 [[Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "f2202b55d816427cd385a9a4f3ffb226bee80f99"
+git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
-version = "1.16.1+0"
+version = "1.16.1+1"
 
 [[ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "74e8234fb738c45e2af55fdbcd9bfbe00c2446fa"
+git-tree-sha1 = "f9982ef575e19b0e5c7a98c6e75ee496c0f73a93"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.8.0"
+version = "1.12.0"
+
+[[ChangesOfVariables]]
+deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
+git-tree-sha1 = "bf98fa45a0a4cee295de98d4c1462be26345b9a1"
+uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
+version = "0.1.2"
 
 [[ColorSchemes]]
 deps = ["ColorTypes", "Colors", "FixedPointNumbers", "Random"]
-git-tree-sha1 = "a851fec56cb73cfdf43762999ec72eff5b86882a"
+git-tree-sha1 = "12fc73e5e0af68ad3137b886e3f7c1eacfca2640"
 uuid = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
-version = "3.15.0"
+version = "3.17.1"
 
 [[ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
@@ -602,9 +446,9 @@ version = "0.12.8"
 
 [[Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "SHA", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
-git-tree-sha1 = "31d0151f5716b655421d9d75b7fa74cc4e744df2"
+git-tree-sha1 = "44c37b4636bc54afac5c574d2d02b625349d6582"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "3.39.0"
+version = "3.41.0"
 
 [[CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -623,9 +467,9 @@ version = "1.9.0"
 
 [[DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
-git-tree-sha1 = "7d9d316f04214f7efdbb6398d545446e246eff02"
+git-tree-sha1 = "3daef5523dd2e769dad2365274f760ff5f282c7d"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.18.10"
+version = "0.18.11"
 
 [[DataValueInterfaces]]
 git-tree-sha1 = "bfc1187b79289637fa0ef6d4436ebdfe6905cbd6"
@@ -646,9 +490,9 @@ uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[DocStringExtensions]]
 deps = ["LibGit2"]
-git-tree-sha1 = "a32185f5428d3986f47c2ab78b1f216d5e6cc96f"
+git-tree-sha1 = "b19534d1895d702889b219c382a6e18010797f0b"
 uuid = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
-version = "0.8.5"
+version = "0.8.6"
 
 [[Downloads]]
 deps = ["ArgTools", "LibCURL", "NetworkOptions"]
@@ -662,9 +506,9 @@ version = "2.2.3+0"
 
 [[Expat_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "b3bfd02e98aedfa5cf885665493c5598c350cd2f"
+git-tree-sha1 = "ae13fcbc7ab8f16b0856729b050ef0c446aa3492"
 uuid = "2e619515-83b5-522b-bb60-26c02a35a201"
-version = "2.2.10+0"
+version = "2.4.4+0"
 
 [[FFMPEG]]
 deps = ["FFMPEG_jll"]
@@ -710,21 +554,21 @@ version = "1.0.10+0"
 
 [[GLFW_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcursor_jll", "Xorg_libXi_jll", "Xorg_libXinerama_jll", "Xorg_libXrandr_jll"]
-git-tree-sha1 = "0c603255764a1fa0b61752d2bec14cfbd18f7fe8"
+git-tree-sha1 = "51d2dfe8e590fbd74e7a842cf6d13d8a2f45dc01"
 uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
-version = "3.3.5+1"
+version = "3.3.6+0"
 
 [[GR]]
-deps = ["Base64", "DelimitedFiles", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Printf", "Random", "Serialization", "Sockets", "Test", "UUIDs"]
-git-tree-sha1 = "d189c6d2004f63fd3c91748c458b09f26de0efaa"
+deps = ["Base64", "DelimitedFiles", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Printf", "Random", "RelocatableFolders", "Serialization", "Sockets", "Test", "UUIDs"]
+git-tree-sha1 = "4a740db447aae0fbeb3ee730de1afbb14ac798a1"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
-version = "0.61.0"
+version = "0.63.1"
 
 [[GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Pkg", "Qt5Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "cafe0823979a5c9bff86224b3b8de29ea5a44b2e"
+git-tree-sha1 = "aa22e1ee9e722f1da183eb33370df4c1aeb6c2cd"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.61.0+0"
+version = "0.63.1+0"
 
 [[GeometryBasics]]
 deps = ["EarCut_jll", "IterTools", "LinearAlgebra", "StaticArrays", "StructArrays", "Tables"]
@@ -740,9 +584,9 @@ version = "0.21.0+0"
 
 [[Glib_jll]]
 deps = ["Artifacts", "Gettext_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Libiconv_jll", "Libmount_jll", "PCRE_jll", "Pkg", "Zlib_jll"]
-git-tree-sha1 = "7bf67e9a481712b3dbe9cb3dac852dc4b1162e02"
+git-tree-sha1 = "a32d672ac2c967f3deb8a81d828afc739c838a06"
 uuid = "7746bdde-850d-59dc-9ae8-88ece973131d"
-version = "2.68.3+0"
+version = "2.68.3+2"
 
 [[Graphite2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -757,15 +601,15 @@ version = "1.0.2"
 
 [[HTTP]]
 deps = ["Base64", "Dates", "IniFile", "Logging", "MbedTLS", "NetworkOptions", "Sockets", "URIs"]
-git-tree-sha1 = "14eece7a3308b4d8be910e265c724a6ba51a9798"
+git-tree-sha1 = "0fa77022fe4b511826b39c894c90daf5fce3334a"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "0.9.16"
+version = "0.9.17"
 
 [[HarfBuzz_jll]]
 deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "Graphite2_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg"]
-git-tree-sha1 = "8a954fed8ac097d5be04921d595f741115c1b2ad"
+git-tree-sha1 = "129acf094d168394e80ee1dc4bc06ec835e510a3"
 uuid = "2e76f6c2-a576-52d4-95c1-20adfe4de566"
-version = "2.8.1+0"
+version = "2.8.1+1"
 
 [[Hyperscript]]
 deps = ["Test"]
@@ -774,9 +618,9 @@ uuid = "47d2ed2b-36de-50cf-bf87-49c2cf4b8b91"
 version = "0.0.4"
 
 [[HypertextLiteral]]
-git-tree-sha1 = "f6532909bf3d40b308a0f360b6a0e626c0e263a8"
+git-tree-sha1 = "2b078b5a615c6c0396c77810d92ee8c6f470d238"
 uuid = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
-version = "0.9.1"
+version = "0.9.3"
 
 [[IOCapture]]
 deps = ["Logging", "Random"]
@@ -794,15 +638,21 @@ version = "0.5.0"
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
+[[InverseFunctions]]
+deps = ["Test"]
+git-tree-sha1 = "a7254c0acd8e62f1ac75ad24d5db43f5f19f3c65"
+uuid = "3587e190-3f89-42d0-90ee-14403ec27112"
+version = "0.1.2"
+
 [[IrrationalConstants]]
 git-tree-sha1 = "7fd44fd4ff43fc60815f8e764c0f352b83c49151"
 uuid = "92d709cd-6900-40b7-9082-c6be49f344b6"
 version = "0.1.1"
 
 [[IterTools]]
-git-tree-sha1 = "05110a2ab1fc5f932622ffea2a003221f4782c18"
+git-tree-sha1 = "fa6287a4469f5e048d763df38279ee729fbd44e5"
 uuid = "c8e1da08-722c-5040-9ed9-7db0dc04731e"
-version = "1.3.0"
+version = "1.4.0"
 
 [[IteratorInterfaceExtensions]]
 git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
@@ -811,21 +661,21 @@ version = "1.0.0"
 
 [[JLLWrappers]]
 deps = ["Preferences"]
-git-tree-sha1 = "642a199af8b68253517b80bd3bfd17eb4e84df6e"
+git-tree-sha1 = "abc9885a7ca2052a736a600f7fa66209f96506e1"
 uuid = "692b3bcd-3c85-4b1f-b108-f13ce0eb3210"
-version = "1.3.0"
+version = "1.4.1"
 
 [[JSON]]
 deps = ["Dates", "Mmap", "Parsers", "Unicode"]
-git-tree-sha1 = "8076680b162ada2a031f707ac7b4953e30667a37"
+git-tree-sha1 = "3c837543ddb02250ef42f4738347454f95079d4e"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
-version = "0.21.2"
+version = "0.21.3"
 
 [[JpegTurbo_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "d735490ac75c5cb9f1b00d8b5509c11984dc6943"
+git-tree-sha1 = "b53380851c6e6664204efb2e62cd24fa5c47e4ba"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
-version = "2.1.0+0"
+version = "2.1.2+0"
 
 [[LAME_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -840,15 +690,15 @@ uuid = "dd4b983a-f0e5-5f8d-a1b7-129d4a5fb1ac"
 version = "2.10.1+0"
 
 [[LaTeXStrings]]
-git-tree-sha1 = "c7f1c695e06c01b95a67f0cd1d34994f3e7db104"
+git-tree-sha1 = "f2355693d6778a178ade15952b7ac47a4ff97996"
 uuid = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
-version = "1.2.1"
+version = "1.3.0"
 
 [[Latexify]]
 deps = ["Formatting", "InteractiveUtils", "LaTeXStrings", "MacroTools", "Markdown", "Printf", "Requires"]
-git-tree-sha1 = "a4b12a1bd2ebade87891ab7e36fdbce582301a92"
+git-tree-sha1 = "a8f4f279b6fa3c3c4f1adadd78a621b13a506bce"
 uuid = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
-version = "0.15.6"
+version = "0.15.9"
 
 [[LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -871,9 +721,9 @@ uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 
 [[Libffi_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "761a393aeccd6aa92ec3515e428c26bf99575b3b"
+git-tree-sha1 = "0b4a5d71f3e5200a7dff793393e09dfc2d874290"
 uuid = "e9f186c6-92d2-5b65-8a66-fee21dc1b490"
-version = "3.2.2+0"
+version = "3.2.2+1"
 
 [[Libgcrypt_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libgpg_error_jll", "Pkg"]
@@ -922,19 +772,19 @@ deps = ["Libdl"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[LogExpFunctions]]
-deps = ["ChainRulesCore", "DocStringExtensions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "34dc30f868e368f8a17b728a1238f3fcda43931a"
+deps = ["ChainRulesCore", "ChangesOfVariables", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
+git-tree-sha1 = "e5718a00af0ab9756305a0392832c8952c7426c1"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.3"
+version = "0.3.6"
 
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
 [[MacroTools]]
 deps = ["Markdown", "Random"]
-git-tree-sha1 = "5a5bc6bf062f0f95e62d0fe0a2d99699fed82dd9"
+git-tree-sha1 = "3d3e902b31198a27340d0bf00d6ac452866021cf"
 uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
-version = "0.5.8"
+version = "0.5.9"
 
 [[Markdown]]
 deps = ["Base64"]
@@ -968,24 +818,24 @@ uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 
 [[NaNMath]]
-git-tree-sha1 = "bfe47e760d60b82b66b61d2d44128b62e3a369fb"
+git-tree-sha1 = "b086b7ea07f8e38cf122f5016af580881ac914fe"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
-version = "0.3.5"
+version = "0.3.7"
 
 [[NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 
 [[Ogg_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "7937eda4681660b4d6aeeecc2f7e1c81c8ee4e2f"
+git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
-version = "1.3.5+0"
+version = "1.3.5+1"
 
 [[OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "15003dcb7d8db3c6c857fda14891a539a8f2705a"
+git-tree-sha1 = "648107615c15d4e09f7eca16307bc821c1f718d8"
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
-version = "1.1.10+0"
+version = "1.1.13+0"
 
 [[Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1006,9 +856,9 @@ version = "8.44.0+0"
 
 [[Parsers]]
 deps = ["Dates"]
-git-tree-sha1 = "98f59ff3639b3d9485a03a72f3ab35bab9465720"
+git-tree-sha1 = "13468f237353112a01b2d6b32f3d0f80219944aa"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "2.0.6"
+version = "2.2.2"
 
 [[Pixman_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1028,27 +878,27 @@ version = "2.0.1"
 
 [[PlotUtils]]
 deps = ["ColorSchemes", "Colors", "Dates", "Printf", "Random", "Reexport", "Statistics"]
-git-tree-sha1 = "b084324b4af5a438cd63619fd006614b3b20b87b"
+git-tree-sha1 = "6f1b25e8ea06279b5689263cc538f51331d7ca17"
 uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
-version = "1.0.15"
+version = "1.1.3"
 
 [[Plots]]
-deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "GeometryBasics", "JSON", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "PlotThemes", "PlotUtils", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs"]
-git-tree-sha1 = "ba43b248a1f04a9667ca4a9f782321d9211aa68e"
+deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "GeometryBasics", "JSON", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "PlotThemes", "PlotUtils", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
+git-tree-sha1 = "1d0a11654dbde41dc437d6733b68ce4b28fbe866"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.22.6"
+version = "1.25.9"
 
 [[PlutoUI]]
-deps = ["Base64", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
-git-tree-sha1 = "4c8a7d080daca18545c56f1cac28710c362478f3"
+deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
+git-tree-sha1 = "8979e9802b4ac3d58c503a20f2824ad67f9074dd"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.16"
+version = "0.7.34"
 
 [[Preferences]]
 deps = ["TOML"]
-git-tree-sha1 = "00cfd92944ca9c760982747e9a1d0d5d86ab1e5a"
+git-tree-sha1 = "2cf929d64681236a2e074ffafb8d568733d2e6af"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
-version = "1.2.2"
+version = "1.2.3"
 
 [[Printf]]
 deps = ["Unicode"]
@@ -1069,26 +919,32 @@ deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [[RecipesBase]]
-git-tree-sha1 = "44a75aa7a527910ee3d1751d1f0e4148698add9e"
+git-tree-sha1 = "6bf3f380ff52ce0832ddd3a2a7b9538ed1bcca7d"
 uuid = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
-version = "1.1.2"
+version = "1.2.1"
 
 [[RecipesPipeline]]
 deps = ["Dates", "NaNMath", "PlotUtils", "RecipesBase"]
-git-tree-sha1 = "7ad0dfa8d03b7bcf8c597f59f5292801730c55b8"
+git-tree-sha1 = "37c1631cb3cc36a535105e6d5557864c82cd8c2b"
 uuid = "01d81517-befc-4cb6-b9ec-a95719d0359c"
-version = "0.4.1"
+version = "0.5.0"
 
 [[Reexport]]
 git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
 uuid = "189a3867-3050-52da-a836-e630ba90ab69"
 version = "1.2.2"
 
+[[RelocatableFolders]]
+deps = ["SHA", "Scratch"]
+git-tree-sha1 = "cdbd3b1338c72ce29d9584fdbe9e9b70eeb5adca"
+uuid = "05181044-ff0b-4ac5-8273-598c1e38db00"
+version = "0.1.3"
+
 [[Requires]]
 deps = ["UUIDs"]
-git-tree-sha1 = "4036a3bd08ac7e968e27c203d45f5fff15020621"
+git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
-version = "1.1.3"
+version = "1.3.0"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -1127,30 +983,30 @@ uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "3c76dde64d03699e074ac02eb2e8ba8254d428da"
+git-tree-sha1 = "a635a9333989a094bddc9f940c04c549cd66afcf"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.2.13"
+version = "1.3.4"
 
 [[Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
 uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [[StatsAPI]]
-git-tree-sha1 = "1958272568dc176a1d881acb797beb909c785510"
+git-tree-sha1 = "d88665adc9bcf45903013af0982e2fd05ae3d0a6"
 uuid = "82ae8749-77ed-4fe6-ae5f-f523153014b0"
-version = "1.0.0"
+version = "1.2.0"
 
 [[StatsBase]]
 deps = ["DataAPI", "DataStructures", "LinearAlgebra", "LogExpFunctions", "Missings", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "StatsAPI"]
-git-tree-sha1 = "65fb73045d0e9aaa39ea9a29a5e7506d9ef6511f"
+git-tree-sha1 = "118e8411d506d583fbbcf4f3a0e3c5a9e83370b8"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-version = "0.33.11"
+version = "0.33.15"
 
 [[StructArrays]]
 deps = ["Adapt", "DataAPI", "StaticArrays", "Tables"]
-git-tree-sha1 = "2ce41e0d042c60ecd131e9fb7154a3bfadbf50d3"
+git-tree-sha1 = "d21f2c564b21a202f4677c0fba5b5ee431058544"
 uuid = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
-version = "0.6.3"
+version = "0.6.4"
 
 [[TOML]]
 deps = ["Dates"]
@@ -1164,9 +1020,9 @@ version = "1.0.1"
 
 [[Tables]]
 deps = ["DataAPI", "DataValueInterfaces", "IteratorInterfaceExtensions", "LinearAlgebra", "TableTraits", "Test"]
-git-tree-sha1 = "fed34d0e71b91734bf0a7e10eb1bb05296ddbcd0"
+git-tree-sha1 = "bb1064c9a84c52e277f1096cf41434b675cd368b"
 uuid = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
-version = "1.6.0"
+version = "1.6.1"
 
 [[Tar]]
 deps = ["ArgTools", "SHA"]
@@ -1188,6 +1044,17 @@ uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 [[Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 
+[[UnicodeFun]]
+deps = ["REPL"]
+git-tree-sha1 = "53915e50200959667e78a92a418594b428dffddf"
+uuid = "1cfade01-22cf-5700-b092-accc4b62d6e1"
+version = "0.4.1"
+
+[[Unzip]]
+git-tree-sha1 = "34db80951901073501137bdbc3d5a8e7bbd06670"
+uuid = "41fe7b60-77ed-43a1-b4f0-825fd5a5650d"
+version = "0.1.2"
+
 [[Wayland_jll]]
 deps = ["Artifacts", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
 git-tree-sha1 = "3e61f0b86f90dacb0bc0e73a0c5a83f6a8636e23"
@@ -1195,10 +1062,10 @@ uuid = "a2964d1f-97da-50d4-b82a-358c7fce9d89"
 version = "1.19.0+0"
 
 [[Wayland_protocols_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg", "Wayland_jll"]
-git-tree-sha1 = "2839f1c1296940218e35df0bbb220f2a79686670"
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "66d72dc6fcc86352f01676e8f0f698562e60510f"
 uuid = "2381bf8a-dfd0-557d-9999-79630e7b1b91"
-version = "1.18.0+4"
+version = "1.23.0+0"
 
 [[XML2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
@@ -1344,9 +1211,9 @@ uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
 
 [[Zstd_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "cc4bf3fdde8b7e3e9fa0351bdeedba1cf3b7f6e6"
+git-tree-sha1 = "e45044cd873ded54b6a5bac0eb5c971392cf1927"
 uuid = "3161d3a3-bdf6-5164-811a-617609db77b4"
-version = "1.5.0+0"
+version = "1.5.2+0"
 
 [[libass_jll]]
 deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "HarfBuzz_jll", "JLLWrappers", "Libdl", "Pkg", "Zlib_jll"]
@@ -1368,9 +1235,9 @@ version = "1.6.38+0"
 
 [[libvorbis_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Ogg_jll", "Pkg"]
-git-tree-sha1 = "c45f4e40e7aafe9d086379e5578947ec8b95a8fb"
+git-tree-sha1 = "b910cb81ef3fe6e78bf6acee440bda86fd6ae00c"
 uuid = "f27f6e37-5d2b-51aa-960f-b287f2bc3b7a"
-version = "1.3.7+0"
+version = "1.3.7+1"
 
 [[nghttp2_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -1400,122 +1267,20 @@ version = "0.9.1+5"
 """
 
 # ╔═╡ Cell order:
-# ╟─42ecaf0c-5585-11eb-07bf-05f964ffc325
-# ╟─7cf6ef84-6700-11eb-3cb3-6531e82cbb52
-# ╟─6930bc28-6700-11eb-0505-f7c546f1acea
-# ╟─8140a376-5587-11eb-1372-cbf4cb8db60d
-# ╟─2b1ab8e6-5588-11eb-03bc-0f1b03719f35
-# ╠═ded79d1e-5587-11eb-0e88-c56751e46abc
-# ╠═f8100ff0-5587-11eb-0731-f7b839004f3c
-# ╠═fdf808d2-5587-11eb-0302-1b739aaf6be5
-# ╠═0a8879f6-5588-11eb-023e-afe1ef6a1eb1
-# ╟─578ff698-5588-11eb-07fc-633d03c23062
-# ╟─ba5dcb58-6706-11eb-3b6f-c5f94de03e0d
-# ╠═79c9e5ac-5588-11eb-0341-01ca0aa2e411
-# ╠═9e5ec180-5588-11eb-34a2-f325d272532d
-# ╟─a6b4ad92-5588-11eb-233f-63c5737ad710
-# ╠═f6b5bbe2-5588-11eb-08e7-59236a4a35bf
-# ╠═ff363182-5588-11eb-2f7e-3180d1537941
-# ╟─7fa5274e-55aa-11eb-0399-17c0fbccac1b
-# ╠═8b36c8c4-55aa-11eb-357f-abc29a42300f
-# ╟─1e3cf52a-5589-11eb-3d72-45b0f25f1edf
-# ╠═30db8bc4-5589-11eb-25cb-39afacd9bada
-# ╠═35694d0c-5589-11eb-01a7-1d710daa7c08
-# ╠═99605a26-5589-11eb-031b-bd7709085dbf
-# ╠═9dceb348-5589-11eb-254c-b1b8cf0781c2
-# ╟─b26ddb82-6700-11eb-2375-71c73ceeeea2
-# ╠═a254b474-5589-11eb-101d-253f75350205
-# ╠═aada0c02-5589-11eb-3d3f-d5d5cf9b8e0f
-# ╠═39d9bfa4-5589-11eb-265b-5bedf62d6266
-# ╟─4edab028-5589-11eb-1d4e-df07f93cd986
-# ╠═40472640-5589-11eb-19eb-838837e9fdc0
-# ╠═f5109d62-5588-11eb-0abc-2d21b95a3477
-# ╟─fa21d678-5589-11eb-391a-633dbadf9558
-# ╠═cadb8b28-55a4-11eb-1600-5739c2a95a9c
-# ╠═d97da51c-55a4-11eb-305c-1bb0e1634cb0
-# ╠═e27215b8-55a4-11eb-21c5-2738c0897729
-# ╠═09e97578-55a5-11eb-1042-0d7ea64aa830
-# ╠═516b88a0-55a5-11eb-105e-17c75539d751
-# ╠═2835338a-679a-11eb-1557-a75b2d2d657a
-# ╠═6242d548-55a5-11eb-22e4-531a821011c9
-# ╠═c66ff85c-55a5-11eb-042a-836b641d0bc9
-# ╟─f81c4ae0-6789-11eb-2289-333a2f14725b
-# ╠═4a16caaa-678a-11eb-1818-5f72eb0bb0bb
-# ╠═592f0b86-678a-11eb-39f4-55ec3bd7989a
-# ╠═5d2906c8-678a-11eb-3e11-05f1efd3f778
-# ╠═60b6d98a-678a-11eb-34f0-91b61835ccc2
-# ╠═b77ae9fe-679a-11eb-19de-678b04bcc042
-# ╠═be5f5cf0-679a-11eb-2b4f-f7d5ab85c6a0
-# ╠═686337f0-678a-11eb-09bd-2badaadba117
-# ╠═6dd1411e-678a-11eb-047a-a1bc3fdea332
-# ╠═7c1e52b4-678a-11eb-1a97-3d56ba213b3b
-# ╟─f53088a2-55a5-11eb-3b9b-8b91844c5384
-# ╠═17ef63ac-55a6-11eb-3713-77dfe04fa601
-# ╟─2cfde6f6-55a6-11eb-0a12-6b336a02c015
-# ╠═3c4111cc-55a6-11eb-198b-458475b9b85f
-# ╟─b5182a08-679c-11eb-01c4-21be55d14ac0
-# ╟─3f2fb44a-55a5-11eb-1bc6-aba9b4f794c7
-# ╠═2d7852b8-55a8-11eb-07e6-e1dc3016acfd
-# ╠═36e1f93a-55a8-11eb-3c41-bf266aa44859
-# ╠═fdb8e9b4-6706-11eb-2016-3b0323a35d58
-# ╠═07c4a8a8-6707-11eb-1c69-892820a63270
-# ╟─0aad3756-6707-11eb-1980-4b52a8129d5d
-# ╠═47c94cc0-6706-11eb-03ed-9937e34af506
-# ╠═667ca08c-55a8-11eb-1944-dbd8171bd5ad
-# ╠═c348f288-55a9-11eb-1683-a7438f911f11
-# ╠═3ba19e1c-55a8-11eb-0268-d333107b4ccc
-# ╟─ee1f71a8-55a4-11eb-352b-396905c8b20e
-# ╠═2920a9e6-55a7-11eb-235a-d9f89dbdc86d
-# ╠═b65533cc-55a7-11eb-22ce-fb51e1d6a4c2
-# ╠═c0efcdec-55a7-11eb-15a5-e700195132aa
-# ╠═c749dcbe-55a7-11eb-3b6e-4917aaff9e88
-# ╠═cace8fa8-55a7-11eb-083b-d5050a6ad009
-# ╠═d087566c-55a7-11eb-22cf-493144e9f225
-# ╠═dff566ca-55a7-11eb-1b8c-335c0aaf3ac4
-# ╟─1a1eb880-55b0-11eb-31af-7572840ce1a2
-# ╠═2fae8126-55b0-11eb-17ac-c54318e62c5e
-# ╠═430925e6-55b0-11eb-1637-6fe56713e397
-# ╟─59708954-55b1-11eb-0e62-b72b3f3f65f0
-# ╠═7295c79e-6701-11eb-3ec4-2ba3c1f45bfe
-# ╠═85456dc2-6701-11eb-3348-379f534568c8
-# ╟─a21d3740-6701-11eb-3009-4da56916e76c
-# ╠═d8a704bc-6701-11eb-2b46-090ac1815774
-# ╠═fe354836-6701-11eb-191c-2de25e7daacf
-# ╟─074dccd8-6702-11eb-038c-0b8c14b62647
-# ╠═58d5e0ce-6702-11eb-2130-b1e9f84e5a65
-# ╠═64be4458-6702-11eb-02f9-37de11e2b41f
-# ╟─7268d01a-6702-11eb-057d-a33ff7b6dff5
-# ╠═9aad3dec-6702-11eb-15c9-75d6b2d3713e
-# ╠═9e35cf88-6702-11eb-2a92-0f9271383c8f
-# ╟─ad8175b6-6702-11eb-2edf-c9b3304a5ddd
-# ╟─c8319ed4-6702-11eb-1651-5bb3675f8aa2
-# ╠═d91a964c-6702-11eb-12ad-f7d5398c1591
-# ╟─e48c1410-6702-11eb-06c4-8300fc6614af
-# ╟─578f31c2-6703-11eb-05a7-11f472bc9ee5
-# ╠═64ebb606-6703-11eb-332b-2d933e7bddec
-# ╟─6696f222-6703-11eb-3862-8938b0a92edb
-# ╠═6f9b3284-6703-11eb-1d85-9366ffbb66f0
-# ╠═7929685c-6703-11eb-3f14-61ebf493ecde
-# ╟─7dc0ec32-6703-11eb-2cd7-27b1f1dcca3a
-# ╠═a37e8fd0-6703-11eb-3d69-85511daf9720
-# ╟─a6732366-6703-11eb-36da-110356d80106
-# ╠═c810b5ec-6703-11eb-293c-69fc0a8e573f
-# ╠═35ae4a94-6704-11eb-3ebd-a75cbd2ca619
-# ╟─3d914642-6704-11eb-00a4-c1011ff61fdd
-# ╠═9e79d118-6704-11eb-3cff-613653dd369b
-# ╠═a1ca494c-6704-11eb-3bfd-b520e12ac37a
-# ╟─a7e0ee82-6704-11eb-258e-e77dee71e929
-# ╠═729bda00-6704-11eb-126a-439d41284c1c
-# ╟─9b2565fa-6703-11eb-26d0-d5a4c520bfef
-# ╠═5b3f73ac-6705-11eb-3fc3-a7132d790ddc
-# ╠═5c8f0d58-6705-11eb-0415-afa1032e72b3
-# ╟─63b39b30-6705-11eb-11ef-31053508273a
-# ╠═7e404c62-6705-11eb-2886-6b9da420f7b0
-# ╟─a07a1634-6705-11eb-0342-61fd861a94a9
-# ╠═e0180ac6-6705-11eb-3fe0-1ffdb3809f11
-# ╠═e4dca698-6705-11eb-2e54-e751eb17d068
-# ╟─7fb9ae2e-6704-11eb-0db7-abc17c115185
-# ╟─1e745340-6703-11eb-0853-2d40b6d3bc46
-# ╟─7dc2bb38-6704-11eb-2aed-8563be2b3d89
+# ╟─83806080-8c00-11ec-0f46-01e9cff3af6f
+# ╟─3580b62d-fe8a-499c-8551-cac1a81d1b55
+# ╠═2a0d5b9b-8983-4c5b-b16c-1a98a695cfaa
+# ╟─35e6b686-2daa-40f6-b348-6987406ba95b
+# ╟─bafa86e5-b340-4b99-b3d6-c31908824eaa
+# ╟─d2b28c8c-f2d2-4a6d-8569-98b76f38303c
+# ╟─b744d4a6-7aa9-43a1-b5c8-cd21f3d60106
+# ╟─2cbb1298-5fae-450e-aa6d-fe44ca57fb3f
+# ╟─f1594d40-4a3c-487c-bfda-1657ccfdad32
+# ╠═0bcaf0ba-4b40-42b4-b641-9b2fc765c7ec
+# ╠═39f82397-0b15-4b25-bcc3-2395ae36c9dd
+# ╟─edaa81dd-3344-4631-86ea-b7176f682231
+# ╠═aa3cc6bc-045b-436a-8f7f-e89e9ae41a87
+# ╟─17cfc37b-7740-4eb7-a188-c44d991d1837
+# ╠═40b9ec30-9523-4252-9c99-ee441d71225b
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
