@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.2
+# v0.17.1
 
 using Markdown
 using InteractiveUtils
@@ -33,7 +33,7 @@ Given two numeric arrays or tuples `x_vals` and `y_vals` of equal length, comput
 """
 
 # ╔═╡ 06d11ea4-d85d-4533-8b61-e395eca18e6b
-begin
+let
 	x_vals = [1, 2, 3]
 	y_vals = [1, 1, 1]
 	sum(x * y for (x, y) in zip(x_vals, y_vals))
@@ -56,7 +56,7 @@ Using a comprehension, take `pairs = ((2, 5), (4, 2), (9, 8), (12, 10))` and cou
 """
 
 # ╔═╡ 96060442-de7d-48e9-87c6-a277677a3a46
-begin
+let
 	pairs = ((2, 5), (4, 2), (9, 8), (12, 10))
 	sum(xy -> all(iseven, xy), pairs)
 end
@@ -76,7 +76,7 @@ Using `enumerate()` in your loop, write a function `p` such that `p(x, coeff)` c
 """
 
 # ╔═╡ ef70661a-8a90-4473-81f4-52146b4638f5
-begin
+let
 	p(x, coeff) = sum(a * x^(i-1) for (i, a) in enumerate(coeff))
 	p(1, (2, 4))
 end
@@ -93,7 +93,7 @@ Hint: `uppercase("foo")` returns `"FOO"`.
 """
 
 # ╔═╡ 73e8bb53-04a4-4f21-aa83-9046d953a345
-begin
+let
 	function f_ex3(string)
 	    count = 0
 	    for letter in string
@@ -119,16 +119,16 @@ Write a function that takes two sequences `seq_a` and `seq_b` as arguments and r
 """
 
 # ╔═╡ 674e8754-af7f-49e9-86a7-1c13695cceb9
-begin
+let
 	function f_ex4(seq_a, seq_b)
-    is_subset = true
-    for a in seq_a
-        if a ∉ seq_b
-            is_subset = false
-        end
-    end
-    return is_subset
-end
+	    is_subset = true
+	    for a in seq_a
+	        if a ∉ seq_b
+	            is_subset = false
+	        end
+	    end
+	    return is_subset
+	end
 
 with_terminal() do # test
 	println(f_ex4([1, 2], [1, 2, 3]))

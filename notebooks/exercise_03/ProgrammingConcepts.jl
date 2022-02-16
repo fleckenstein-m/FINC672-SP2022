@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.2
+# v0.17.1
 
 using Markdown
 using InteractiveUtils
@@ -38,7 +38,7 @@ Write your solution in the field below.
 """
 
 # ╔═╡ 06d11ea4-d85d-4533-8b61-e395eca18e6b
-begin
+let
 	
 end
 
@@ -55,7 +55,7 @@ Write your solution in the field below.
 """
 
 # ╔═╡ 752bb555-ac03-4481-aa6f-4c6c996e4d3f
-begin
+let
 
 end
 
@@ -71,7 +71,7 @@ Write your solution in the field below.
 """
 
 # ╔═╡ 96060442-de7d-48e9-87c6-a277677a3a46
-begin
+let
 
 end
 
@@ -95,7 +95,7 @@ Write your solution in the field below.
 """
 
 # ╔═╡ ef70661a-8a90-4473-81f4-52146b4638f5
-begin
+let
 
 end
 
@@ -116,7 +116,7 @@ Write your solution in the field below.
 """
 
 # ╔═╡ 73e8bb53-04a4-4f21-aa83-9046d953a345
-begin
+let
 
 end
 
@@ -137,7 +137,7 @@ Write your solution in the field below.
 """
 
 # ╔═╡ 674e8754-af7f-49e9-86a7-1c13695cceb9
-begin
+let
 
 end
 
@@ -1131,7 +1131,7 @@ version = "0.9.1+5"
 # ╟─847c8ca2-ded2-48a7-86c7-9b522eaebf47
 # ╟─07d43fe7-7344-4a47-8261-512582500383
 # ╠═8742cc08-4b01-47a1-852a-136ed96e3aa2
-# ╠═72f773ae-6dfa-4fb3-b3c7-6618b00528f5
+# ╟─72f773ae-6dfa-4fb3-b3c7-6618b00528f5
 # ╠═3c911e91-34a6-4150-b356-3215321599af
 # ╟─f881b7a2-24ab-42ee-85fe-9e3913a9303b
 # ╠═05bef59a-02e5-42e2-b604-f71d5268946f
