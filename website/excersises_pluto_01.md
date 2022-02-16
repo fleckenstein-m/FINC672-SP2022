@@ -1,1 +1,1 @@
-{{ plutonotebookpage  ../notebooks//exercise_01/Options_01.jl }}
+{{ plutonotebookpage  ../notebooks/exercise_01/Options_01.jl }}
