@@ -6,6 +6,6 @@
 
 Topic | Slides
 :-----: | :--------:
-Julia Data Structures (Pairs, Dicts, Dates)   | [PDF slides](../assets/slides/main_04.pdf)
+Julia Data Structures (Dates)   | [PDF slides](../assets/slides/main_04.pdf)
 
 
