@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.2
+# v0.17.1
 
 using Markdown
 using InteractiveUtils
@@ -346,7 +346,7 @@ let
 	C_K_range = OptionBlackSPs.(S,K_range,m,y,σ)
 	
 	p1 = plot( K_range,C_K_range,
-	           linecolor = :red,
+	           linecolor = :blue,
 	           legend = false,
 	           title = "Call option price (different K)",
 	           xlabel = "strike price",
@@ -1358,8 +1358,8 @@ version = "0.9.1+5"
 # ╠═cb474bf7-7699-4ef4-8c5f-de7048b8dbf3
 # ╠═694990b6-36db-460f-bfd5-8c5db46c4eed
 # ╠═ab8af2dc-66e9-420b-9910-f96f4f029d43
-# ╠═1a37fc9e-e58c-453c-b68d-9adccbed44fe
-# ╠═0afd4964-3b48-4696-b6a2-8aef8506e3c5
+# ╟─1a37fc9e-e58c-453c-b68d-9adccbed44fe
+# ╟─0afd4964-3b48-4696-b6a2-8aef8506e3c5
 # ╠═41053b95-3f0e-48eb-a76e-eb4322b2fe57
 # ╟─548142dc-c591-40a4-a7cf-00b36ca7ac15
 # ╠═61df8eb6-da0b-42b2-89f8-9afc4641dd28
