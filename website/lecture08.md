@@ -1,11 +1,10 @@
 
 ~~~
-<h1>TBD</h1>
+<h1>DataFrames 02</h1>
 ~~~
-
 
 Topic | Slides
 :-----: | :--------:
-TBD   | [PDF slides](../assets/slides/main_00.pdf)
-
+Boston Housing Data           | [notebook](../lecture08_noSol_pluto)
+<!--  -->
 

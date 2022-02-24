@@ -1,253 +1,26 @@
 ### A Pluto.jl notebook ###
-# v0.18.0
+# v0.17.1
 
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 2a0d5b9b-8983-4c5b-b16c-1a98a695cfaa
-using Plots
-
-# ╔═╡ bafa86e5-b340-4b99-b3d6-c31908824eaa
+# ╔═╡ 289ed25b-514c-4edf-8c5e-154914805786
 begin
-	using LaTeXStrings, HypertextLiteral, PlutoUI,Printf
-#------------------------------------------------------------------------------
-"""
-    printmat([fh::IO],x...;colNames=[],rowNames=[],
-             width=10,prec=3,NoPrinting=false,StringFmt="",cell00="")
-Print all elements of a matrix (or several) with predefined formatting. It can also handle
-OffsetArrays. StringFmt = "csv" prints using a csv format.
-# Input
-- `fh::IO`:            (optional) file handle. If not supplied, prints to screen
-- `x::Array(s)`:       (of numbers, dates, strings, ...) to print
-- `colNames::Array`:   of strings with column headers
-- `rowNames::Array`:   of strings with row labels
-- `width::Int`:        (keyword) scalar, minimum width of printed cells
-- `prec::Int`:         (keyword) scalar, precision of printed cells
-- `NoPrinting::Bool`:  (keyword) bool, true: no printing, just return formatted string [false]
-- `StringFmt::String`: (keyword) string, "", "csv"
-- `cell00::String`:    (keyword) string, for row 0, column 0
-# Output
-- str         (if NoPrinting) string, (otherwise nothing)
-# Examples
-```
-x = [11 12;21 22]
-printmat(x)
-```
-```
-x = [1 "ab"; Date(2018,10,7) 3.14]
-printmat(x,width=20,colNames=["col 1","col 2"])
-```
-```
-printmat([11,12],[21,22])
-```
-Can also call as
-```
-opt = Dict(:rowNames=>["1";"4"],:width=>10,:prec=>3,:NoPrinting=>false,:StringFmt=>"")
-printmat(x;colNames=["a","b"],opt...)     #notice ; and ...
-```
-(not all keywords are needed)
-# Requires
-- fmtNumPs
-# Notice
-- The prefixN and suffixN could potentially be made function inputs. This would allow
-a fairly flexible way to format tables.
-Paul.Soderlind@unisg.ch
-"""
-function printmat(fh::IO,x...;colNames=[],rowNames=[],
-                  width=10,prec=3,NoPrinting=false,StringFmt="",cell00="")
-
-  isempty(x) && return nothing                         #do nothing is isempty(x)
-
-  typeTestQ = any(!=(eltype(x[1])),[eltype(z) for z in x])  #test if eltype(x[i]) differs
-  if typeTestQ                                      #create matrix from tuple created by x...
-    x = hcat(Matrix{Any}(hcat(x[1])),x[2:end]...)   #preserving types of x[i]
-  else
-    x = hcat(x...)
-  end
-
-  (m,n) = (size(x,1),size(x,2))
-
-  (length(rowNames) == 1 < m) && (rowNames = [string(rowNames[1],i) for i = 1:m])  #"ri"
-  (length(colNames) == 1 < n) && (colNames = [string(colNames[1],i) for i = 1:n])  #"ci"
-
-  if StringFmt == "csv"
-    (prefixN,suffixN)   = (fill("",n),vcat(fill(",",n-1),""))  #prefix and suffix for column 1:n
-    (prefixC0,suffixC0) = ("",",")                             #prefix and suffix for column 0
-  else
-    (prefixN,suffixN) = (fill("",n),fill("",n))
-    (prefixC0,suffixC0) = ("","")
-  end
-
-  if length(rowNames) == 0                         #width of column 0 (cell00 and rowNames)
-    col0Width = 0
-  else
-    col0Width = maximum(length,vcat(cell00,rowNames)) + length(prefixC0) + length(suffixC0)
-  end
-
-  colWidth = [width + length(prefixN[j]) + length(suffixN[j]) for j=1:n]  #widths of column 1:n
-
-  iob = IOBuffer()
-
-  if !isempty(colNames)                                #print (cell00,colNames), if any
-    !isempty(cell00) ?  txt0 = string(prefixC0,cell00,suffixC0) : txt0 = ""
-    print(iob,rpad(txt0,col0Width))
-    for j = 1:n                                #loop over columns
-      print(iob,lpad(string(prefixN[j],colNames[j],suffixN[j]),colWidth[j]))
-    end
-    print(iob,"\n")
-  end
-                                                       #print rowNames and x
-  (i0,j0) = (1 - first(axes(x,1)),1 - first(axes(x,2)))   #i+i0,j+j0 give traditional indices
-  for i in axes(x,1)                           #loop over rows
-    !isempty(rowNames) && print(iob,rpad(string(prefixC0,rowNames[i+i0],suffixC0),col0Width))
-    for j in axes(x,2)                         #loop over columns
-      print(iob,fmtNumPs(x[i,j],width,prec,"right",prefix=prefixN[j+j0],suffix=suffixN[j+j0]))
-    end
-    print(iob,"\n")
-  end
-  str = String(take!(iob))
-
-  if NoPrinting                              #no printing, just return str
-    return str
-  else                                       #print, return nothing
-    print(fh,str,"\n")
-    return nothing
-  end
-
-end
-                        #when fh is not supplied: printing to screen
-printmat(x...;colNames=[],rowNames=[],width=10,prec=3,NoPrinting=false,StringFmt="",cell00="") =
-    printmat(stdout::IO,x...;colNames,rowNames,width,prec,NoPrinting,StringFmt,cell00)
-#------------------------------------------------------------------------------
-
-
-#------------------------------------------------------------------------------
-"""
-    printlnPs([fh::IO],z...;width=10,prec=3)
-Subsitute for println, with predefined formatting.
-# Input
-- `fh::IO`:    (optional) file handle. If not supplied, prints to screen
-- `z::String`: string, numbers and arrays to print
-Paul.Soderlind@unisg.ch
-"""
-function printlnPs(fh::IO,z...;width=10,prec=3)
-
-  for x in z                              #loop over inputs in z...
-    if isa(x,AbstractArray)
-      iob = IOBuffer()
-      for i = 1:length(x)
-        print(iob,fmtNumPs(x[i],width,prec,"right"))
-      end
-      print(fh,String(take!(iob)))
-    else
-      print(fh,fmtNumPs(x,width,prec,"right"))
-    end
-  end
-
-  print(fh,"\n")
-
-end
-                      #when fh is not supplied: printing to screen
-printlnPs(z...;width=10,prec=3) = printlnPs(stdout::IO,z...;width,prec)
-#------------------------------------------------------------------------------
-
-
-#------------------------------------------------------------------------------
-"""
-    fmtNumPs(z,width=10,prec=2,justify="right";prefix="",suffix="")
-Create a formatted string of a float (eg, "%10.4f"), nothing (""),
-while other values are passed through. Strings are right (or left) justified
-and can optionally be given prefix and suffix (eg, ",")
-# Notice
-- With prec > 0 and isa(z,Integer), then the string is padded with 1+prec spaces
-to align with the printing of floats with the same prec.
-# Requires
-- Printf (for 1.6-), fmtNumPsC (for < 1.6)
-"""
-function fmtNumPs(z,width=10,prec=2,justify="right";prefix="",suffix="")
-
-  isa(z,Bool) && (z = convert(Int,z))             #Bool -> Int
-
-  if isa(z,AbstractFloat)                         #example: 101.0234, prec=3
-    if VERSION < v"1.6-"
-      fmt    = "%$(width).$(prec)f"
-      zRound = round(z,digits=prec)
-      strLR  = fmtNumPsC(fmt,zRound)                #C fallback solution
-    else
-      fmt   = Printf.Format("%$(width).$(prec)f")
-      strLR = Printf.format(fmt,z)
-    end
-  elseif isa(z,Nothing)
-    strLR = ""
-  elseif isa(z,Integer) && prec > 0               #integer followed by (1+prec spaces)
-    strLR = string(z," "^(1+prec))
-  else                                            #Int, String, Date, Missing, etc
-    strLR = string(z)
-  end
-
-  strLR = string(prefix,strLR,suffix)
-
-  if justify == "left"                            #justification
-    strLR = rpad(strLR,width+length(prefix)+length(suffix))
-  else
-    strLR = lpad(strLR,width+length(prefix)+length(suffix))
-  end
-
-  return strLR
-
-end
-#------------------------------------------------------------------------------
-
-
-#------------------------------------------------------------------------------
-"""
-    fmtNumPsC(fmt,z)
-c fallback solution for formatting of floating point number. Used if VERSION < v"1.6-"
-"""
-function fmtNumPsC(fmt,z)                           #c fallback solution
-  if ismissing(z) || isnan(z) || isinf(z)    #asprintf does not work for these cases
-    str = string(z)
-  else
-    strp = Ref{Ptr{Cchar}}(0)
-    len = ccall(:asprintf,Cint,(Ptr{Ptr{Cchar}},Cstring,Cdouble...),strp,fmt,z)
-    str = unsafe_string(strp[],len)
-    Libc.free(strp[])
-  end
-  return str
-end
-#------------------------------------------------------------------------------
-
-
-#------------------------------------------------------------------------------
-function printblue(x...)
-  foreach(z->printstyled(z,color=:blue,bold=true),x)
-  print("\n")
-end
-function printred(x...)
-  foreach(z->printstyled(z,color=:red,bold=true),x)
-  print("\n")
-end
-function printmagenta(x...)
-  foreach(z->printstyled(z,color=:magenta,bold=true),x)
-  print("\n")
-end
-function printyellow(x...)
-  foreach(z->printstyled(z,color=:yellow,bold=true),x)
-  print("\n")
-end
-#------------------------------------------------------------------------------
-
-display("Custom Printing functions")
+	import Downloads
+	import SHA
+	using Arrow
+	using CSV
+	using DataFrames
+	using Plots
+	using PlutoUI
+	using FreqTables
+	using Statistics
+	using StatsBase
 end
 
 # ╔═╡ 83806080-8c00-11ec-0f46-01e9cff3af6f
 md"""
-## FINC 672: Exercise 01 - Options
-"""
-
-# ╔═╡ 3580b62d-fe8a-499c-8551-cac1a81d1b55
-md"""
-### Load Packages
+## FINC 672: Tabular Data - DataFrames
 """
 
 # ╔═╡ 35e6b686-2daa-40f6-b348-6987406ba95b
@@ -259,122 +32,387 @@ html"""<style>
 		"""
 end
 
-# ╔═╡ d2b28c8c-f2d2-4a6d-8569-98b76f38303c
+# ╔═╡ a741f424-3d49-4ce0-89ab-bd2bc43adf49
 md"""
-## Payoffs and Profits of Options
+Load packages
 """
 
-# ╔═╡ b744d4a6-7aa9-43a1-b5c8-cd21f3d60106
+# ╔═╡ 61aa2ea3-46a6-4c43-8c71-7733cd4b19b4
 md"""
-Let $K$ be the strike price and  $S_m$ the price of the underlying at expiration ($m$ years ahead) of the option contract.
-
-The call and put profits (at expiration) are
-
-$\textrm{call profit} = \max(0,S_m - K) - e^{m y} C$
-$\textrm{put profit} = \max(0, K-S_m) - e^{m y} P$
-
-where $C$ and $P$ are the call and put option prices (paid today). In both cases the first term $\max()$ represents the payoff at expiration, while the second term ($e^{m y}C$ or $e^{m y}P$) subtracts the capitalised value of the option price (premium) paid at inception of the contract.
-
-The profit of a straddle is the sum of those of a call and a put.
+# Boston Housing Data
 """
 
-# ╔═╡ 2cbb1298-5fae-450e-aa6d-fe44ca57fb3f
+# ╔═╡ 38068443-2487-44dd-b4e1-b4f5bf4198e6
 md"""
-#### Remark on the code
+In this notebook, we are going to examine and preprocess a dataset on housing in the Boston area. The dataset includes sociodemographic- and environment-related features of the real estate neighborhood, such as crime rate, concentration of toxic substances, or access to education (indicated by the student/teacher ratio).
+
+_Adapted from "Hands-on Data Science with Julia" by Łukasz Kraiński and Bogumił Kamiński, available at [Link](https://www.manning.com/liveprojectseries/data-science-with-julia-ser)_
 """
 
-# ╔═╡ f1594d40-4a3c-487c-bfda-1657ccfdad32
+# ╔═╡ e9cd47bf-fab3-4b82-b6e2-7e21e242690f
 md"""
-- `Sₘ.>K` creates a vector of false/true.
-- `= ifelse.(Sₘ.>K,"yes","no")` creates a vector of "yes" or "no" depending on whether `Sₘ.>K` or not.
-- The code block `with_terminal() do ... end` is used to display Julia console output in the notebook.
-- The function `printmat` is a custom function in this notebook which shows a matrix as a table.
-  - The first input argument is a row vector in this example and the second is a string for the corresponding column names in tha table.
+Define URL to Boston Housing data and expected SHA1.
 """
 
-# ╔═╡ 0bcaf0ba-4b40-42b4-b641-9b2fc765c7ec
-#CODE
+# ╔═╡ 82637688-1185-4747-8562-58a52dd0d776
 begin
-	Sₘ = [4.5,5.5]         #possible values of underlying at expiration
-	K  = 5                 #strike price
-	C  = 0.4               #call price (just a number that I made up)
-	P  = 0.4               #put price 
-	(y,m) = (0,1)          #zero interest to keep it simple, 1 year to expiration
-	
-	CallPayoff = max.(0,Sₘ.-K)               #payoff at expiration
-	CallProfit = CallPayoff .- exp(m*y)*C    #profit at expiration
-	
-	ExerciseIt  = ifelse.(Sₘ.>K,"yes","no")  #"no"/"yes" for exercise
+const HOUSING_URL = "https://archive.ics.uci.edu/ml/" *
+                    "machine-learning-databases/housing/housing.data"
+const HOUSING_NAME = "housing.txt"
+const HOUSING_SHA1 = [0xad, 0xfa, 0x6b, 0x6d, 0xca,
+                      0x24, 0xa6, 0x3f, 0xe1, 0x66,
+                      0xa9, 0xe7, 0xfa, 0x01, 0xce,
+                      0xe4, 0x33, 0x58, 0x57, 0xd1]
+end
+
+# ╔═╡ a90c83bd-93c4-4d67-a8e1-1d18e343dd1b
+md"""
+Download Boston Housing data (check that it does not already exist).
+"""
+
+# ╔═╡ 67e6bde3-fc86-4faa-983f-aae78cf8fd85
+if isfile(HOUSING_NAME)
+    @info "$HOUSING_NAME found. Skipping download."
+else
+    @info "$HOUSING_NAME not found. Fetching from source."
+    Downloads.download(HOUSING_URL, HOUSING_NAME)
+end
+
+# ╔═╡ a38f5516-8ea9-4c0b-8ccf-bb7d42336f3f
+md"""
+Check SHA1 of Boston Housing file
+"""
+
+# ╔═╡ 7f8337cc-dd6c-4cbf-b935-b47cd5075b29
+if HOUSING_SHA1 == open(SHA.sha1, HOUSING_NAME)
+    @info "SHA1 check of $HOUSING_NAME passed."
+else
+    error("$HOUSING_NAME file has an invalid SHA1. Aborting!")
+end
+
+# ╔═╡ 02703949-e389-48f7-89e7-d22da0f3aa42
+md"""
+Read Boston Housing CSV
+"""
+
+# ╔═╡ 7ee25d9b-5881-4214-b758-6c69fde794e6
+housing_ref = CSV.read(HOUSING_NAME, DataFrame,
+                       header=[:CRIM, :ZN, :INDUS, :CHAS, :NOX, :RM, :AGE,
+                               :DIS, :RAD, :TAX, :PTRATIO, :B, :LSTAT, :MEDV],
+                       delim=' ', ignorerepeated=true, tasks=1)
+
+
+# ╔═╡ 8d280fb0-6a98-4906-a8ac-5273cd502b6c
+md"""
+Let's make a copy of the dataframe because we will work on this dataframe. 
+In doing this, we avoid having to reload the data in case of errors.
+"""
+
+# ╔═╡ ea73296e-a835-407c-be99-7caf3aafb0a9
+housing = copy(housing_ref)
+
+# ╔═╡ ba561e50-2923-44f3-8e82-be75258ba2e5
+md"""
+Check basic statistics of all columns
+"""
+
+# ╔═╡ b2a65696-7554-4d62-8956-2442345f1cb4
+describe(housing)
+
+# ╔═╡ 63552636-04c1-40be-b3fc-b07689e55d90
+md"""
+Find nominal variables (output of `describe(housing)` suggests that integer columns contain only a few values).
+"""
+
+# ╔═╡ 06a3a5e8-19e1-4d39-8e63-e6a45c2f1d7c
+nominal = names(housing, Int)
+
+# ╔═╡ 96da804b-1b29-4d92-8270-00c59a2bc348
+md"""
+Find continuous variables
+"""
+
+# ╔═╡ 9e5f9f7e-706b-42c6-a69e-67aaffd3c9e3
+continuous = names(housing, Float64)
+
+# ╔═╡ 84b7e96f-4cfe-4b2c-8e4a-f8c5e5460980
+md"""
+Inspect distribution of nominal variables
+"""
+
+# ╔═╡ 55d89585-1ec5-46af-a887-0471e7fcdda4
+with_terminal() do
+	foreach(name -> println("\n", proptable(housing, name)), nominal)
+end
+
+# ╔═╡ d0207cfd-5694-4c28-bf5d-3663d0b34d73
+md"""
+Check distributions of numeric features
+
+- First define a helper function for drawing of a single histogram
+"""
+
+# ╔═╡ 39275235-3445-4d5b-bc05-3da45868540f
+histogram_helper(column_name) =
+    histogram(housing[!, column_name], xlabel=column_name, legend=false)
+
+# ╔═╡ e009a2ae-5a86-466b-95c8-9506a5e503dd
+md"""
+Compose a grid of histograms in a single plot
+"""
+
+# ╔═╡ d54ae754-1995-424e-b198-980eb6fd4c79
+plot(map(x -> histogram_helper(x), continuous)..., layout=grid(3, 4), size=(800,500))
+
+# ╔═╡ ab278310-4624-4846-9598-09970dfd6075
+md"""
+Check the frequency table of the `MEDV` variable
+"""
+
+# ╔═╡ c87e2da4-645a-4ebe-b122-e68365ef00c1
+freqtable(housing, :MEDV)
+
+# ╔═╡ d0a78b80-9db9-4190-9980-73fcc4b74398
+md"""
+Based on the histogram plot, `MEDV` is censored or inaccurate at the upper limit: 16 observations have value equal to 50.0.
+Let's suppose we have reason to assume that these are outlier. Hence, we decide to remove these values.
+"""
+
+# ╔═╡ c94134a6-d586-453e-9898-b73a4dd6a7e7
+md"""
+Remove rows from housing in-place. Note that 16 rows were removed.
+"""
+
+# ╔═╡ 35091078-5019-4cfd-8ccf-a8274e77cb32
+housing2 = filter!(:MEDV => <(50.0), housing)
+
+# ╔═╡ 6b03bcf6-d181-4593-98d6-4ad8feb31de7
+md"""
+Get continuous variables and nominal variables from modified dataset.
+"""
+
+# ╔═╡ df76827f-f9e5-4cc0-8503-7013e62744ae
+begin
+	continuous2 = names(housing2, Float64)
+	nominal2 = names(housing2, Int)
 	display("")
 end
 
-# ╔═╡ 39f82397-0b15-4b25-bcc3-2395ae36c9dd
-with_terminal() do
-	println("Payoff and profit of a call option with strike price $K and price (premium) of $C:\n")
-printmat([Sₘ ExerciseIt CallPayoff CallProfit],colNames=["Sₘ","Exercise","Payoff","Profit"])
-end
-
-# ╔═╡ edaa81dd-3344-4631-86ea-b7176f682231
+# ╔═╡ 978412e1-0c2a-4168-b420-80c853b15783
 md"""
-## Plotting Call and Put Profit Functions
+Check variables distributions after filtering the observations
 """
 
-# ╔═╡ aa3cc6bc-045b-436a-8f7f-e89e9ae41a87
-let
-	Sₘ = 0:0.1:10          #more possible outcomes, for plotting
-	
-	CallProfit = max.(0,Sₘ.-K) .- exp(m*y)*C
-	PutProfit  = max.(0,K.-Sₘ) .- exp(m*y)*P
-	
-	p1 = plot( Sₘ,[CallProfit PutProfit],
-	           linecolor = [:red :green],
-	           linestyle = [:dash :dot],
-	           linewidth = 2,
-	           label = ["call" "put"],
-	           ylim = (-1,5),
-	           legend = :top,
-	           title = "Profits of call and put options, strike = $K",
-	           xlabel = "Asset price at expiration" )
+# ╔═╡ 1acdabd5-6651-428c-80a1-f04e06c125a4
+histogram_helper2(column_name) =
+    histogram(housing2[!, column_name], xlabel=column_name, legend=false)
+
+# ╔═╡ d5537030-1f2d-4f02-b3bb-4ac99189018b
+begin
+	p2 = plot(map(x -> histogram_helper2(x), continuous2)..., layout=grid(3, 4), size=(800,500))
 end
 
-# ╔═╡ 17cfc37b-7740-4eb7-a188-c44d991d1837
+# ╔═╡ a81de469-1336-4275-a840-5a83d324e86c
 md"""
-## Plotting Profit Function of a Straddle
+Calculate Kendall's correlation
 """
 
-# ╔═╡ 40b9ec30-9523-4252-9c99-ee441d71225b
-let 
-	Sₘ = 0:0.1:10          #possible outcomes, for plotting
+# ╔═╡ 5973fae0-46b6-49bf-b8f7-c10102eb3796
+housing_cor2 = corkendall(Matrix(housing2))
 
-	CallProfit = max.(0,Sₘ.-K) .- exp(m*y)*C
-	PutProfit  = max.(0,K.-Sₘ) .- exp(m*y)*P
-	
-	StraddleProfit = CallProfit + PutProfit   #a straddle: 1 call and 1 put
-		
-p1 = plot( Sₘ,StraddleProfit,
-           linecolor = :blue,
-           linewidth = 2,
-           label = "call+put",
-           ylim = (-1,5),
-           legend = :top,
-           title = "Profit of a straddle, strike = $K",
-           xlabel = "Asset price at expiration" )
+# ╔═╡ 9e089818-71bd-42f7-994d-607b0f959e6d
+md"""
+Get information for how we should reorder rows of `housing_cor`.
+Recall that `MEDV` is the last variable in our data set
+"""
+
+# ╔═╡ dc0fb197-61cb-4489-afff-b6f0cbf0571b
+ord = sortperm(housing_cor2[:, end])
+
+# ╔═╡ fb75aa10-0b69-4bcf-a6c5-061724248650
+md"""
+Plot a heatmap, where both axis labels and correlation matrix are reordered by correlation with MEDV
+"""
+
+# ╔═╡ d2f6f37b-47d3-4f8b-b860-f92f63ba91ec
+heatmap(names(housing2)[ord],
+        names(housing2)[ord],
+        housing_cor2[ord, ord],
+        c=:balance,
+        size=(800,500))
+
+# ╔═╡ e73cab91-af57-4ade-94a1-1e0e06885544
+md"""
+Get information on absolute value of correlation
+"""
+
+# ╔═╡ f78099b1-f047-4cb3-9acc-8959e0697e14
+sort(DataFrame(variable = names(housing2), cor=housing_cor2[:, end]),
+     :cor, by=abs)
+
+# ╔═╡ 78b2b5d5-39b3-45ec-81b3-291946a4ccc8
+md"""
+Also check the relation of continuous variables visually on scatterplots
+"""
+
+# ╔═╡ 59055848-6d15-419f-a68c-a1b2e6408a47
+begin
+	scatter_helper(column_name) =
+	    scatter(housing2[!, column_name], housing2.MEDV, xlabel=column_name,
+	            legend=false, smooth=true, ms=1)
 end
+
+# ╔═╡ ac83bda0-36d6-48ae-8b9d-044d52e8693e
+plot(map(x -> scatter_helper(x), continuous2)..., layout=grid(3, 4), size=(800,500))
+
+# ╔═╡ 62c1cdbd-441f-41bb-b2ac-e1d5787b210e
+md"""
+Remove least correlated feature - B
+Again, we do an in-place operation
+"""
+
+# ╔═╡ b16d66a9-8790-43d1-90cb-f813cf89975b
+housing3 = select(housing2, Not(:B))
+
+# ╔═╡ e8d26efa-4b45-4de0-8253-bd0ef9b03bba
+md"""
+Transform CRIM and DIS - logarithmic transformation
+Also bin ZN variable
+"""
+
+# ╔═╡ e0cd567e-cae3-4d20-8c3c-62cc6ae6c9d0
+housing4 = transform(housing3,
+           :CRIM => ByRow(log), :DIS => ByRow(log), :ZN => ByRow(>(0)),
+           renamecols=false)
+
+# ╔═╡ 479a1152-53ba-4f96-8889-71b56585cd02
+md"""
+Recalculate the list of continuous variables
+"""
+
+# ╔═╡ 1c04e8ba-db6e-40d0-a58d-86854e4c0988
+continuous4 = names(housing4, Float64)
+
+# ╔═╡ 9753a6ce-8e98-4a62-951f-8f79b2106940
+md"""
+Plot histogram again
+We see that now distributions of variables look better
+"""
+
+# ╔═╡ f8720df3-15a5-41ea-b13c-60ae6916f234
+histogram_helper4(column_name) =
+    histogram(housing4[!, column_name], xlabel=column_name, legend=false)
+
+# ╔═╡ 2aafd10a-8fd1-410a-a257-8e6a38e2bc00
+plot(map(x -> histogram_helper4(x), continuous4)..., layout=grid(2, 5), size=(800,500))
+
+# ╔═╡ bb991cc4-c6e4-4f74-bfbc-74143b6ef883
+md"""
+Plot scatterplot again
+"""
+
+# ╔═╡ c2252fb0-559c-4e38-952e-411ce5cd773a
+plot(map(x -> scatter_helper(x), continuous4)..., layout=grid(2, 5), size=(900,500))
+
+# ╔═╡ 7e098dc0-2955-4227-8d18-e9da37ffbbd2
+md"""
+Declare auxilary function for calculating bootstrap 90% confidence interval
+"""
+
+# ╔═╡ 229b8d54-1815-427a-8aa9-bc4fc82de47a
+function gen_meanCI(x)
+    boot = [mean(rand(x, length(x))) for _ in 1:10_000]
+    return (mean=mean(x), q5=quantile(boot, 0.05), q95=quantile(boot, 0.95))
+end
+
+# ╔═╡ 5fd20ea1-ec4b-4f9d-9804-e554131f4a5f
+md"""
+Mean and 90% CI ends per group for `CHAS` variable
+"""
+
+# ╔═╡ 5148e04c-d058-4a25-934b-9cce3d56a764
+mean_chas = combine(groupby(housing4, :CHAS, sort=true), :MEDV => gen_meanCI => AsTable)
+
+# ╔═╡ 7afe811e-e825-422d-8aab-e1482bec8447
+md"""
+Mean and 90% CI ends per group for :RAD variable
+"""
+
+# ╔═╡ 75523a6b-4af0-4791-9152-384975406f70
+mean_rad = combine(groupby(housing4, :RAD, sort=true), :MEDV => gen_meanCI => AsTable)
+
+# ╔═╡ 8ec53756-3876-44d4-8c39-50a6689368ed
+md"""
+Mean and 90% CI ends per group for :ZN variable
+"""
+
+# ╔═╡ 84508cb9-ec96-4eb7-abc8-8ec8a85e9a14
+mean_zn = combine(groupby(housing4, :ZN, sort=true), :MEDV => gen_meanCI => AsTable)
+
+# ╔═╡ f19d5a95-27d1-4b9e-9f72-42b96fa02177
+md"""
+Plot the data frames in a single plot
+You could use @df macro from StatsPlots.jl package to save you some typing here
+"""
+
+# ╔═╡ 8baadd0a-68cc-4b5c-9474-000f5fd14ca7
+plot(plot(mean_chas.CHAS, mean_chas.mean,
+          yerror=(mean_chas.mean - mean_chas.q5, mean_chas.q95 - mean_chas.mean),
+          label=nothing, title="CHAS", seriestype=:scatter),
+     plot(mean_rad.RAD, mean_rad.mean,
+          yerror=(mean_rad.mean - mean_rad.q5, mean_rad.q95 - mean_rad.mean),
+          label=nothing, title="RAD", seriestype=:scatter),
+     plot(mean_zn.ZN, mean_zn.mean,
+          yerror=(mean_zn.mean - mean_zn.q5, mean_zn.q95 - mean_zn.mean),
+          label=nothing, title="ZN", seriestype=:scatter),
+    layout=grid(1, 3), size = (800,400))
+
+# ╔═╡ 3d0f2ff8-c5b9-43bd-b5e8-e41bbecfba5a
+md"""
+Remove variable RAD as we do not see its interpretable relationship with :MEDV target variable
+"""
+
+# ╔═╡ f5b1c45e-c214-4773-be6c-d3cabf02fa41
+housing5 = select(housing4, Not(:RAD))
+
+# ╔═╡ 5217674a-4441-4516-949c-ac0be38b58cf
+md"""
+Have a look at the data after cleaning
+"""
+
+# ╔═╡ f7b90c38-899d-4ae9-808c-e5c05ef38109
+describe(housing5)
+
+# ╔═╡ e9e0d00c-cad9-4208-8c8d-3d25c3f13a59
+md"""
+Save clean dataset as Arrow file
+"""
+
+# ╔═╡ 1a2a3975-260b-49dc-9c97-6d1d42926278
+Arrow.write("housing.arrow", housing5)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
-HypertextLiteral = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
-LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
+Arrow = "69666777-d1a9-59fb-9406-91d4454c9d45"
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+FreqTables = "da1fdf0e-e0ff-5433-a45f-9bb5ff651cb1"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
-HypertextLiteral = "~0.9.3"
-LaTeXStrings = "~1.3.0"
-Plots = "~1.25.9"
-PlutoUI = "~0.7.34"
+Arrow = "~2.2.0"
+CSV = "~0.10.2"
+DataFrames = "~1.3.2"
+FreqTables = "~0.4.5"
+Plots = "~1.25.11"
+PlutoUI = "~0.7.35"
+StatsBase = "~0.33.16"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -396,11 +434,29 @@ version = "3.3.3"
 [[ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
 
+[[Arrow]]
+deps = ["ArrowTypes", "BitIntegers", "CodecLz4", "CodecZstd", "DataAPI", "Dates", "Mmap", "PooledArrays", "SentinelArrays", "Tables", "TimeZones", "UUIDs"]
+git-tree-sha1 = "d4a35c773dd7b07ddeeba36f3520aefe517a70f2"
+uuid = "69666777-d1a9-59fb-9406-91d4454c9d45"
+version = "2.2.0"
+
+[[ArrowTypes]]
+deps = ["UUIDs"]
+git-tree-sha1 = "a0633b6d6efabf3f76dacd6eb1b3ec6c42ab0552"
+uuid = "31f734f8-188a-4ce0-8406-c8a06bd891cd"
+version = "1.2.1"
+
 [[Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+
+[[BitIntegers]]
+deps = ["Random"]
+git-tree-sha1 = "5a814467bda636f3dde5c4ef83c30dd0a19928e0"
+uuid = "c3b6d118-76ef-56ca-8cc7-ebb389d030a1"
+version = "0.2.6"
 
 [[Bzip2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -408,23 +464,58 @@ git-tree-sha1 = "19a35467a82e236ff51bc17a3a44b69ef35185a2"
 uuid = "6e34b625-4abd-537c-b88f-471c36dfa7a0"
 version = "1.0.8+0"
 
+[[CEnum]]
+git-tree-sha1 = "215a9aa4a1f23fbd05b92769fdd62559488d70e9"
+uuid = "fa961155-64e5-5f13-b03f-caf6b980ea82"
+version = "0.4.1"
+
+[[CSV]]
+deps = ["CodecZlib", "Dates", "FilePathsBase", "InlineStrings", "Mmap", "Parsers", "PooledArrays", "SentinelArrays", "Tables", "Unicode", "WeakRefStrings"]
+git-tree-sha1 = "9519274b50500b8029973d241d32cfbf0b127d97"
+uuid = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+version = "0.10.2"
+
 [[Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
 git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
 
+[[CategoricalArrays]]
+deps = ["DataAPI", "Future", "Missings", "Printf", "Requires", "Statistics", "Unicode"]
+git-tree-sha1 = "c308f209870fdbd84cb20332b6dfaf14bf3387f8"
+uuid = "324d7699-5711-5eae-9e2f-1d82baa6b597"
+version = "0.10.2"
+
 [[ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "f9982ef575e19b0e5c7a98c6e75ee496c0f73a93"
+git-tree-sha1 = "32ad4ece064a61855a35bdc34e3da0b495e01169"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.12.0"
+version = "1.12.2"
 
 [[ChangesOfVariables]]
 deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
 git-tree-sha1 = "bf98fa45a0a4cee295de98d4c1462be26345b9a1"
 uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
 version = "0.1.2"
+
+[[CodecLz4]]
+deps = ["Lz4_jll", "TranscodingStreams"]
+git-tree-sha1 = "59fe0cb37784288d6b9f1baebddbf75457395d40"
+uuid = "5ba52731-8f18-5e0d-9241-30f10d1ec561"
+version = "0.4.0"
+
+[[CodecZlib]]
+deps = ["TranscodingStreams", "Zlib_jll"]
+git-tree-sha1 = "ded953804d019afa9a3f98981d99b33e3db7b6da"
+uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
+version = "0.7.0"
+
+[[CodecZstd]]
+deps = ["CEnum", "TranscodingStreams", "Zstd_jll"]
+git-tree-sha1 = "849470b337d0fa8449c21061de922386f32949d9"
+uuid = "6b39b394-51ab-5f42-8807-6242bab2b4c2"
+version = "0.7.2"
 
 [[ColorSchemes]]
 deps = ["ColorTypes", "Colors", "FixedPointNumbers", "Random"]
@@ -444,6 +535,11 @@ git-tree-sha1 = "417b0ed7b8b838aa6ca0a87aadf1bb9eb111ce40"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
 version = "0.12.8"
 
+[[Combinatorics]]
+git-tree-sha1 = "08c8b6831dc00bfea825826be0bc8336fc369860"
+uuid = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
+version = "1.0.2"
+
 [[Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "SHA", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
 git-tree-sha1 = "44c37b4636bc54afac5c574d2d02b625349d6582"
@@ -460,10 +556,21 @@ git-tree-sha1 = "9f02045d934dc030edad45944ea80dbd1f0ebea7"
 uuid = "d38c429a-6771-53c6-b99e-75d170b6e991"
 version = "0.5.7"
 
+[[Crayons]]
+git-tree-sha1 = "249fe38abf76d48563e2f4556bebd215aa317e15"
+uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
+version = "4.1.1"
+
 [[DataAPI]]
 git-tree-sha1 = "cc70b17275652eb47bc9e5f81635981f13cea5c8"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
 version = "1.9.0"
+
+[[DataFrames]]
+deps = ["Compat", "DataAPI", "Future", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "Markdown", "Missings", "PooledArrays", "PrettyTables", "Printf", "REPL", "Reexport", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
+git-tree-sha1 = "ae02104e835f219b8930c7664b8012c93475c340"
+uuid = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+version = "1.3.2"
 
 [[DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
@@ -510,6 +617,11 @@ git-tree-sha1 = "ae13fcbc7ab8f16b0856729b050ef0c446aa3492"
 uuid = "2e619515-83b5-522b-bb60-26c02a35a201"
 version = "2.4.4+0"
 
+[[ExprTools]]
+git-tree-sha1 = "56559bbef6ca5ea0c0818fa5c90320398a6fbf8d"
+uuid = "e2ba6199-217a-4e67-a87a-7c52f15ade04"
+version = "0.1.8"
+
 [[FFMPEG]]
 deps = ["FFMPEG_jll"]
 git-tree-sha1 = "b57e3acbe22f8484b4b5ff66a7499717fe1a9cc8"
@@ -521,6 +633,12 @@ deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers",
 git-tree-sha1 = "d8a578692e3077ac998b50c0217dfd67f21d1e5f"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
 version = "4.4.0+0"
+
+[[FilePathsBase]]
+deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
+git-tree-sha1 = "04d13bfa8ef11720c24e4d840c0033d145537df7"
+uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
+version = "0.9.17"
 
 [[FixedPointNumbers]]
 deps = ["Statistics"]
@@ -546,11 +664,21 @@ git-tree-sha1 = "87eb71354d8ec1a96d4a7636bd57a7347dde3ef9"
 uuid = "d7e528f0-a631-5988-bf34-fe36492bcfd7"
 version = "2.10.4+0"
 
+[[FreqTables]]
+deps = ["CategoricalArrays", "Missings", "NamedArrays", "Tables"]
+git-tree-sha1 = "488ad2dab30fd2727ee65451f790c81ed454666d"
+uuid = "da1fdf0e-e0ff-5433-a45f-9bb5ff651cb1"
+version = "0.4.5"
+
 [[FriBidi_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "aa31987c2ba8704e23c6c8ba8a4f769d5d7e4f91"
 uuid = "559328eb-81f9-559d-9380-de523a88c83c"
 version = "1.0.10+0"
+
+[[Future]]
+deps = ["Random"]
+uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 
 [[GLFW_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcursor_jll", "Xorg_libXi_jll", "Xorg_libXinerama_jll", "Xorg_libXrandr_jll"]
@@ -560,15 +688,15 @@ version = "3.3.6+0"
 
 [[GR]]
 deps = ["Base64", "DelimitedFiles", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Printf", "Random", "RelocatableFolders", "Serialization", "Sockets", "Test", "UUIDs"]
-git-tree-sha1 = "4a740db447aae0fbeb3ee730de1afbb14ac798a1"
+git-tree-sha1 = "9f836fb62492f4b0f0d3b06f55983f2704ed0883"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
-version = "0.63.1"
+version = "0.64.0"
 
 [[GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Pkg", "Qt5Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "aa22e1ee9e722f1da183eb33370df4c1aeb6c2cd"
+git-tree-sha1 = "a6c850d77ad5118ad3be4bd188919ce97fffac47"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.63.1+0"
+version = "0.64.0+0"
 
 [[GeometryBasics]]
 deps = ["EarCut_jll", "IterTools", "LinearAlgebra", "StaticArrays", "StructArrays", "Tables"]
@@ -634,6 +762,12 @@ git-tree-sha1 = "098e4d2c533924c921f9f9847274f2ad89e018b8"
 uuid = "83e8ac13-25f8-5344-8a64-a9f2b223428f"
 version = "0.5.0"
 
+[[InlineStrings]]
+deps = ["Parsers"]
+git-tree-sha1 = "61feba885fac3a407465726d0c330b3055df897f"
+uuid = "842dd82b-1e85-43dc-bf29-5d0ee9dffc48"
+version = "1.1.2"
+
 [[InteractiveUtils]]
 deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
@@ -643,6 +777,11 @@ deps = ["Test"]
 git-tree-sha1 = "a7254c0acd8e62f1ac75ad24d5db43f5f19f3c65"
 uuid = "3587e190-3f89-42d0-90ee-14403ec27112"
 version = "0.1.2"
+
+[[InvertedIndices]]
+git-tree-sha1 = "bee5f1ef5bf65df56bdd2e40447590b272a5471f"
+uuid = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
+version = "1.1.0"
 
 [[IrrationalConstants]]
 git-tree-sha1 = "7fd44fd4ff43fc60815f8e764c0f352b83c49151"
@@ -696,9 +835,13 @@ version = "1.3.0"
 
 [[Latexify]]
 deps = ["Formatting", "InteractiveUtils", "LaTeXStrings", "MacroTools", "Markdown", "Printf", "Requires"]
-git-tree-sha1 = "a8f4f279b6fa3c3c4f1adadd78a621b13a506bce"
+git-tree-sha1 = "a6552bfeab40de157a297d84e03ade4b8177677f"
 uuid = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
-version = "0.15.9"
+version = "0.15.12"
+
+[[LazyArtifacts]]
+deps = ["Artifacts", "Pkg"]
+uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 
 [[LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -768,7 +911,7 @@ uuid = "38a345b3-de98-5d2b-a5d3-14cd9215e700"
 version = "2.36.0+0"
 
 [[LinearAlgebra]]
-deps = ["Libdl", "libblastrampoline_jll"]
+deps = ["Libdl"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[LogExpFunctions]]
@@ -779,6 +922,12 @@ version = "0.3.6"
 
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
+
+[[Lz4_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "5d494bc6e85c4c9b626ee0cab05daa4085486ab1"
+uuid = "5ced341a-0733-55b8-9ab6-a4889d929147"
+version = "1.9.3+0"
 
 [[MacroTools]]
 deps = ["Markdown", "Random"]
@@ -814,13 +963,25 @@ version = "1.0.2"
 [[Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
+[[Mocking]]
+deps = ["Compat", "ExprTools"]
+git-tree-sha1 = "29714d0a7a8083bba8427a4fbfb00a540c681ce7"
+uuid = "78c3b35d-d492-501b-9361-3d52fe80e533"
+version = "0.7.3"
+
 [[MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 
 [[NaNMath]]
-git-tree-sha1 = "b086b7ea07f8e38cf122f5016af580881ac914fe"
+git-tree-sha1 = "737a5957f387b17e74d4ad2f440eb330b39a62c5"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
-version = "0.3.7"
+version = "1.0.0"
+
+[[NamedArrays]]
+deps = ["Combinatorics", "DataStructures", "DelimitedFiles", "InvertedIndices", "LinearAlgebra", "Random", "Requires", "SparseArrays", "Statistics"]
+git-tree-sha1 = "2fd5787125d1a93fbe30961bd841707b8a80d75b"
+uuid = "86f7a689-2022-50b4-a561-43c23ac3c673"
+version = "0.9.6"
 
 [[NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
@@ -830,10 +991,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
 version = "1.3.5+1"
-
-[[OpenBLAS_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
-uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
 
 [[OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -888,21 +1045,33 @@ version = "1.1.3"
 
 [[Plots]]
 deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "GeometryBasics", "JSON", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "PlotThemes", "PlotUtils", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
-git-tree-sha1 = "1d0a11654dbde41dc437d6733b68ce4b28fbe866"
+git-tree-sha1 = "5c907bdee5966a9adb8a106807b7c387e51e4d6c"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.25.9"
+version = "1.25.11"
 
 [[PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
-git-tree-sha1 = "8979e9802b4ac3d58c503a20f2824ad67f9074dd"
+git-tree-sha1 = "85bf3e4bd279e405f91489ce518dedb1e32119cb"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.34"
+version = "0.7.35"
+
+[[PooledArrays]]
+deps = ["DataAPI", "Future"]
+git-tree-sha1 = "db3a23166af8aebf4db5ef87ac5b00d36eb771e2"
+uuid = "2dfb63ee-cc39-5dd5-95bd-886bf059d720"
+version = "1.4.0"
 
 [[Preferences]]
 deps = ["TOML"]
 git-tree-sha1 = "2cf929d64681236a2e074ffafb8d568733d2e6af"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
 version = "1.2.3"
+
+[[PrettyTables]]
+deps = ["Crayons", "Formatting", "Markdown", "Reexport", "Tables"]
+git-tree-sha1 = "dfb54c4e414caa595a1f2ed759b160f5a3ddcba5"
+uuid = "08abe8d2-0d0c-5749-adfa-8a2ac140af0d"
+version = "1.3.1"
 
 [[Printf]]
 deps = ["Unicode"]
@@ -919,7 +1088,7 @@ deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 
 [[Random]]
-deps = ["SHA", "Serialization"]
+deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [[RecipesBase]]
@@ -929,9 +1098,9 @@ version = "1.2.1"
 
 [[RecipesPipeline]]
 deps = ["Dates", "NaNMath", "PlotUtils", "RecipesBase"]
-git-tree-sha1 = "37c1631cb3cc36a535105e6d5557864c82cd8c2b"
+git-tree-sha1 = "995a812c6f7edea7527bb570f0ac39d0fb15663c"
 uuid = "01d81517-befc-4cb6-b9ec-a95719d0359c"
-version = "0.5.0"
+version = "0.5.1"
 
 [[Reexport]]
 git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
@@ -958,6 +1127,12 @@ deps = ["Dates"]
 git-tree-sha1 = "0b4b7f1393cff97c33891da2a0bf69c6ed241fda"
 uuid = "6c6a2e73-6563-6170-7368-637461726353"
 version = "1.1.0"
+
+[[SentinelArrays]]
+deps = ["Dates", "Random"]
+git-tree-sha1 = "6a2f7d70512d205ca8c7ee31bfa9f142fe74310c"
+uuid = "91c51154-3ec4-41a3-a24f-3f23e20d615c"
+version = "1.3.12"
 
 [[Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
@@ -987,30 +1162,31 @@ uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "a635a9333989a094bddc9f940c04c549cd66afcf"
+git-tree-sha1 = "6354dfaf95d398a1a70e0b28238321d5d17b2530"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.3.4"
+version = "1.4.0"
 
 [[Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
 uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [[StatsAPI]]
-git-tree-sha1 = "d88665adc9bcf45903013af0982e2fd05ae3d0a6"
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "c3d8ba7f3fa0625b062b82853a7d5229cb728b6b"
 uuid = "82ae8749-77ed-4fe6-ae5f-f523153014b0"
-version = "1.2.0"
+version = "1.2.1"
 
 [[StatsBase]]
 deps = ["DataAPI", "DataStructures", "LinearAlgebra", "LogExpFunctions", "Missings", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "StatsAPI"]
-git-tree-sha1 = "118e8411d506d583fbbcf4f3a0e3c5a9e83370b8"
+git-tree-sha1 = "8977b17906b0a1cc74ab2e3a05faa16cf08a8291"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-version = "0.33.15"
+version = "0.33.16"
 
 [[StructArrays]]
 deps = ["Adapt", "DataAPI", "StaticArrays", "Tables"]
-git-tree-sha1 = "d21f2c564b21a202f4677c0fba5b5ee431058544"
+git-tree-sha1 = "57617b34fa34f91d536eb265df67c2d4519b8b98"
 uuid = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
-version = "0.6.4"
+version = "0.6.5"
 
 [[TOML]]
 deps = ["Dates"]
@@ -1035,6 +1211,18 @@ uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
 [[Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[[TimeZones]]
+deps = ["Dates", "Downloads", "InlineStrings", "LazyArtifacts", "Mocking", "Printf", "RecipesBase", "Serialization", "Unicode"]
+git-tree-sha1 = "0f1017f68dc25f1a0cb99f4988f78fe4f2e7955f"
+uuid = "f269a46b-ccf7-5d73-abea-4c690281aa53"
+version = "1.7.1"
+
+[[TranscodingStreams]]
+deps = ["Random", "Test"]
+git-tree-sha1 = "216b95ea110b5972db65aa90f88d8d89dcb8851c"
+uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
+version = "0.9.6"
 
 [[URIs]]
 git-tree-sha1 = "97bbe755a53fe859669cd907f2d96aee8d2c1355"
@@ -1067,9 +1255,15 @@ version = "1.19.0+0"
 
 [[Wayland_protocols_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "66d72dc6fcc86352f01676e8f0f698562e60510f"
+git-tree-sha1 = "4528479aa01ee1b3b4cd0e6faef0e04cf16466da"
 uuid = "2381bf8a-dfd0-557d-9999-79630e7b1b91"
-version = "1.23.0+0"
+version = "1.25.0+0"
+
+[[WeakRefStrings]]
+deps = ["DataAPI", "InlineStrings", "Parsers"]
+git-tree-sha1 = "c69f9da3ff2f4f02e811c3323c22e5dfcb584cfa"
+uuid = "ea10d353-3f73-51f8-a26c-33c1cb351aa5"
+version = "1.4.1"
 
 [[XML2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
@@ -1225,10 +1419,6 @@ git-tree-sha1 = "5982a94fcba20f02f42ace44b9894ee2b140fe47"
 uuid = "0ac62f75-1d6f-5e53-bd7c-93b484bb37c0"
 version = "0.15.1+0"
 
-[[libblastrampoline_jll]]
-deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
-uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-
 [[libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "daacc84a041563f965be61859a36e17c4e4fcd55"
@@ -1276,19 +1466,80 @@ version = "0.9.1+5"
 
 # ╔═╡ Cell order:
 # ╟─83806080-8c00-11ec-0f46-01e9cff3af6f
-# ╟─3580b62d-fe8a-499c-8551-cac1a81d1b55
-# ╠═2a0d5b9b-8983-4c5b-b16c-1a98a695cfaa
 # ╟─35e6b686-2daa-40f6-b348-6987406ba95b
-# ╟─bafa86e5-b340-4b99-b3d6-c31908824eaa
-# ╟─d2b28c8c-f2d2-4a6d-8569-98b76f38303c
-# ╟─b744d4a6-7aa9-43a1-b5c8-cd21f3d60106
-# ╟─2cbb1298-5fae-450e-aa6d-fe44ca57fb3f
-# ╟─f1594d40-4a3c-487c-bfda-1657ccfdad32
-# ╠═0bcaf0ba-4b40-42b4-b641-9b2fc765c7ec
-# ╠═39f82397-0b15-4b25-bcc3-2395ae36c9dd
-# ╟─edaa81dd-3344-4631-86ea-b7176f682231
-# ╠═aa3cc6bc-045b-436a-8f7f-e89e9ae41a87
-# ╟─17cfc37b-7740-4eb7-a188-c44d991d1837
-# ╠═40b9ec30-9523-4252-9c99-ee441d71225b
+# ╟─a741f424-3d49-4ce0-89ab-bd2bc43adf49
+# ╠═289ed25b-514c-4edf-8c5e-154914805786
+# ╟─61aa2ea3-46a6-4c43-8c71-7733cd4b19b4
+# ╟─38068443-2487-44dd-b4e1-b4f5bf4198e6
+# ╟─e9cd47bf-fab3-4b82-b6e2-7e21e242690f
+# ╠═82637688-1185-4747-8562-58a52dd0d776
+# ╟─a90c83bd-93c4-4d67-a8e1-1d18e343dd1b
+# ╠═67e6bde3-fc86-4faa-983f-aae78cf8fd85
+# ╟─a38f5516-8ea9-4c0b-8ccf-bb7d42336f3f
+# ╠═7f8337cc-dd6c-4cbf-b935-b47cd5075b29
+# ╟─02703949-e389-48f7-89e7-d22da0f3aa42
+# ╠═7ee25d9b-5881-4214-b758-6c69fde794e6
+# ╟─8d280fb0-6a98-4906-a8ac-5273cd502b6c
+# ╠═ea73296e-a835-407c-be99-7caf3aafb0a9
+# ╟─ba561e50-2923-44f3-8e82-be75258ba2e5
+# ╠═b2a65696-7554-4d62-8956-2442345f1cb4
+# ╟─63552636-04c1-40be-b3fc-b07689e55d90
+# ╠═06a3a5e8-19e1-4d39-8e63-e6a45c2f1d7c
+# ╟─96da804b-1b29-4d92-8270-00c59a2bc348
+# ╠═9e5f9f7e-706b-42c6-a69e-67aaffd3c9e3
+# ╟─84b7e96f-4cfe-4b2c-8e4a-f8c5e5460980
+# ╠═55d89585-1ec5-46af-a887-0471e7fcdda4
+# ╟─d0207cfd-5694-4c28-bf5d-3663d0b34d73
+# ╠═39275235-3445-4d5b-bc05-3da45868540f
+# ╟─e009a2ae-5a86-466b-95c8-9506a5e503dd
+# ╠═d54ae754-1995-424e-b198-980eb6fd4c79
+# ╟─ab278310-4624-4846-9598-09970dfd6075
+# ╠═c87e2da4-645a-4ebe-b122-e68365ef00c1
+# ╟─d0a78b80-9db9-4190-9980-73fcc4b74398
+# ╟─c94134a6-d586-453e-9898-b73a4dd6a7e7
+# ╠═35091078-5019-4cfd-8ccf-a8274e77cb32
+# ╟─6b03bcf6-d181-4593-98d6-4ad8feb31de7
+# ╠═df76827f-f9e5-4cc0-8503-7013e62744ae
+# ╟─978412e1-0c2a-4168-b420-80c853b15783
+# ╠═1acdabd5-6651-428c-80a1-f04e06c125a4
+# ╠═d5537030-1f2d-4f02-b3bb-4ac99189018b
+# ╟─a81de469-1336-4275-a840-5a83d324e86c
+# ╠═5973fae0-46b6-49bf-b8f7-c10102eb3796
+# ╟─9e089818-71bd-42f7-994d-607b0f959e6d
+# ╠═dc0fb197-61cb-4489-afff-b6f0cbf0571b
+# ╟─fb75aa10-0b69-4bcf-a6c5-061724248650
+# ╠═d2f6f37b-47d3-4f8b-b860-f92f63ba91ec
+# ╟─e73cab91-af57-4ade-94a1-1e0e06885544
+# ╠═f78099b1-f047-4cb3-9acc-8959e0697e14
+# ╟─78b2b5d5-39b3-45ec-81b3-291946a4ccc8
+# ╠═59055848-6d15-419f-a68c-a1b2e6408a47
+# ╠═ac83bda0-36d6-48ae-8b9d-044d52e8693e
+# ╟─62c1cdbd-441f-41bb-b2ac-e1d5787b210e
+# ╠═b16d66a9-8790-43d1-90cb-f813cf89975b
+# ╟─e8d26efa-4b45-4de0-8253-bd0ef9b03bba
+# ╠═e0cd567e-cae3-4d20-8c3c-62cc6ae6c9d0
+# ╟─479a1152-53ba-4f96-8889-71b56585cd02
+# ╠═1c04e8ba-db6e-40d0-a58d-86854e4c0988
+# ╟─9753a6ce-8e98-4a62-951f-8f79b2106940
+# ╠═f8720df3-15a5-41ea-b13c-60ae6916f234
+# ╠═2aafd10a-8fd1-410a-a257-8e6a38e2bc00
+# ╟─bb991cc4-c6e4-4f74-bfbc-74143b6ef883
+# ╠═c2252fb0-559c-4e38-952e-411ce5cd773a
+# ╟─7e098dc0-2955-4227-8d18-e9da37ffbbd2
+# ╠═229b8d54-1815-427a-8aa9-bc4fc82de47a
+# ╟─5fd20ea1-ec4b-4f9d-9804-e554131f4a5f
+# ╠═5148e04c-d058-4a25-934b-9cce3d56a764
+# ╟─7afe811e-e825-422d-8aab-e1482bec8447
+# ╠═75523a6b-4af0-4791-9152-384975406f70
+# ╟─8ec53756-3876-44d4-8c39-50a6689368ed
+# ╠═84508cb9-ec96-4eb7-abc8-8ec8a85e9a14
+# ╟─f19d5a95-27d1-4b9e-9f72-42b96fa02177
+# ╠═8baadd0a-68cc-4b5c-9474-000f5fd14ca7
+# ╟─3d0f2ff8-c5b9-43bd-b5e8-e41bbecfba5a
+# ╠═f5b1c45e-c214-4773-be6c-d3cabf02fa41
+# ╟─5217674a-4441-4516-949c-ac0be38b58cf
+# ╠═f7b90c38-899d-4ae9-808c-e5c05ef38109
+# ╟─e9e0d00c-cad9-4208-8c8d-3d25c3f13a59
+# ╠═1a2a3975-260b-49dc-9c97-6d1d42926278
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
