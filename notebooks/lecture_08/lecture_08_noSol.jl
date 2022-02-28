@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.1
+# v0.18.1
 
 using Markdown
 using InteractiveUtils
@@ -30,6 +30,18 @@ html"""<style>
 			max-width: 900px;
 		}
 		"""
+	
+	#Creates a foldable cell
+	struct Foldable{C}
+		title::String
+		content::C
+	end
+	
+	function Base.show(io, mime::MIME"text/html", fld::Foldable)
+		write(io,"<details><summary>$(fld.title)</summary><p>")
+		show(io, mime, fld.content)
+		write(io,"</p></details>")
+	end
 end
 
 # ╔═╡ a741f424-3d49-4ce0-89ab-bd2bc43adf49
@@ -49,13 +61,85 @@ In this notebook, we are going to examine and preprocess a dataset on housing in
 _Adapted from "Hands-on Data Science with Julia" by Łukasz Kraiński and Bogumił Kamiński, available at [Link](https://www.manning.com/liveprojectseries/data-science-with-julia-ser)_
 """
 
+# ╔═╡ ef44e650-ab52-4a2f-80d2-fef74e108161
+Foldable("Data Description",md"""
+
+Online source: https://archive.ics.uci.edu/ml/machine-learning-databases/housing/
+
+The Boston housing data set was collected by Harrison and Rubinfeld (1978) to
+study whether "clean air" had an influence on house prices.
+
+__Source: Harrison, D. and Rubinfeld, D. L. ( 1978). Hedonic prices and the demand for clean air, J. Environ. Economics & Management 5: 81-102.__
+
+__Description__
+
+1. Title: Boston Housing Data
+
+2. Sources:
+   (a) Origin:  This dataset was taken from the StatLib library which is
+                maintained at Carnegie Mellon University.
+   (b) Creator:  Harrison, D. and Rubinfeld, D.L. 'Hedonic prices and the 
+                 demand for clean air', J. Environ. Economics & Management,
+                 vol.5, 81-102, 1978.
+   (c) Date: July 7, 1993
+
+3. Past Usage:
+   -   Used in Belsley, Kuh & Welsch, 'Regression diagnostics ...', Wiley, 
+       1980.   N.B. Various transformations are used in the table on
+       pages 244-261.
+    -  Quinlan,R. (1993). Combining Instance-Based and Model-Based Learning.
+       In Proceedings on the Tenth International Conference of Machine 
+       Learning, 236-243, University of Massachusetts, Amherst. Morgan
+       Kaufmann.
+
+4. Relevant Information:
+
+   Concerns housing values in suburbs of Boston.
+
+5. Number of Instances: 506
+
+6. Number of Attributes: 13 continuous attributes (including "class"
+                         attribute "MEDV"), 1 binary-valued attribute.
+
+7. Attribute Information:
+
+    1. CRIM      per capita crime rate by town
+    2. ZN        proportion of residential land zoned for lots over 
+                 25,000 sq.ft.
+    3. INDUS     proportion of non-retail business acres per town
+    4. CHAS      Charles River dummy variable (= 1 if tract bounds 
+                 river; 0 otherwise)
+    5. NOX       nitric oxides concentration (parts per 10 million)
+    6. RM        average number of rooms per dwelling
+    7. AGE       proportion of owner-occupied units built prior to 1940
+    8. DIS       weighted distances to five Boston employment centres
+    9. RAD       index of accessibility to radial highways
+    10. TAX      full-value property-tax rate per $10,000
+    11. PTRATIO  pupil-teacher ratio by town
+    12. B        1000(Bk - 0.63)^2 where Bk is the proportion of blacks 
+                 by town
+    13. LSTAT    % lower status of the population
+    14. MEDV     Median value of owner-occupied homes in $1000's
+
+8. Missing Attribute Values:  None.
+
+""")
+
 # ╔═╡ e9cd47bf-fab3-4b82-b6e2-7e21e242690f
 md"""
 Define URL to Boston Housing data and expected SHA1.
 """
 
 # ╔═╡ 82637688-1185-4747-8562-58a52dd0d776
-
+# begin
+# const HOUSING_URL = "https://archive.ics.uci.edu/ml/" *
+#                     "machine-learning-databases/housing/housing.data"
+# const HOUSING_NAME = "housing.txt"
+# const HOUSING_SHA1 = [0xad, 0xfa, 0x6b, 0x6d, 0xca,
+#                       0x24, 0xa6, 0x3f, 0xe1, 0x66,
+#                       0xa9, 0xe7, 0xfa, 0x01, 0xce,
+#                       0xe4, 0x33, 0x58, 0x57, 0xd1]
+# end
 
 # ╔═╡ a90c83bd-93c4-4d67-a8e1-1d18e343dd1b
 md"""
@@ -63,7 +147,12 @@ Download Boston Housing data (check that it does not already exist).
 """
 
 # ╔═╡ 67e6bde3-fc86-4faa-983f-aae78cf8fd85
-
+# if isfile(HOUSING_NAME)
+#     @info "$HOUSING_NAME found. Skipping download."
+# else
+#     @info "$HOUSING_NAME not found. Fetching from source."
+#     Downloads.download(HOUSING_URL, HOUSING_NAME)
+# end
 
 # ╔═╡ a38f5516-8ea9-4c0b-8ccf-bb7d42336f3f
 md"""
@@ -71,7 +160,11 @@ Check SHA1 of Boston Housing file
 """
 
 # ╔═╡ 7f8337cc-dd6c-4cbf-b935-b47cd5075b29
-
+# if HOUSING_SHA1 == open(SHA.sha1, HOUSING_NAME)
+#     @info "SHA1 check of $HOUSING_NAME passed."
+# else
+#     error("$HOUSING_NAME file has an invalid SHA1. Aborting!")
+# end
 
 # ╔═╡ 02703949-e389-48f7-89e7-d22da0f3aa42
 md"""
@@ -857,7 +950,7 @@ uuid = "38a345b3-de98-5d2b-a5d3-14cd9215e700"
 version = "2.36.0+0"
 
 [[LinearAlgebra]]
-deps = ["Libdl"]
+deps = ["Libdl", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[LogExpFunctions]]
@@ -937,6 +1030,10 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
 version = "1.3.5+1"
+
+[[OpenBLAS_jll]]
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
+uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
 
 [[OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1034,7 +1131,7 @@ deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 
 [[Random]]
-deps = ["Serialization"]
+deps = ["SHA", "Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [[RecipesBase]]
@@ -1365,6 +1462,10 @@ git-tree-sha1 = "5982a94fcba20f02f42ace44b9894ee2b140fe47"
 uuid = "0ac62f75-1d6f-5e53-bd7c-93b484bb37c0"
 version = "0.15.1+0"
 
+[[libblastrampoline_jll]]
+deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
+uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
+
 [[libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "daacc84a041563f965be61859a36e17c4e4fcd55"
@@ -1417,6 +1518,7 @@ version = "0.9.1+5"
 # ╠═289ed25b-514c-4edf-8c5e-154914805786
 # ╟─61aa2ea3-46a6-4c43-8c71-7733cd4b19b4
 # ╟─38068443-2487-44dd-b4e1-b4f5bf4198e6
+# ╟─ef44e650-ab52-4a2f-80d2-fef74e108161
 # ╟─e9cd47bf-fab3-4b82-b6e2-7e21e242690f
 # ╠═82637688-1185-4747-8562-58a52dd0d776
 # ╟─a90c83bd-93c4-4d67-a8e1-1d18e343dd1b
