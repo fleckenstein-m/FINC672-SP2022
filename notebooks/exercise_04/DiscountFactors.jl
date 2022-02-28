@@ -4,419 +4,267 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 35e6b686-2daa-40f6-b348-6987406ba95b
+# ╔═╡ 385d5ad1-30dd-4d2d-b6b9-2af33cc0ed15
 begin
-html"""<style>
+	using Logging
+	global_logger(NullLogger())
+	html"""<style>
 		main {
 			max-width: 900px;
 		}
 		"""
-	
-	using Logging
-	global_logger(NullLogger())
-end
-
-# ╔═╡ 289ed25b-514c-4edf-8c5e-154914805786
-begin
-	import Downloads
-	import SHA
-	using Arrow
-	using CSV
-	using DataFrames
-	using Plots
-	using PlutoUI
-	using FreqTables
-	using Statistics
-	using StatsBase
-end
-
-# ╔═╡ 83806080-8c00-11ec-0f46-01e9cff3af6f
-md"""
-## FINC 672: Tabular Data - DataFrames
-"""
-
-# ╔═╡ a741f424-3d49-4ce0-89ab-bd2bc43adf49
-md"""
-Load packages
-"""
-
-# ╔═╡ 61aa2ea3-46a6-4c43-8c71-7733cd4b19b4
-md"""
-# Boston Housing Data
-"""
-
-# ╔═╡ 38068443-2487-44dd-b4e1-b4f5bf4198e6
-md"""
-In this notebook, we are going to examine and preprocess a dataset on housing in the Boston area. The dataset includes sociodemographic- and environment-related features of the real estate neighborhood, such as crime rate, concentration of toxic substances, or access to education (indicated by the student/teacher ratio).
-
-_Adapted from "Hands-on Data Science with Julia" by Łukasz Kraiński and Bogumił Kamiński, available at [Link](https://www.manning.com/liveprojectseries/data-science-with-julia-ser)_
-"""
-
-# ╔═╡ e9cd47bf-fab3-4b82-b6e2-7e21e242690f
-md"""
-Define URL to Boston Housing data and expected SHA1.
-"""
-
-# ╔═╡ 82637688-1185-4747-8562-58a52dd0d776
-begin
-const HOUSING_URL = "https://archive.ics.uci.edu/ml/" *
-                    "machine-learning-databases/housing/housing.data"
-const HOUSING_NAME = "housing.txt"
-const HOUSING_SHA1 = [0xad, 0xfa, 0x6b, 0x6d, 0xca,
-                      0x24, 0xa6, 0x3f, 0xe1, 0x66,
-                      0xa9, 0xe7, 0xfa, 0x01, 0xce,
-                      0xe4, 0x33, 0x58, 0x57, 0xd1]
-end
-
-# ╔═╡ a90c83bd-93c4-4d67-a8e1-1d18e343dd1b
-md"""
-Download Boston Housing data (check that it does not already exist).
-"""
-
-# ╔═╡ 67e6bde3-fc86-4faa-983f-aae78cf8fd85
-if isfile(HOUSING_NAME)
-    @info "$HOUSING_NAME found. Skipping download."
-else
-    @info "$HOUSING_NAME not found. Fetching from source."
-    Downloads.download(HOUSING_URL, HOUSING_NAME)
-end
-
-# ╔═╡ a38f5516-8ea9-4c0b-8ccf-bb7d42336f3f
-md"""
-Check SHA1 of Boston Housing file
-"""
-
-# ╔═╡ 7f8337cc-dd6c-4cbf-b935-b47cd5075b29
-if HOUSING_SHA1 == open(SHA.sha1, HOUSING_NAME)
-    @info "SHA1 check of $HOUSING_NAME passed."
-else
-    error("$HOUSING_NAME file has an invalid SHA1. Aborting!")
-end
-
-# ╔═╡ 02703949-e389-48f7-89e7-d22da0f3aa42
-md"""
-Read Boston Housing CSV
-"""
-
-# ╔═╡ 7ee25d9b-5881-4214-b758-6c69fde794e6
-housing_ref = CSV.read(HOUSING_NAME, DataFrame,
-                       header=[:CRIM, :ZN, :INDUS, :CHAS, :NOX, :RM, :AGE,
-                               :DIS, :RAD, :TAX, :PTRATIO, :B, :LSTAT, :MEDV],
-                       delim=' ', ignorerepeated=true, tasks=1)
-
-
-# ╔═╡ 8d280fb0-6a98-4906-a8ac-5273cd502b6c
-md"""
-Let's make a copy of the dataframe because we will work on this dataframe. 
-In doing this, we avoid having to reload the data in case of errors.
-"""
-
-# ╔═╡ ea73296e-a835-407c-be99-7caf3aafb0a9
-housing = copy(housing_ref)
-
-# ╔═╡ ba561e50-2923-44f3-8e82-be75258ba2e5
-md"""
-Check basic statistics of all columns
-"""
-
-# ╔═╡ b2a65696-7554-4d62-8956-2442345f1cb4
-describe(housing)
-
-# ╔═╡ 63552636-04c1-40be-b3fc-b07689e55d90
-md"""
-Find nominal variables (output of `describe(housing)` suggests that integer columns contain only a few values).
-"""
-
-# ╔═╡ 06a3a5e8-19e1-4d39-8e63-e6a45c2f1d7c
-nominal = names(housing, Int)
-
-# ╔═╡ 96da804b-1b29-4d92-8270-00c59a2bc348
-md"""
-Find continuous variables
-"""
-
-# ╔═╡ 9e5f9f7e-706b-42c6-a69e-67aaffd3c9e3
-continuous = names(housing, Float64)
-
-# ╔═╡ 84b7e96f-4cfe-4b2c-8e4a-f8c5e5460980
-md"""
-Inspect distribution of nominal variables
-"""
-
-# ╔═╡ 55d89585-1ec5-46af-a887-0471e7fcdda4
-with_terminal() do
-	foreach(name -> println("\n", proptable(housing, name)), nominal)
-end
-
-# ╔═╡ d0207cfd-5694-4c28-bf5d-3663d0b34d73
-md"""
-Check distributions of numeric features
-
-- First define a helper function for drawing of a single histogram
-"""
-
-# ╔═╡ 39275235-3445-4d5b-bc05-3da45868540f
-histogram_helper(column_name) =
-    histogram(housing[!, column_name], xlabel=column_name, legend=false)
-
-# ╔═╡ e009a2ae-5a86-466b-95c8-9506a5e503dd
-md"""
-Compose a grid of histograms in a single plot
-"""
-
-# ╔═╡ d54ae754-1995-424e-b198-980eb6fd4c79
-plot(map(x -> histogram_helper(x), continuous)..., layout=grid(3, 4), size=(800,500))
-
-# ╔═╡ ab278310-4624-4846-9598-09970dfd6075
-md"""
-Check the frequency table of the `MEDV` variable
-"""
-
-# ╔═╡ c87e2da4-645a-4ebe-b122-e68365ef00c1
-freqtable(housing, :MEDV)
-
-# ╔═╡ d0a78b80-9db9-4190-9980-73fcc4b74398
-md"""
-Based on the histogram plot, `MEDV` is censored or inaccurate at the upper limit: 16 observations have value equal to 50.0.
-Let's suppose we have reason to assume that these are outlier. Hence, we decide to remove these values.
-"""
-
-# ╔═╡ c94134a6-d586-453e-9898-b73a4dd6a7e7
-md"""
-Remove rows from housing in-place. Note that 16 rows were removed.
-"""
-
-# ╔═╡ 35091078-5019-4cfd-8ccf-a8274e77cb32
-housing2 = filter!(:MEDV => <(50.0), housing)
-
-# ╔═╡ 6b03bcf6-d181-4593-98d6-4ad8feb31de7
-md"""
-Get continuous variables and nominal variables from modified dataset.
-"""
-
-# ╔═╡ df76827f-f9e5-4cc0-8503-7013e62744ae
-begin
-	continuous2 = names(housing2, Float64)
-	nominal2 = names(housing2, Int)
 	display("")
 end
 
-# ╔═╡ 978412e1-0c2a-4168-b420-80c853b15783
+# ╔═╡ 289ed25b-514c-4edf-8c5e-154914805786
+using PlutoUI
+
+# ╔═╡ 076b48a3-0131-4fd7-bacb-b23b67d03404
+using DataFrames, Dates, Plots, XLSX
+
+# ╔═╡ 83806080-8c00-11ec-0f46-01e9cff3af6f
 md"""
-Check variables distributions after filtering the observations
+## FINC 672: Discount Factors and Bond Pricing
 """
 
-# ╔═╡ 1acdabd5-6651-428c-80a1-f04e06c125a4
-histogram_helper2(column_name) =
-    histogram(housing2[!, column_name], xlabel=column_name, legend=false)
+# ╔═╡ cd860e3c-4597-4c0f-8b28-525344fcaafb
+md"""
+### Intro
+"""
 
-# ╔═╡ d5537030-1f2d-4f02-b3bb-4ac99189018b
+# ╔═╡ a83560e4-399a-4188-b4ee-5f642da0e9fc
+md"""
+- Recall that we can calculate the price of a Treasury coupon bond paying semi-annual coupon cash flows at an (annual) rate of $c$ by discounting the bond's cash flows using the Treasury discount curve.
+- Specifically, suppose the bond pays semi-annual coupon cash flows of $C$ at times $t_1$, $t_2$, $t_3$, $\ldots$, $T$, where $t_{i+1}=t_i+0.5$.
+- The Treasury discount curve is given by $D(t)$.
+- Then the price of the bond is given by
+$$P = C\times D(0.5) + C\times D(1.0) + C\times D(1.5) + \ldots  + (C+100)\times
+D(T)$$
+"""
+
+# ╔═╡ db53a68b-d79d-4e1e-a269-9ac3bddd0bf9
+md"""
+- **Example**
+  - Suppose we want to calculate the price of a Treasury note with 1 year remaining until maturity. 
+  - Assume a face value of $F$=\$100, and a coupon rate of $c=$2.5% (paid semi-annually). 
+  - The discount factors are $D(0.5)$=0.99 and $D(1.0)$=0.98.
+  - The semi-annual coupon cash flows are $\frac{0.025}{2} \times$ \$100=\$1.25.
+  - Then, price of the Treasury note is given by
+$$P = D(0.5) \times C + D(1.0) \times (100+C) = 0.99 \times 1.25 + 0.98 \times (100 + 1.25) = 100.46250$$
+"""
+
+# ╔═╡ e546bc23-a50b-4293-b3fb-dfeca6bcace7
+md"""
+### Problem Statement
+Suppose the settlement date is 2/25/2022 and assume the following parameters for the Treasury note.
+- Issue Date: 1/15/2022
+- Maturity Date: 1/15/2052
+- Coupon rate: 2.5% (paid semi-annually)
+- Face Value: \$100
+
+You are provided with a spreadsheet `FINC672_SP22_DiscountFactors.xlsx` which contains discount factors as of 2/25/2022 for maturities up to March 2052 in monthly intervals.
+"""
+
+# ╔═╡ f39dc896-ecf1-451d-907e-e5e6759ce6bd
+md"""
+**0. Load packages that are used to work with DataFrames, Dates, Excel spreadsheets, and to make plots.**
+"""
+
+# ╔═╡ 5f6fc9b8-97e0-40e6-abeb-49f01f24c038
+md"""
+**1. Load the spreadsheet `FINC672_SP22_DiscountFactors` into a DataFrame and call the dataframe `DatRaw`.**
+"""
+
+# ╔═╡ 35e6b686-2daa-40f6-b348-6987406ba95b
 begin
-	p2 = plot(map(x -> histogram_helper2(x), continuous2)..., layout=grid(3, 4), size=(800,500))
+	file = "FINC672_SP22_DiscountFactors.xlsx"
+	sheet = "Sheet1"
+	cols = "B:D"
+	startRow = 14
+	colLabels = ["Maturity Date","Zero Rate","Discount Factor"]
+	DatRaw = DataFrame(XLSX.readtable(file,sheet, cols; first_row=startRow, header=false, column_labels=colLabels,infer_eltypes=true)...)
 end
 
-# ╔═╡ a81de469-1336-4275-a840-5a83d324e86c
+# ╔═╡ 19c44de5-6586-41d3-bd2b-e738529333b3
 md"""
-Calculate Kendall's correlation
+**1.1 Show the variable names in the data frame.**
 """
 
-# ╔═╡ 5973fae0-46b6-49bf-b8f7-c10102eb3796
-housing_cor2 = corkendall(Matrix(housing2))
+# ╔═╡ a80313e3-029b-4335-a8bd-8b8f6637b30a
+names(DatRaw)
 
-# ╔═╡ 9e089818-71bd-42f7-994d-607b0f959e6d
+# ╔═╡ 0c7553ce-c4c9-4c67-bb0c-2aeb33b8d12e
 md"""
-Get information for how we should reorder rows of `housing_cor`.
-Recall that `MEDV` is the last variable in our data set
+**1.2 Show the variable types of the columns in the data frame.**
 """
 
-# ╔═╡ dc0fb197-61cb-4489-afff-b6f0cbf0571b
-ord = sortperm(housing_cor2[:, end])
+# ╔═╡ 78e8023d-6a5a-4c46-a7f3-eaf5b2a60d8d
+eltype.(eachcol(DatRaw))
 
-# ╔═╡ fb75aa10-0b69-4bcf-a6c5-061724248650
+# ╔═╡ 126dc45c-9b93-4384-818d-45a7041bdb39
 md"""
-Plot a heatmap, where both axis labels and correlation matrix are reordered by correlation with MEDV
+**1.3 Rename the `Maturity Date` column to `t` and the `Discount Factor` column to `D(t)`. Also delete the `Zero Rate` column. Save the transformed dataframe to a new dataframe with the name `DT`.**
 """
 
-# ╔═╡ d2f6f37b-47d3-4f8b-b860-f92f63ba91ec
-heatmap(names(housing2)[ord],
-        names(housing2)[ord],
-        housing_cor2[ord, ord],
-        c=:balance,
-        size=(800,500))
+# ╔═╡ b4d15eaa-9cfa-4b4c-97f5-d9c0a3434a8b
+DT = select(DatRaw, "Maturity Date" => "t", "Discount Factor" => "D(t)")
 
-# ╔═╡ e73cab91-af57-4ade-94a1-1e0e06885544
+# ╔═╡ 1b674ec5-e58f-47a0-baba-c90d8a2b03b4
 md"""
-Get information on absolute value of correlation
+**2. Use `describe` to get information about the variables in the dataframe**
 """
 
-# ╔═╡ f78099b1-f047-4cb3-9acc-8959e0697e14
-sort(DataFrame(variable = names(housing2), cor=housing_cor2[:, end]),
-     :cor, by=abs)
+# ╔═╡ 3bf62132-a101-404b-bd73-9f74f5204263
+describe(DT, :eltype, :mean, :std, :min, :q25, :median, :q75, :max, (x->length(collect(skipmissing(x)))) => :N)
 
-# ╔═╡ 78b2b5d5-39b3-45ec-81b3-291946a4ccc8
+# ╔═╡ b339a33d-aee3-4894-9c9f-a352bb0f8287
 md"""
-Also check the relation of continuous variables visually on scatterplots
+**3. Calculate the Price of Treasury Note**
 """
 
-# ╔═╡ 59055848-6d15-419f-a68c-a1b2e6408a47
+# ╔═╡ 0a04cb4a-dc6e-4cd7-aac7-9ef82505f6cb
+md"""
+**3.1 Set up a vector for the dates of the remaining cash flows.**
+"""
+
+# ╔═╡ 5a364fb0-84a5-444e-9dc1-8f5ebb104332
+CFDates = collect(Dates.Date(2022,7,15):Dates.Month(6):Dates.Date(2052,1,15))
+
+# ╔═╡ 5b658eed-d3dc-43af-8269-1f361b159097
+md"""
+**3.2 How many coupon cash flows are there left until (including) the maturity date?**
+"""
+
+# ╔═╡ 478996cc-5afc-48ba-9f1d-7555d7c721bb
+md"""
+**3.3 Collect the discount factors corresponding to the cash flow dates.**
+"""
+
+# ╔═╡ 6ec1ce20-8d08-4de9-9e77-4465c13b9b01
+Dt = filter(:t => (x->x in CFDates),DT)
+
+# ╔═╡ aad7bf4e-d5ec-4d0a-98eb-68182adb7232
+length(Dt.t)
+
+# ╔═╡ ebd2e2c1-ddde-4f12-b637-199163ed11b5
+md"""
+**3.4 What is the maximum of D(t)?**
+"""
+
+# ╔═╡ be348b9d-d8ec-4306-a75e-fed4370a6966
+maximum(Dt."D(t)")
+
+# ╔═╡ a408adb3-f442-4544-bb02-54ab83dd020a
+md"""
+**3.5 What is the minimum of D(t)?**
+"""
+
+# ╔═╡ 05540a3a-1fa9-41d4-9dc7-96c5f71d1894
+minimum(Dt."D(t)")
+
+# ╔═╡ d7c5faad-9a17-42fc-bbf6-1ad11857c792
+md"""
+**3.6 Calculate the semi-annual dollar coupon cash flows and save the value in a variable `C`**.
+"""
+
+# ╔═╡ 4a29e380-a45b-431a-90fb-e35abbbfd3bc
+C = 0.5 * 0.025 * 100
+
+# ╔═╡ bd706875-2a35-413e-b810-ec176958f2b4
+md"""
+**3.7 Set up a vector with all remaining coupon cash flows and the principal payment at maturity. Name this vector `CF`.**
+"""
+
+# ╔═╡ a54c98a3-d2c5-4e88-bdf6-7cd72a521156
 begin
-	scatter_helper(column_name) =
-	    scatter(housing2[!, column_name], housing2.MEDV, xlabel=column_name,
-	            legend=false, smooth=true, ms=1)
+	CF = C .* ones(length(Dt.t))
+	CF[end] += 100.0
 end
 
-# ╔═╡ ac83bda0-36d6-48ae-8b9d-044d52e8693e
-plot(map(x -> scatter_helper(x), continuous2)..., layout=grid(3, 4), size=(800,500))
-
-# ╔═╡ 62c1cdbd-441f-41bb-b2ac-e1d5787b210e
+# ╔═╡ d7649ba1-80d9-4112-bb13-210b8ad62363
 md"""
-Remove least correlated feature - B
-Again, we do an in-place operation
+**3.8 Calculate the present values of all coupon cash flows and the principal payment at maturity and save these present values in a vector with the name `PV`.**
 """
 
-# ╔═╡ b16d66a9-8790-43d1-90cb-f813cf89975b
-housing3 = select(housing2, Not(:B))
+# ╔═╡ 5fe42077-0758-4907-9ea6-5c284aefbd61
+PV = Dt[:,"D(t)"] .* CF
 
-# ╔═╡ e8d26efa-4b45-4de0-8253-bd0ef9b03bba
+# ╔═╡ 5150abf5-aef7-49ec-84af-ce25b5d8df2b
 md"""
-Transform CRIM and DIS - logarithmic transformation
-Also bin ZN variable
+**3.9 What is the value of the coupon cash flow with highest present value up but excluding the coupon cash flow on the maturity date?**
 """
 
-# ╔═╡ e0cd567e-cae3-4d20-8c3c-62cc6ae6c9d0
-housing4 = transform(housing3,
-           :CRIM => ByRow(log), :DIS => ByRow(log), :ZN => ByRow(>(0)),
-           renamecols=false)
+# ╔═╡ f3efc73d-f2c0-4d64-8933-1079c73108b8
+maxPV = maximum(PV[1:end-1])
 
-# ╔═╡ 479a1152-53ba-4f96-8889-71b56585cd02
+# ╔═╡ f7e276a9-b710-4187-9c77-55962b0c5ae4
 md"""
-Recalculate the list of continuous variables
+**3.10 What is the value of the coupon cash flow with lowest present value up but excluding the coupon cash flow on the maturity date?**
 """
 
-# ╔═╡ 1c04e8ba-db6e-40d0-a58d-86854e4c0988
-continuous4 = names(housing4, Float64)
+# ╔═╡ 66efb494-b946-445d-a530-5a93ece023be
+minPV = minimum(PV[1:end-1])
 
-# ╔═╡ 9753a6ce-8e98-4a62-951f-8f79b2106940
+# ╔═╡ e513a4ba-43a8-4c0c-8a15-b8db5fe5d9aa
 md"""
-Plot histogram again
-We see that now distributions of variables look better
+**3.11 What is the date of the coupon cash flow with the lowest present value up to but excluding the coupon cash flow on the maturity date?**
 """
 
-# ╔═╡ f8720df3-15a5-41ea-b13c-60ae6916f234
-histogram_helper4(column_name) =
-    histogram(housing4[!, column_name], xlabel=column_name, legend=false)
+# ╔═╡ c67cad31-6715-4292-81cb-3c5112c5b891
+Dt.t[findfirst(PV .== minPV)]
 
-# ╔═╡ 2aafd10a-8fd1-410a-a257-8e6a38e2bc00
-plot(map(x -> histogram_helper4(x), continuous4)..., layout=grid(2, 5), size=(800,500))
-
-# ╔═╡ bb991cc4-c6e4-4f74-bfbc-74143b6ef883
+# ╔═╡ 272c47fb-8be7-4537-b153-291306623994
 md"""
-Plot scatterplot again
+**3.12 Calculate the bond price and save it in a variable with name `P`.**
 """
 
-# ╔═╡ c2252fb0-559c-4e38-952e-411ce5cd773a
-plot(map(x -> scatter_helper(x), continuous4)..., layout=grid(2, 5), size=(900,500))
+# ╔═╡ 151071a0-d737-4449-8e12-cc33fc237f79
+P = sum(PV)
 
-# ╔═╡ 7e098dc0-2955-4227-8d18-e9da37ffbbd2
+# ╔═╡ 137d575a-b685-49e7-b36d-647e418332e4
 md"""
-Declare auxilary function for calculating bootstrap 90% confidence interval
+**4. Visualizing the Results**
 """
 
-# ╔═╡ 229b8d54-1815-427a-8aa9-bc4fc82de47a
-function gen_meanCI(x)
-    boot = [mean(rand(x, length(x))) for _ in 1:10_000]
-    return (mean=mean(x), q5=quantile(boot, 0.05), q95=quantile(boot, 0.95))
-end
-
-# ╔═╡ 5fd20ea1-ec4b-4f9d-9804-e554131f4a5f
+# ╔═╡ c992f57b-6b2e-43b5-82de-bb152a0759e5
 md"""
-Mean and 90% CI ends per group for `CHAS` variable
+**4.1 Plot all of the coupon cash flows up to but excluding the maturity date using a bar char for all dates. Hint: You can use `bar` instead `plot`.**
 """
 
-# ╔═╡ 5148e04c-d058-4a25-934b-9cce3d56a764
-mean_chas = combine(groupby(housing4, :CHAS, sort=true), :MEDV => gen_meanCI => AsTable)
+# ╔═╡ afe6db07-4365-4522-9103-bbe609a4692e
+bar(Dt.t[1:end-1], CF[1:end-1])
 
-# ╔═╡ 7afe811e-e825-422d-8aab-e1482bec8447
+# ╔═╡ 30bfd773-13f6-4ef2-8a04-748146564405
 md"""
-Mean and 90% CI ends per group for :RAD variable
+**4.2 Plot the present values of all of the coupon cash flows up to but excluding the maturity date using a bar chart for all dates. Hint: You can use `bar` instead `plot`.**
 """
 
-# ╔═╡ 75523a6b-4af0-4791-9152-384975406f70
-mean_rad = combine(groupby(housing4, :RAD, sort=true), :MEDV => gen_meanCI => AsTable)
+# ╔═╡ 90b2ec63-9414-40bd-9e2b-3a0975e1e427
+bar(Dt.t[1:end-1], PV[1:end-1])
 
-# ╔═╡ 8ec53756-3876-44d4-8c39-50a6689368ed
+# ╔═╡ a59049de-b7ba-4bbf-a4f2-2d4975eea59b
 md"""
-Mean and 90% CI ends per group for :ZN variable
+**4.3 Plot *all of* the discount factors in the input dataset. Label the line `D(t)`. Place the legend on the top-right. Use a red line with width 3.**
 """
 
-# ╔═╡ 84508cb9-ec96-4eb7-abc8-8ec8a85e9a14
-mean_zn = combine(groupby(housing4, :ZN, sort=true), :MEDV => gen_meanCI => AsTable)
-
-# ╔═╡ f19d5a95-27d1-4b9e-9f72-42b96fa02177
-md"""
-Plot the data frames in a single plot
-You could use @df macro from StatsPlots.jl package to save you some typing here
-"""
-
-# ╔═╡ 8baadd0a-68cc-4b5c-9474-000f5fd14ca7
-plot(plot(mean_chas.CHAS, mean_chas.mean,
-          yerror=(mean_chas.mean - mean_chas.q5, mean_chas.q95 - mean_chas.mean),
-          label=nothing, title="CHAS", seriestype=:scatter),
-     plot(mean_rad.RAD, mean_rad.mean,
-          yerror=(mean_rad.mean - mean_rad.q5, mean_rad.q95 - mean_rad.mean),
-          label=nothing, title="RAD", seriestype=:scatter),
-     plot(mean_zn.ZN, mean_zn.mean,
-          yerror=(mean_zn.mean - mean_zn.q5, mean_zn.q95 - mean_zn.mean),
-          label=nothing, title="ZN", seriestype=:scatter),
-    layout=grid(1, 3), size = (800,400))
-
-# ╔═╡ 3d0f2ff8-c5b9-43bd-b5e8-e41bbecfba5a
-md"""
-Remove variable RAD as we do not see its interpretable relationship with :MEDV target variable
-"""
-
-# ╔═╡ f5b1c45e-c214-4773-be6c-d3cabf02fa41
-housing5 = select(housing4, Not(:RAD))
-
-# ╔═╡ 5217674a-4441-4516-949c-ac0be38b58cf
-md"""
-Have a look at the data after cleaning
-"""
-
-# ╔═╡ f7b90c38-899d-4ae9-808c-e5c05ef38109
-describe(housing5)
-
-# ╔═╡ e9e0d00c-cad9-4208-8c8d-3d25c3f13a59
-md"""
-Save clean dataset as Arrow file
-"""
-
-# ╔═╡ 1a2a3975-260b-49dc-9c97-6d1d42926278
-Arrow.write("housing.arrow", housing5)
+# ╔═╡ 6c57e3c3-6a34-4cf9-8085-ee643dd6b821
+plot(DT.t, DT."D(t)", label = "D(t)", legend = :topright, color = :red, linewidth=3)
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
-Arrow = "69666777-d1a9-59fb-9406-91d4454c9d45"
-CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
-FreqTables = "da1fdf0e-e0ff-5433-a45f-9bb5ff651cb1"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-SHA = "ea8e919c-243c-51af-8825-aaa63cd721ce"
-Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+XLSX = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"
 
 [compat]
-Arrow = "~2.2.0"
-CSV = "~0.10.2"
 DataFrames = "~1.3.2"
-FreqTables = "~0.4.5"
 Plots = "~1.25.11"
-PlutoUI = "~0.7.35"
-StatsBase = "~0.33.16"
+PlutoUI = "~0.7.34"
+XLSX = "~0.7.9"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -438,29 +286,11 @@ version = "3.3.3"
 [[ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
 
-[[Arrow]]
-deps = ["ArrowTypes", "BitIntegers", "CodecLz4", "CodecZstd", "DataAPI", "Dates", "Mmap", "PooledArrays", "SentinelArrays", "Tables", "TimeZones", "UUIDs"]
-git-tree-sha1 = "d4a35c773dd7b07ddeeba36f3520aefe517a70f2"
-uuid = "69666777-d1a9-59fb-9406-91d4454c9d45"
-version = "2.2.0"
-
-[[ArrowTypes]]
-deps = ["UUIDs"]
-git-tree-sha1 = "a0633b6d6efabf3f76dacd6eb1b3ec6c42ab0552"
-uuid = "31f734f8-188a-4ce0-8406-c8a06bd891cd"
-version = "1.2.1"
-
 [[Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
-
-[[BitIntegers]]
-deps = ["Random"]
-git-tree-sha1 = "5a814467bda636f3dde5c4ef83c30dd0a19928e0"
-uuid = "c3b6d118-76ef-56ca-8cc7-ebb389d030a1"
-version = "0.2.6"
 
 [[Bzip2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -468,58 +298,23 @@ git-tree-sha1 = "19a35467a82e236ff51bc17a3a44b69ef35185a2"
 uuid = "6e34b625-4abd-537c-b88f-471c36dfa7a0"
 version = "1.0.8+0"
 
-[[CEnum]]
-git-tree-sha1 = "215a9aa4a1f23fbd05b92769fdd62559488d70e9"
-uuid = "fa961155-64e5-5f13-b03f-caf6b980ea82"
-version = "0.4.1"
-
-[[CSV]]
-deps = ["CodecZlib", "Dates", "FilePathsBase", "InlineStrings", "Mmap", "Parsers", "PooledArrays", "SentinelArrays", "Tables", "Unicode", "WeakRefStrings"]
-git-tree-sha1 = "9519274b50500b8029973d241d32cfbf0b127d97"
-uuid = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
-version = "0.10.2"
-
 [[Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
 git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
 
-[[CategoricalArrays]]
-deps = ["DataAPI", "Future", "Missings", "Printf", "Requires", "Statistics", "Unicode"]
-git-tree-sha1 = "c308f209870fdbd84cb20332b6dfaf14bf3387f8"
-uuid = "324d7699-5711-5eae-9e2f-1d82baa6b597"
-version = "0.10.2"
-
 [[ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "32ad4ece064a61855a35bdc34e3da0b495e01169"
+git-tree-sha1 = "c9a6160317d1abe9c44b3beb367fd448117679ca"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.12.2"
+version = "1.13.0"
 
 [[ChangesOfVariables]]
 deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
 git-tree-sha1 = "bf98fa45a0a4cee295de98d4c1462be26345b9a1"
 uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
 version = "0.1.2"
-
-[[CodecLz4]]
-deps = ["Lz4_jll", "TranscodingStreams"]
-git-tree-sha1 = "59fe0cb37784288d6b9f1baebddbf75457395d40"
-uuid = "5ba52731-8f18-5e0d-9241-30f10d1ec561"
-version = "0.4.0"
-
-[[CodecZlib]]
-deps = ["TranscodingStreams", "Zlib_jll"]
-git-tree-sha1 = "ded953804d019afa9a3f98981d99b33e3db7b6da"
-uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
-version = "0.7.0"
-
-[[CodecZstd]]
-deps = ["CEnum", "TranscodingStreams", "Zstd_jll"]
-git-tree-sha1 = "849470b337d0fa8449c21061de922386f32949d9"
-uuid = "6b39b394-51ab-5f42-8807-6242bab2b4c2"
-version = "0.7.2"
 
 [[ColorSchemes]]
 deps = ["ColorTypes", "Colors", "FixedPointNumbers", "Random"]
@@ -538,11 +333,6 @@ deps = ["ColorTypes", "FixedPointNumbers", "Reexport"]
 git-tree-sha1 = "417b0ed7b8b838aa6ca0a87aadf1bb9eb111ce40"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
 version = "0.12.8"
-
-[[Combinatorics]]
-git-tree-sha1 = "08c8b6831dc00bfea825826be0bc8336fc369860"
-uuid = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
-version = "1.0.2"
 
 [[Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "SHA", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
@@ -621,10 +411,11 @@ git-tree-sha1 = "ae13fcbc7ab8f16b0856729b050ef0c446aa3492"
 uuid = "2e619515-83b5-522b-bb60-26c02a35a201"
 version = "2.4.4+0"
 
-[[ExprTools]]
-git-tree-sha1 = "56559bbef6ca5ea0c0818fa5c90320398a6fbf8d"
-uuid = "e2ba6199-217a-4e67-a87a-7c52f15ade04"
-version = "0.1.8"
+[[EzXML]]
+deps = ["Printf", "XML2_jll"]
+git-tree-sha1 = "0fa3b52a04a4e210aeb1626def9c90df3ae65268"
+uuid = "8f5d6c58-4d21-5cfd-889c-e3ad7ee6a615"
+version = "1.1.0"
 
 [[FFMPEG]]
 deps = ["FFMPEG_jll"]
@@ -637,12 +428,6 @@ deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers",
 git-tree-sha1 = "d8a578692e3077ac998b50c0217dfd67f21d1e5f"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
 version = "4.4.0+0"
-
-[[FilePathsBase]]
-deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
-git-tree-sha1 = "04d13bfa8ef11720c24e4d840c0033d145537df7"
-uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
-version = "0.9.17"
 
 [[FixedPointNumbers]]
 deps = ["Statistics"]
@@ -667,12 +452,6 @@ deps = ["Artifacts", "Bzip2_jll", "JLLWrappers", "Libdl", "Pkg", "Zlib_jll"]
 git-tree-sha1 = "87eb71354d8ec1a96d4a7636bd57a7347dde3ef9"
 uuid = "d7e528f0-a631-5988-bf34-fe36492bcfd7"
 version = "2.10.4+0"
-
-[[FreqTables]]
-deps = ["CategoricalArrays", "Missings", "NamedArrays", "Tables"]
-git-tree-sha1 = "488ad2dab30fd2727ee65451f790c81ed454666d"
-uuid = "da1fdf0e-e0ff-5433-a45f-9bb5ff651cb1"
-version = "0.4.5"
 
 [[FriBidi_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -761,16 +540,9 @@ uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
 version = "0.2.2"
 
 [[IniFile]]
-deps = ["Test"]
-git-tree-sha1 = "098e4d2c533924c921f9f9847274f2ad89e018b8"
+git-tree-sha1 = "f550e6e32074c939295eb5ea6de31849ac2c9625"
 uuid = "83e8ac13-25f8-5344-8a64-a9f2b223428f"
-version = "0.5.0"
-
-[[InlineStrings]]
-deps = ["Parsers"]
-git-tree-sha1 = "61feba885fac3a407465726d0c330b3055df897f"
-uuid = "842dd82b-1e85-43dc-bf29-5d0ee9dffc48"
-version = "1.1.2"
+version = "0.5.1"
 
 [[InteractiveUtils]]
 deps = ["Markdown"]
@@ -842,10 +614,6 @@ deps = ["Formatting", "InteractiveUtils", "LaTeXStrings", "MacroTools", "Markdow
 git-tree-sha1 = "a6552bfeab40de157a297d84e03ade4b8177677f"
 uuid = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
 version = "0.15.12"
-
-[[LazyArtifacts]]
-deps = ["Artifacts", "Pkg"]
-uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 
 [[LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -927,12 +695,6 @@ version = "0.3.6"
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
-[[Lz4_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "5d494bc6e85c4c9b626ee0cab05daa4085486ab1"
-uuid = "5ced341a-0733-55b8-9ab6-a4889d929147"
-version = "1.9.3+0"
-
 [[MacroTools]]
 deps = ["Markdown", "Random"]
 git-tree-sha1 = "3d3e902b31198a27340d0bf00d6ac452866021cf"
@@ -967,12 +729,6 @@ version = "1.0.2"
 [[Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
-[[Mocking]]
-deps = ["Compat", "ExprTools"]
-git-tree-sha1 = "29714d0a7a8083bba8427a4fbfb00a540c681ce7"
-uuid = "78c3b35d-d492-501b-9361-3d52fe80e533"
-version = "0.7.3"
-
 [[MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 
@@ -980,12 +736,6 @@ uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 git-tree-sha1 = "737a5957f387b17e74d4ad2f440eb330b39a62c5"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "1.0.0"
-
-[[NamedArrays]]
-deps = ["Combinatorics", "DataStructures", "DelimitedFiles", "InvertedIndices", "LinearAlgebra", "Random", "Requires", "SparseArrays", "Statistics"]
-git-tree-sha1 = "2fd5787125d1a93fbe30961bd841707b8a80d75b"
-uuid = "86f7a689-2022-50b4-a561-43c23ac3c673"
-version = "0.9.6"
 
 [[NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
@@ -1059,9 +809,9 @@ version = "1.25.11"
 
 [[PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
-git-tree-sha1 = "85bf3e4bd279e405f91489ce518dedb1e32119cb"
+git-tree-sha1 = "8979e9802b4ac3d58c503a20f2824ad67f9074dd"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.35"
+version = "0.7.34"
 
 [[PooledArrays]]
 deps = ["DataAPI", "Future"]
@@ -1071,9 +821,9 @@ version = "1.4.0"
 
 [[Preferences]]
 deps = ["TOML"]
-git-tree-sha1 = "2cf929d64681236a2e074ffafb8d568733d2e6af"
+git-tree-sha1 = "de893592a221142f3db370f48290e3a2ef39998f"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
-version = "1.2.3"
+version = "1.2.4"
 
 [[PrettyTables]]
 deps = ["Crayons", "Formatting", "Markdown", "Reexport", "Tables"]
@@ -1135,12 +885,6 @@ deps = ["Dates"]
 git-tree-sha1 = "0b4b7f1393cff97c33891da2a0bf69c6ed241fda"
 uuid = "6c6a2e73-6563-6170-7368-637461726353"
 version = "1.1.0"
-
-[[SentinelArrays]]
-deps = ["Dates", "Random"]
-git-tree-sha1 = "6a2f7d70512d205ca8c7ee31bfa9f142fe74310c"
-uuid = "91c51154-3ec4-41a3-a24f-3f23e20d615c"
-version = "1.3.12"
 
 [[Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
@@ -1220,18 +964,6 @@ uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
-[[TimeZones]]
-deps = ["Dates", "Downloads", "InlineStrings", "LazyArtifacts", "Mocking", "Printf", "RecipesBase", "Serialization", "Unicode"]
-git-tree-sha1 = "0f1017f68dc25f1a0cb99f4988f78fe4f2e7955f"
-uuid = "f269a46b-ccf7-5d73-abea-4c690281aa53"
-version = "1.7.1"
-
-[[TranscodingStreams]]
-deps = ["Random", "Test"]
-git-tree-sha1 = "216b95ea110b5972db65aa90f88d8d89dcb8851c"
-uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
-version = "0.9.6"
-
 [[URIs]]
 git-tree-sha1 = "97bbe755a53fe859669cd907f2d96aee8d2c1355"
 uuid = "5c2747f8-b7ea-4ff2-ba2e-563bfd36b1d4"
@@ -1267,11 +999,11 @@ git-tree-sha1 = "4528479aa01ee1b3b4cd0e6faef0e04cf16466da"
 uuid = "2381bf8a-dfd0-557d-9999-79630e7b1b91"
 version = "1.25.0+0"
 
-[[WeakRefStrings]]
-deps = ["DataAPI", "InlineStrings", "Parsers"]
-git-tree-sha1 = "c69f9da3ff2f4f02e811c3323c22e5dfcb584cfa"
-uuid = "ea10d353-3f73-51f8-a26c-33c1cb351aa5"
-version = "1.4.1"
+[[XLSX]]
+deps = ["Dates", "EzXML", "Printf", "Tables", "ZipFile"]
+git-tree-sha1 = "2af4b3e329b51f1a41acb346e64156f904860a74"
+uuid = "fdbf4ff8-1666-58a4-91e7-1b58723a45e0"
+version = "0.7.9"
 
 [[XML2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
@@ -1411,6 +1143,12 @@ git-tree-sha1 = "79c31e7844f6ecf779705fbc12146eb190b7d845"
 uuid = "c5fb5394-a638-5e4d-96e5-b29de1b5cf10"
 version = "1.4.0+3"
 
+[[ZipFile]]
+deps = ["Libdl", "Printf", "Zlib_jll"]
+git-tree-sha1 = "3593e69e469d2111389a9bd06bac1f3d730ac6de"
+uuid = "a5390f91-8eb1-5f08-bee0-b1d1ffed6cea"
+version = "0.9.4"
+
 [[Zlib_jll]]
 deps = ["Libdl"]
 uuid = "83775a58-1f1d-513f-b197-d71354ab007a"
@@ -1478,80 +1216,55 @@ version = "0.9.1+5"
 
 # ╔═╡ Cell order:
 # ╟─83806080-8c00-11ec-0f46-01e9cff3af6f
-# ╟─35e6b686-2daa-40f6-b348-6987406ba95b
-# ╟─a741f424-3d49-4ce0-89ab-bd2bc43adf49
+# ╟─385d5ad1-30dd-4d2d-b6b9-2af33cc0ed15
 # ╠═289ed25b-514c-4edf-8c5e-154914805786
-# ╟─61aa2ea3-46a6-4c43-8c71-7733cd4b19b4
-# ╟─38068443-2487-44dd-b4e1-b4f5bf4198e6
-# ╟─e9cd47bf-fab3-4b82-b6e2-7e21e242690f
-# ╠═82637688-1185-4747-8562-58a52dd0d776
-# ╟─a90c83bd-93c4-4d67-a8e1-1d18e343dd1b
-# ╠═67e6bde3-fc86-4faa-983f-aae78cf8fd85
-# ╟─a38f5516-8ea9-4c0b-8ccf-bb7d42336f3f
-# ╠═7f8337cc-dd6c-4cbf-b935-b47cd5075b29
-# ╟─02703949-e389-48f7-89e7-d22da0f3aa42
-# ╠═7ee25d9b-5881-4214-b758-6c69fde794e6
-# ╟─8d280fb0-6a98-4906-a8ac-5273cd502b6c
-# ╠═ea73296e-a835-407c-be99-7caf3aafb0a9
-# ╟─ba561e50-2923-44f3-8e82-be75258ba2e5
-# ╠═b2a65696-7554-4d62-8956-2442345f1cb4
-# ╟─63552636-04c1-40be-b3fc-b07689e55d90
-# ╠═06a3a5e8-19e1-4d39-8e63-e6a45c2f1d7c
-# ╟─96da804b-1b29-4d92-8270-00c59a2bc348
-# ╠═9e5f9f7e-706b-42c6-a69e-67aaffd3c9e3
-# ╟─84b7e96f-4cfe-4b2c-8e4a-f8c5e5460980
-# ╠═55d89585-1ec5-46af-a887-0471e7fcdda4
-# ╟─d0207cfd-5694-4c28-bf5d-3663d0b34d73
-# ╠═39275235-3445-4d5b-bc05-3da45868540f
-# ╟─e009a2ae-5a86-466b-95c8-9506a5e503dd
-# ╠═d54ae754-1995-424e-b198-980eb6fd4c79
-# ╟─ab278310-4624-4846-9598-09970dfd6075
-# ╠═c87e2da4-645a-4ebe-b122-e68365ef00c1
-# ╟─d0a78b80-9db9-4190-9980-73fcc4b74398
-# ╟─c94134a6-d586-453e-9898-b73a4dd6a7e7
-# ╠═35091078-5019-4cfd-8ccf-a8274e77cb32
-# ╟─6b03bcf6-d181-4593-98d6-4ad8feb31de7
-# ╠═df76827f-f9e5-4cc0-8503-7013e62744ae
-# ╟─978412e1-0c2a-4168-b420-80c853b15783
-# ╠═1acdabd5-6651-428c-80a1-f04e06c125a4
-# ╠═d5537030-1f2d-4f02-b3bb-4ac99189018b
-# ╟─a81de469-1336-4275-a840-5a83d324e86c
-# ╠═5973fae0-46b6-49bf-b8f7-c10102eb3796
-# ╟─9e089818-71bd-42f7-994d-607b0f959e6d
-# ╠═dc0fb197-61cb-4489-afff-b6f0cbf0571b
-# ╟─fb75aa10-0b69-4bcf-a6c5-061724248650
-# ╠═d2f6f37b-47d3-4f8b-b860-f92f63ba91ec
-# ╟─e73cab91-af57-4ade-94a1-1e0e06885544
-# ╠═f78099b1-f047-4cb3-9acc-8959e0697e14
-# ╟─78b2b5d5-39b3-45ec-81b3-291946a4ccc8
-# ╠═59055848-6d15-419f-a68c-a1b2e6408a47
-# ╠═ac83bda0-36d6-48ae-8b9d-044d52e8693e
-# ╟─62c1cdbd-441f-41bb-b2ac-e1d5787b210e
-# ╠═b16d66a9-8790-43d1-90cb-f813cf89975b
-# ╟─e8d26efa-4b45-4de0-8253-bd0ef9b03bba
-# ╠═e0cd567e-cae3-4d20-8c3c-62cc6ae6c9d0
-# ╟─479a1152-53ba-4f96-8889-71b56585cd02
-# ╠═1c04e8ba-db6e-40d0-a58d-86854e4c0988
-# ╟─9753a6ce-8e98-4a62-951f-8f79b2106940
-# ╠═f8720df3-15a5-41ea-b13c-60ae6916f234
-# ╠═2aafd10a-8fd1-410a-a257-8e6a38e2bc00
-# ╟─bb991cc4-c6e4-4f74-bfbc-74143b6ef883
-# ╠═c2252fb0-559c-4e38-952e-411ce5cd773a
-# ╟─7e098dc0-2955-4227-8d18-e9da37ffbbd2
-# ╠═229b8d54-1815-427a-8aa9-bc4fc82de47a
-# ╟─5fd20ea1-ec4b-4f9d-9804-e554131f4a5f
-# ╠═5148e04c-d058-4a25-934b-9cce3d56a764
-# ╟─7afe811e-e825-422d-8aab-e1482bec8447
-# ╠═75523a6b-4af0-4791-9152-384975406f70
-# ╟─8ec53756-3876-44d4-8c39-50a6689368ed
-# ╠═84508cb9-ec96-4eb7-abc8-8ec8a85e9a14
-# ╟─f19d5a95-27d1-4b9e-9f72-42b96fa02177
-# ╠═8baadd0a-68cc-4b5c-9474-000f5fd14ca7
-# ╟─3d0f2ff8-c5b9-43bd-b5e8-e41bbecfba5a
-# ╠═f5b1c45e-c214-4773-be6c-d3cabf02fa41
-# ╟─5217674a-4441-4516-949c-ac0be38b58cf
-# ╠═f7b90c38-899d-4ae9-808c-e5c05ef38109
-# ╟─e9e0d00c-cad9-4208-8c8d-3d25c3f13a59
-# ╠═1a2a3975-260b-49dc-9c97-6d1d42926278
+# ╠═cd860e3c-4597-4c0f-8b28-525344fcaafb
+# ╟─a83560e4-399a-4188-b4ee-5f642da0e9fc
+# ╟─db53a68b-d79d-4e1e-a269-9ac3bddd0bf9
+# ╟─e546bc23-a50b-4293-b3fb-dfeca6bcace7
+# ╟─f39dc896-ecf1-451d-907e-e5e6759ce6bd
+# ╠═076b48a3-0131-4fd7-bacb-b23b67d03404
+# ╟─5f6fc9b8-97e0-40e6-abeb-49f01f24c038
+# ╠═35e6b686-2daa-40f6-b348-6987406ba95b
+# ╟─19c44de5-6586-41d3-bd2b-e738529333b3
+# ╠═a80313e3-029b-4335-a8bd-8b8f6637b30a
+# ╟─0c7553ce-c4c9-4c67-bb0c-2aeb33b8d12e
+# ╠═78e8023d-6a5a-4c46-a7f3-eaf5b2a60d8d
+# ╟─126dc45c-9b93-4384-818d-45a7041bdb39
+# ╠═b4d15eaa-9cfa-4b4c-97f5-d9c0a3434a8b
+# ╟─1b674ec5-e58f-47a0-baba-c90d8a2b03b4
+# ╠═3bf62132-a101-404b-bd73-9f74f5204263
+# ╟─b339a33d-aee3-4894-9c9f-a352bb0f8287
+# ╟─0a04cb4a-dc6e-4cd7-aac7-9ef82505f6cb
+# ╠═5a364fb0-84a5-444e-9dc1-8f5ebb104332
+# ╟─5b658eed-d3dc-43af-8269-1f361b159097
+# ╠═aad7bf4e-d5ec-4d0a-98eb-68182adb7232
+# ╟─478996cc-5afc-48ba-9f1d-7555d7c721bb
+# ╠═6ec1ce20-8d08-4de9-9e77-4465c13b9b01
+# ╟─ebd2e2c1-ddde-4f12-b637-199163ed11b5
+# ╠═be348b9d-d8ec-4306-a75e-fed4370a6966
+# ╟─a408adb3-f442-4544-bb02-54ab83dd020a
+# ╠═05540a3a-1fa9-41d4-9dc7-96c5f71d1894
+# ╟─d7c5faad-9a17-42fc-bbf6-1ad11857c792
+# ╠═4a29e380-a45b-431a-90fb-e35abbbfd3bc
+# ╟─bd706875-2a35-413e-b810-ec176958f2b4
+# ╠═a54c98a3-d2c5-4e88-bdf6-7cd72a521156
+# ╟─d7649ba1-80d9-4112-bb13-210b8ad62363
+# ╠═5fe42077-0758-4907-9ea6-5c284aefbd61
+# ╟─5150abf5-aef7-49ec-84af-ce25b5d8df2b
+# ╠═f3efc73d-f2c0-4d64-8933-1079c73108b8
+# ╟─f7e276a9-b710-4187-9c77-55962b0c5ae4
+# ╠═66efb494-b946-445d-a530-5a93ece023be
+# ╟─e513a4ba-43a8-4c0c-8a15-b8db5fe5d9aa
+# ╠═c67cad31-6715-4292-81cb-3c5112c5b891
+# ╟─272c47fb-8be7-4537-b153-291306623994
+# ╠═151071a0-d737-4449-8e12-cc33fc237f79
+# ╟─137d575a-b685-49e7-b36d-647e418332e4
+# ╟─c992f57b-6b2e-43b5-82de-bb152a0759e5
+# ╠═afe6db07-4365-4522-9103-bbe609a4692e
+# ╟─30bfd773-13f6-4ef2-8a04-748146564405
+# ╠═90b2ec63-9414-40bd-9e2b-3a0975e1e427
+# ╟─a59049de-b7ba-4bbf-a4f2-2d4975eea59b
+# ╠═6c57e3c3-6a34-4cf9-8085-ee643dd6b821
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
