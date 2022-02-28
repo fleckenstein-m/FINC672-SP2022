@@ -12,6 +12,18 @@ html"""<style>
 		}
 		"""
 	
+	#Creates a foldable cell
+	struct Foldable{C}
+		title::String
+		content::C
+	end
+	
+	function Base.show(io, mime::MIME"text/html", fld::Foldable)
+		write(io,"<details><summary>$(fld.title)</summary><p>")
+		show(io, mime, fld.content)
+		write(io,"</p></details>")
+	end
+	
 	using Logging
 	global_logger(NullLogger())
 end
@@ -51,6 +63,69 @@ In this notebook, we are going to examine and preprocess a dataset on housing in
 
 _Adapted from "Hands-on Data Science with Julia" by Łukasz Kraiński and Bogumił Kamiński, available at [Link](https://www.manning.com/liveprojectseries/data-science-with-julia-ser)_
 """
+
+# ╔═╡ d9ccd871-c13e-45f8-8da2-e46385993c7d
+Foldable("Data Description",md"""
+Online source: https://archive.ics.uci.edu/ml/machine-learning-databases/housing/
+
+The Boston housing data set was collected by Harrison and Rubinfeld (1978) to
+study whether "clean air" had an influence on house prices.
+
+__Source: Harrison, D. and Rubinfeld, D. L. ( 1978). Hedonic prices and the demand for clean air, J. Environ. Economics & Management 5: 81-102.__
+
+__Description__
+
+1. Title: Boston Housing Data
+
+2. Sources:
+   (a) Origin:  This dataset was taken from the StatLib library which is
+                maintained at Carnegie Mellon University.
+   (b) Creator:  Harrison, D. and Rubinfeld, D.L. 'Hedonic prices and the 
+                 demand for clean air', J. Environ. Economics & Management,
+                 vol.5, 81-102, 1978.
+   (c) Date: July 7, 1993
+
+3. Past Usage:
+   -   Used in Belsley, Kuh & Welsch, 'Regression diagnostics ...', Wiley, 
+       1980.   N.B. Various transformations are used in the table on
+       pages 244-261.
+    -  Quinlan,R. (1993). Combining Instance-Based and Model-Based Learning.
+       In Proceedings on the Tenth International Conference of Machine 
+       Learning, 236-243, University of Massachusetts, Amherst. Morgan
+       Kaufmann.
+
+4. Relevant Information:
+
+   Concerns housing values in suburbs of Boston.
+
+5. Number of Instances: 506
+
+6. Number of Attributes: 13 continuous attributes (including "class"
+                         attribute "MEDV"), 1 binary-valued attribute.
+
+7. Attribute Information:
+
+    1. CRIM      per capita crime rate by town
+    2. ZN        proportion of residential land zoned for lots over 
+                 25,000 sq.ft.
+    3. INDUS     proportion of non-retail business acres per town
+    4. CHAS      Charles River dummy variable (= 1 if tract bounds 
+                 river; 0 otherwise)
+    5. NOX       nitric oxides concentration (parts per 10 million)
+    6. RM        average number of rooms per dwelling
+    7. AGE       proportion of owner-occupied units built prior to 1940
+    8. DIS       weighted distances to five Boston employment centres
+    9. RAD       index of accessibility to radial highways
+    10. TAX      full-value property-tax rate per $10,000
+    11. PTRATIO  pupil-teacher ratio by town
+    12. B        1000(Bk - 0.63)^2 where Bk is the proportion of blacks 
+                 by town
+    13. LSTAT    % lower status of the population
+    14. MEDV     Median value of owner-occupied homes in $1000's
+
+8. Missing Attribute Values:  None.
+
+""")
 
 # ╔═╡ e9cd47bf-fab3-4b82-b6e2-7e21e242690f
 md"""
@@ -298,7 +373,7 @@ continuous4 = names(housing4, Float64)
 
 # ╔═╡ 9753a6ce-8e98-4a62-951f-8f79b2106940
 md"""
-Plot histogram again
+Plot histogram again.
 We see that now distributions of variables look better
 """
 
@@ -1482,7 +1557,8 @@ version = "0.9.1+5"
 # ╟─a741f424-3d49-4ce0-89ab-bd2bc43adf49
 # ╠═289ed25b-514c-4edf-8c5e-154914805786
 # ╟─61aa2ea3-46a6-4c43-8c71-7733cd4b19b4
-# ╟─38068443-2487-44dd-b4e1-b4f5bf4198e6
+# ╠═38068443-2487-44dd-b4e1-b4f5bf4198e6
+# ╟─d9ccd871-c13e-45f8-8da2-e46385993c7d
 # ╟─e9cd47bf-fab3-4b82-b6e2-7e21e242690f
 # ╠═82637688-1185-4747-8562-58a52dd0d776
 # ╟─a90c83bd-93c4-4d67-a8e1-1d18e343dd1b
