@@ -1,8 +1,21 @@
 ### A Pluto.jl notebook ###
-# v0.17.1
+# v0.18.1
 
 using Markdown
 using InteractiveUtils
+
+# ╔═╡ 35e6b686-2daa-40f6-b348-6987406ba95b
+begin
+html"""<style>
+		main {
+			max-width: 900px;
+		}
+		"""
+	
+	using Logging
+	global_logger(NullLogger())
+	display("")
+end
 
 # ╔═╡ 289ed25b-514c-4edf-8c5e-154914805786
 begin
@@ -27,15 +40,6 @@ md"""
 md"""
 *This material is adapted from the workshop by Bogumił Kamiński titled  "JuliaCon 2021: DataFrames.jl 1.3 tutorial for Julia 1.7" and available on [Github](https://github.com/bkamins/JuliaCon2021-DataFrames-Tutorial)*
 """
-
-# ╔═╡ 35e6b686-2daa-40f6-b348-6987406ba95b
-begin
-html"""<style>
-		main {
-			max-width: 900px;
-		}
-		"""
-end
 
 # ╔═╡ a741f424-3d49-4ce0-89ab-bd2bc43adf49
 md"""
@@ -92,7 +96,7 @@ md"""
   - lfp: labour force participation ?
   - lnnlinc: the log of nonlabour income
   - age: age in years divided by 10
-  - educ: educ years of formal education
+  - educ: years of formal education
   - nyc: the number of young children (younger than 7)
   - noc: number of older children
   - foreign: foreigner ?
@@ -212,7 +216,7 @@ end
 
 # ╔═╡ fdad70e5-c5ca-4773-b852-20a1f69ff190
 md"""
-- In the previous Pluto cell the `namese(df,Real)` takes all the column names, but keeps only numeric columns.
+- In the previous Pluto cell the `names(df,Real)` takes all the column names, but keeps only numeric columns.
 """
 
 # ╔═╡ 68630364-7add-41af-8fb3-f66bf403d9d4
@@ -421,6 +425,7 @@ Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 GLM = "38e38edf-8417-5370-95a0-9cbb8c7f171a"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
@@ -1001,7 +1006,7 @@ uuid = "38a345b3-de98-5d2b-a5d3-14cd9215e700"
 version = "2.36.0+0"
 
 [[LinearAlgebra]]
-deps = ["Libdl"]
+deps = ["Libdl", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[LogExpFunctions]]
@@ -1215,7 +1220,7 @@ deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 
 [[Random]]
-deps = ["Serialization"]
+deps = ["SHA", "Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [[Ratios]]
@@ -1604,6 +1609,10 @@ git-tree-sha1 = "5982a94fcba20f02f42ace44b9894ee2b140fe47"
 uuid = "0ac62f75-1d6f-5e53-bd7c-93b484bb37c0"
 version = "0.15.1+0"
 
+[[libblastrampoline_jll]]
+deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
+uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
+
 [[libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "daacc84a041563f965be61859a36e17c4e4fcd55"
@@ -1718,7 +1727,7 @@ version = "0.9.1+5"
 # ╠═0dfcaf2e-797c-4fd8-b6ac-a2a4b129f10b
 # ╟─24ab7511-948d-4f66-a58d-e8ffe0565e9e
 # ╠═e5ff9c0a-5464-4d6b-b11c-d6bfa4ae730b
-# ╠═424660c4-5b8d-4cf4-a987-112d7217d6fb
+# ╟─424660c4-5b8d-4cf4-a987-112d7217d6fb
 # ╠═440b7ce9-daa1-4f82-8267-b79dc94546f8
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

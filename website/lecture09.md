@@ -1,11 +1,10 @@
 
 ~~~
-<h1>TBD</h1>
+<h1>Portfolio Mathematics</h1>
 ~~~
-
 
 Topic | Slides
 :-----: | :--------:
-TBD   | [PDF slides](../assets/slides/main_00.pdf)
-
+Portfolio Mathematics           | [notebook](../lecture09_noSol_pluto)
+<!--  -->
 
