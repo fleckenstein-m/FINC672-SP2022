@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.2
+# v0.18.1
 
 using Markdown
 using InteractiveUtils
@@ -131,15 +131,15 @@ Define URL to Boston Housing data and expected SHA1.
 """
 
 # ╔═╡ 82637688-1185-4747-8562-58a52dd0d776
-# begin
-# const HOUSING_URL = "https://archive.ics.uci.edu/ml/" *
-#                     "machine-learning-databases/housing/housing.data"
-# const HOUSING_NAME = "housing.txt"
-# const HOUSING_SHA1 = [0xad, 0xfa, 0x6b, 0x6d, 0xca,
-#                       0x24, 0xa6, 0x3f, 0xe1, 0x66,
-#                       0xa9, 0xe7, 0xfa, 0x01, 0xce,
-#                       0xe4, 0x33, 0x58, 0x57, 0xd1]
-# end
+begin
+const HOUSING_URL = "https://archive.ics.uci.edu/ml/" *
+                    "machine-learning-databases/housing/housing.data"
+const HOUSING_NAME = "housing.txt"
+const HOUSING_SHA1 = [0xad, 0xfa, 0x6b, 0x6d, 0xca,
+                      0x24, 0xa6, 0x3f, 0xe1, 0x66,
+                      0xa9, 0xe7, 0xfa, 0x01, 0xce,
+                      0xe4, 0x33, 0x58, 0x57, 0xd1]
+end
 
 # ╔═╡ a90c83bd-93c4-4d67-a8e1-1d18e343dd1b
 md"""
@@ -147,12 +147,12 @@ Download Boston Housing data (check that it does not already exist).
 """
 
 # ╔═╡ 67e6bde3-fc86-4faa-983f-aae78cf8fd85
-# if isfile(HOUSING_NAME)
-#     @info "$HOUSING_NAME found. Skipping download."
-# else
-#     @info "$HOUSING_NAME not found. Fetching from source."
-#     Downloads.download(HOUSING_URL, HOUSING_NAME)
-# end
+if isfile(HOUSING_NAME)
+    @info "$HOUSING_NAME found. Skipping download."
+else
+    @info "$HOUSING_NAME not found. Fetching from source."
+    Downloads.download(HOUSING_URL, HOUSING_NAME)
+end
 
 # ╔═╡ a38f5516-8ea9-4c0b-8ccf-bb7d42336f3f
 md"""
@@ -160,11 +160,11 @@ Check SHA1 of Boston Housing file
 """
 
 # ╔═╡ 7f8337cc-dd6c-4cbf-b935-b47cd5075b29
-# if HOUSING_SHA1 == open(SHA.sha1, HOUSING_NAME)
-#     @info "SHA1 check of $HOUSING_NAME passed."
-# else
-#     error("$HOUSING_NAME file has an invalid SHA1. Aborting!")
-# end
+if HOUSING_SHA1 == open(SHA.sha1, HOUSING_NAME)
+    @info "SHA1 check of $HOUSING_NAME passed."
+else
+    error("$HOUSING_NAME file has an invalid SHA1. Aborting!")
+end
 
 # ╔═╡ 02703949-e389-48f7-89e7-d22da0f3aa42
 md"""
@@ -172,7 +172,8 @@ Read Boston Housing CSV
 """
 
 # ╔═╡ 7ee25d9b-5881-4214-b758-6c69fde794e6
-
+housing_ref = CSV.read(HOUSING_NAME, DataFrame,
+				header = [:CRIM, :ZN, :INDUS, :CHAS, :NOX, :RM, :AGE, :DIS, :RAD, :TAX, :PTRATIO, :B, :LSTAT, :MEDV], delim=' ', ignorerepeated=true, tasks=1)
 
 
 # ╔═╡ 8d280fb0-6a98-4906-a8ac-5273cd502b6c
@@ -182,7 +183,7 @@ In doing this, we avoid having to reload the data in case of errors.
 """
 
 # ╔═╡ ea73296e-a835-407c-be99-7caf3aafb0a9
-
+housing = copy(housing_ref)
 
 # ╔═╡ ba561e50-2923-44f3-8e82-be75258ba2e5
 md"""
@@ -190,7 +191,7 @@ Check basic statistics of all columns
 """
 
 # ╔═╡ b2a65696-7554-4d62-8956-2442345f1cb4
-
+describe(housing)
 
 # ╔═╡ 63552636-04c1-40be-b3fc-b07689e55d90
 md"""
@@ -198,7 +199,7 @@ Find nominal variables (output of `describe(housing)` suggests that integer colu
 """
 
 # ╔═╡ 06a3a5e8-19e1-4d39-8e63-e6a45c2f1d7c
-
+nominal = names(housing, Int)
 
 # ╔═╡ 96da804b-1b29-4d92-8270-00c59a2bc348
 md"""
@@ -206,7 +207,7 @@ Find continuous variables
 """
 
 # ╔═╡ 9e5f9f7e-706b-42c6-a69e-67aaffd3c9e3
-
+continuous = names(housing, Float64)
 
 # ╔═╡ 84b7e96f-4cfe-4b2c-8e4a-f8c5e5460980
 md"""
@@ -214,7 +215,9 @@ Inspect distribution of nominal variables
 """
 
 # ╔═╡ 55d89585-1ec5-46af-a887-0471e7fcdda4
-
+with_terminal() do
+	foreach(name -> println("\n", proptable(housing, name)),nominal )
+end
 
 # ╔═╡ d0207cfd-5694-4c28-bf5d-3663d0b34d73
 md"""
@@ -224,7 +227,7 @@ Check distributions of numeric features
 """
 
 # ╔═╡ 39275235-3445-4d5b-bc05-3da45868540f
-
+histogram_helper(column_name) = histogram(housing[!,column_name], xlabel=column_name, legend=false )
 
 # ╔═╡ e009a2ae-5a86-466b-95c8-9506a5e503dd
 md"""
@@ -232,7 +235,7 @@ Compose a grid of histograms in a single plot
 """
 
 # ╔═╡ d54ae754-1995-424e-b198-980eb6fd4c79
-
+plot(map(x->histogram_helper(x), continuous)..., layout=grid(3,4), size=(800,500))
 
 # ╔═╡ ab278310-4624-4846-9598-09970dfd6075
 md"""
@@ -240,7 +243,7 @@ Check the frequency table of the `MEDV` variable
 """
 
 # ╔═╡ c87e2da4-645a-4ebe-b122-e68365ef00c1
-
+freqtable(housing, :MEDV)
 
 # ╔═╡ d0a78b80-9db9-4190-9980-73fcc4b74398
 md"""
@@ -254,7 +257,7 @@ Remove rows from housing in-place. Note that 16 rows were removed.
 """
 
 # ╔═╡ 35091078-5019-4cfd-8ccf-a8274e77cb32
-
+housing2 = filter(:MEDV => <(50.0),housing)
 
 # ╔═╡ 6b03bcf6-d181-4593-98d6-4ad8feb31de7
 md"""
@@ -262,7 +265,10 @@ Get continuous variables and nominal variables from modified dataset.
 """
 
 # ╔═╡ df76827f-f9e5-4cc0-8503-7013e62744ae
-
+begin
+	continuous2 = names(housing2, Float64)
+	nominal2 = names(housing2, Int)
+end
 
 # ╔═╡ 978412e1-0c2a-4168-b420-80c853b15783
 md"""
@@ -270,10 +276,12 @@ Check variables distributions after filtering the observations
 """
 
 # ╔═╡ 1acdabd5-6651-428c-80a1-f04e06c125a4
-
+histogram_helper2(column_name) = histogram(housing2[!,column_name], xlabel=column_name, legend=false)
 
 # ╔═╡ d5537030-1f2d-4f02-b3bb-4ac99189018b
-
+begin
+	p2 = plot(map(x-> histogram_helper2(x), continuous2)..., layout=grid(3,4), size=(800,500))
+end
 
 # ╔═╡ a81de469-1336-4275-a840-5a83d324e86c
 md"""
@@ -281,7 +289,7 @@ Calculate Kendall's correlation
 """
 
 # ╔═╡ 5973fae0-46b6-49bf-b8f7-c10102eb3796
-
+housing_cor2 = corkendall(Matrix(housing2))
 
 # ╔═╡ 9e089818-71bd-42f7-994d-607b0f959e6d
 md"""
@@ -290,7 +298,7 @@ Recall that `MEDV` is the last variable in our data set
 """
 
 # ╔═╡ dc0fb197-61cb-4489-afff-b6f0cbf0571b
-
+ord = sortperm(housing_cor2[:,end])
 
 # ╔═╡ fb75aa10-0b69-4bcf-a6c5-061724248650
 md"""
@@ -298,7 +306,7 @@ Plot a heatmap, where both axis labels and correlation matrix are reordered by c
 """
 
 # ╔═╡ d2f6f37b-47d3-4f8b-b860-f92f63ba91ec
-
+heatmap(names(housing2)[ord], names(housing2)[ord], housing_cor2[ord,ord], c=:balance, size=(800,500))
 
 # ╔═╡ e73cab91-af57-4ade-94a1-1e0e06885544
 md"""
@@ -306,7 +314,7 @@ Get information on absolute value of correlation
 """
 
 # ╔═╡ f78099b1-f047-4cb3-9acc-8959e0697e14
-
+sort(DataFrame(variable=names(housing2), cor=housing_cor2[:,end]), :cor, by=abs)
 
 # ╔═╡ 78b2b5d5-39b3-45ec-81b3-291946a4ccc8
 md"""
@@ -314,10 +322,12 @@ Also check the relation of continuous variables visually on scatterplots
 """
 
 # ╔═╡ 59055848-6d15-419f-a68c-a1b2e6408a47
-
+begin
+	scatter_helper(column_name) = scatter(housing2[!, column_name], housing2.MEDV, xlabel=column_name, legend=false, smooth=true, ms=1)
+end
 
 # ╔═╡ ac83bda0-36d6-48ae-8b9d-044d52e8693e
-
+plot(map(x-> scatter_helper(x), continuous2)..., layout=grid(3,4), size=(800,500))
 
 # ╔═╡ 62c1cdbd-441f-41bb-b2ac-e1d5787b210e
 md"""
@@ -326,7 +336,7 @@ Again, we do an in-place operation
 """
 
 # ╔═╡ b16d66a9-8790-43d1-90cb-f813cf89975b
-
+housing3  = select(housing2, Not(:B))
 
 # ╔═╡ e8d26efa-4b45-4de0-8253-bd0ef9b03bba
 md"""
@@ -335,7 +345,7 @@ Also bin ZN variable
 """
 
 # ╔═╡ e0cd567e-cae3-4d20-8c3c-62cc6ae6c9d0
-
+housing4 = transform(housing3, :CRIM => ByRow(log), :ZN => ByRow(>(0)), renamecols=false)
 
 # ╔═╡ 479a1152-53ba-4f96-8889-71b56585cd02
 md"""
@@ -343,7 +353,7 @@ Recalculate the list of continuous variables
 """
 
 # ╔═╡ 1c04e8ba-db6e-40d0-a58d-86854e4c0988
-
+continous4 = names(housing4, Float64)
 
 # ╔═╡ 9753a6ce-8e98-4a62-951f-8f79b2106940
 md"""
@@ -352,10 +362,10 @@ We see that now distributions of variables look better
 """
 
 # ╔═╡ f8720df3-15a5-41ea-b13c-60ae6916f234
-
+histogram_helper4(column_name) = histogram(housing4[!, column_name], xlabel=column_name, legend=false)
 
 # ╔═╡ 2aafd10a-8fd1-410a-a257-8e6a38e2bc00
-
+plot(map(x-> histogram_helper4(x), continous4)..., layout=grid(2,5), size=(800,500))
 
 # ╔═╡ bb991cc4-c6e4-4f74-bfbc-74143b6ef883
 md"""
@@ -371,7 +381,10 @@ Declare auxilary function for calculating bootstrap 90% confidence interval
 """
 
 # ╔═╡ 229b8d54-1815-427a-8aa9-bc4fc82de47a
-
+function gen_meanCI(x)
+	boot = [mean(rand(x,length(x))) for _ in 1:10_000]
+	return (mean=mean(x), q5=quantile(boot,0.05), q95=quantile(boot,0.95))
+end
 
 # ╔═╡ 5fd20ea1-ec4b-4f9d-9804-e554131f4a5f
 md"""
@@ -379,7 +392,7 @@ Mean and 90% CI ends per group for `CHAS` variable
 """
 
 # ╔═╡ 5148e04c-d058-4a25-934b-9cce3d56a764
-
+mean_chas = combine(groupby(housing4, :CHAS, sort=true), :MEDV => gen_meanCI => AsTable)
 
 # ╔═╡ 7afe811e-e825-422d-8aab-e1482bec8447
 md"""
@@ -387,7 +400,7 @@ Mean and 90% CI ends per group for :RAD variable
 """
 
 # ╔═╡ 75523a6b-4af0-4791-9152-384975406f70
-
+mean_rad = combine(groupby(housing4, :RAD, sort=true), :MEDV => gen_meanCI => AsTable)
 
 # ╔═╡ 8ec53756-3876-44d4-8c39-50a6689368ed
 md"""
@@ -395,7 +408,7 @@ Mean and 90% CI ends per group for :ZN variable
 """
 
 # ╔═╡ 84508cb9-ec96-4eb7-abc8-8ec8a85e9a14
-
+mean_zn = combine( groupby(housing4, :ZN, sort=true), :MEDV => gen_meanCI => AsTable)
 
 # ╔═╡ f19d5a95-27d1-4b9e-9f72-42b96fa02177
 md"""
@@ -404,7 +417,7 @@ You could use @df macro from StatsPlots.jl package to save you some typing here
 """
 
 # ╔═╡ 8baadd0a-68cc-4b5c-9474-000f5fd14ca7
-
+plot(mean_chas.CHAS, mean_chas.mean, yerror=(mean_chas.mean - mean_chas.q5, mean_chas.q95 - mean_chas.mean), label=nothing, title="CHAS", seriestype=:scatter)
 
 # ╔═╡ 3d0f2ff8-c5b9-43bd-b5e8-e41bbecfba5a
 md"""
