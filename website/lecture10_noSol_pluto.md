@@ -1,0 +1,1 @@
+{{ plutonotebookpage  ../notebooks/lecture_10/lecture_10_noSol.jl }}
