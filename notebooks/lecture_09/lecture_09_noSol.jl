@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.2
+# v0.18.1
 
 using Markdown
 using InteractiveUtils
@@ -293,7 +293,19 @@ Let's look at an example where we have a stock with three price observations.
 
 # ╔═╡ 6c19fbf2-342d-48ff-97d7-983bb1ae1122
 let
+	P = [100, 108, 109]
+	D = [0, 2, 0]
 
+	R = zeros(length(P))
+	for t=2:length(P)
+		R[t] = (P[t]+D[t])/P[t-1] - 1
+	end
+	popfirst!(R)
+
+	with_terminal() do
+		printmat(R*100,colNames=["return, %"],rowNames=2:3, cell00="period", width=15 )
+	end
+		
 end
 
 # ╔═╡ 75007c57-94e8-49fc-8bbb-3d39d6207fa2
@@ -314,6 +326,14 @@ If the return series is an excess return, add the riskfree rate to convert it to
 
 # ╔═╡ c1a5ff0e-ce5e-4390-bed7-af5be140a145
 let
+	R = [20, -35, 25]/100
+	V = cumprod(1 .+ R)
+	lnV = cumsum( log.(1.0 .+ R) )
+	expLnV = exp.(lnV)
+
+	with_terminal() do
+		printmat(R,V,lnV,expLnV, colNames=["R","V","lnV","expLnV"], rowNames=1:3, cell00="period")
+	end
 	
 end
 
@@ -337,22 +357,66 @@ $$\text{Cov}(R_q,R_p) = v'\Sigma w$$.
 
 # ╔═╡ e89ecb62-4c0f-4266-863b-529694cca1c0
 let
+	w = [0.8, 0.2]
+	R = [10, 5]/100
+	Rp = w'R
+	with_terminal() do
+		printred("Portfolio Weights")
+		printmat(w,rowNames=["asset 1","asset 2"])
+
+		printred("Returns:")
+		printmat(R, rowNames=["asset 1","asset 2"])
+
+		printred("Portfolio return:")
+		printlnPs(Rp)
+		
+	end
 	
 end
 
 # ╔═╡ 3369be71-2a11-4dc8-8d1b-d2b1d7749c5f
 let
-	
+	μ = [9, 6]/100
+	Σ = [256 96;
+	     96 144]/100^2
+
+	with_terminal() do
+		printblue("expected returns*100")
+		printmat(μ*100,rowNames=["asset 1","asset 2"])
+
+		printblue("covariance matrix*100^2")
+		printmat(Σ*100^2, rowNames=["asset 1","asset 2"], colNames=["asset 1","asset 2"])
+	end
 end
 
 # ╔═╡ 4dece1db-3305-4b94-8a1b-f5c833d67444
 let
+	w = [0.8, 0.2]
+	R = [10,5]/100
+	μ = [9, 6]/100
+	Σ = [256 96;
+	     96 144]/100^2
+	ERp = w'μ
+	VarRp = w'Σ*w
 	
+	with_terminal() do
+		printlnPs("Expected portfolio return:", ERp)
+		printlnPs("Portfolio variance and std", VarRp, sqrt(VarRp))
+	end
 end
 
 # ╔═╡ e5318e00-c074-4074-8eb4-3245ceceb4c4
 let
+	w = [0.8, 0.2]
+	μ = [9, 6]/100
+	Σ = [256 -96;
+	     -96 144]/100^2
+	ERp = w'μ
+	VarRp = w'Σ*w
 	
+	with_terminal() do
+		printlnPs("Portfolio variance and std", VarRp, sqrt(VarRp))
+	end
 end
 
 # ╔═╡ c537a2e6-114f-4a86-9323-cc7e7b94ceb3
@@ -373,7 +437,7 @@ md"""
 """
 
 # ╔═╡ 2a18e0ef-4332-4a11-af9f-3efea3f8f69d
- 
+ CRSP = DataFrame(CSV.File("CRSP_monthly.csv", ntasks=1))
 
 # ╔═╡ ad26e54b-85b1-4631-b1ed-531873ba712a
 md"""
