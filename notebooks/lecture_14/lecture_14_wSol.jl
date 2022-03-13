@@ -1,637 +1,720 @@
 ### A Pluto.jl notebook ###
-# v0.17.2
+# v0.18.1
 
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ fed4473e-8e0c-41cc-acfc-8cd4f4f4d06a
-using CSV, DataFrames, Plots, LaTeXStrings, PlutoUI, Printf, Statistics, LinearRegressionKit, StatsModels
-
-# ╔═╡ c43df4a3-a1d8-433e-9a1c-f7c0984be879
+# ╔═╡ 8b90477d-5887-49bd-bcf3-d2d7276885af
 begin
-  gr(size=(480,320))
+using CSV, DataFrames, Dates, Plots, LaTeXStrings, LinearAlgebra, LinearRegressionKit, PlutoUI, Printf,  StatsBase, Statistics, StatsModels
+	
+	gr(size=(480,320))
+end
+
+# ╔═╡ 653d8f23-3a60-4778-897d-c092106ce20d
+using Convex, SCS
+
+# ╔═╡ 3820a86d-fefa-43ca-a308-40d9ff2b3599
+begin
+
 		
-# The following code is by Paul Soederlind
-# https://sites.google.com/site/paulsoderlindecon/home
+	# The following code is by Paul Soederlind
+	# https://sites.google.com/site/paulsoderlindecon/home
+		
+		#------------------------------------------------------------------------------
+	"""
+	    printmat([fh::IO],x...;colNames=[],rowNames=[],
+	             width=10,prec=3,NoPrinting=false,StringFmt="",cell00="")
+	
+	Print all elements of a matrix (or several) with predefined formatting. It can also handle
+	OffsetArrays. StringFmt = "csv" prints using a csv format.
+	
+	# Input
+	- `fh::IO`:            (optional) file handle. If not supplied, prints to screen
+	- `x::Array(s)`:       (of numbers, dates, strings, ...) to print
+	- `colNames::Array`:   of strings with column headers
+	- `rowNames::Array`:   of strings with row labels
+	- `width::Int`:        (keyword) scalar, minimum width of printed cells
+	- `prec::Int`:         (keyword) scalar, precision of printed cells
+	- `NoPrinting::Bool`:  (keyword) bool, true: no printing, just return formatted string [false]
+	- `StringFmt::String`: (keyword) string, "", "csv"
+	- `cell00::String`:    (keyword) string, for row 0, column 0
+	
+	# Output
+	- str         (if NoPrinting) string, (otherwise nothing)
+	
+	# Examples
+	```
+	x = [11 12;21 22]
+	printmat(x)
+	```
+	```
+	x = [1 "ab"; Date(2018,10,7) 3.14]
+	printmat(x,width=20,colNames=["col 1","col 2"])
+	```
+	```
+	printmat([11,12],[21,22])
+	```
+	Can also call as
+	```
+	opt = Dict(:rowNames=>["1";"4"],:width=>10,:prec=>3,:NoPrinting=>false,:StringFmt=>"")
+	printmat(x;colNames=["a","b"],opt...)     #notice ; and ...
+	```
+	(not all keywords are needed)
+	
+	# Requires
+	- fmtNumPs
+	
+	# Notice
+	- The prefixN and suffixN could potentially be made function inputs. This would allow
+	a fairly flexible way to format tables.
+	
+	
+	Paul.Soderlind@unisg.ch
+	
+	"""
+	function printmat(fh::IO,x...;colNames=[],rowNames=[],
+	                  width=10,prec=3,NoPrinting=false,StringFmt="",cell00="")
+	
+	  isempty(x) && return nothing                         #do nothing is isempty(x)
+	
+	  typeTestQ = any(!=(eltype(x[1])),[eltype(z) for z in x])  #test if eltype(x[i]) differs
+	  if typeTestQ                                      #create matrix from tuple created by x...
+	    x = hcat(Matrix{Any}(hcat(x[1])),x[2:end]...)   #preserving types of x[i]
+	  else
+	    x = hcat(x...)
+	  end
+	
+	  (m,n) = (size(x,1),size(x,2))
+	
+	  (length(rowNames) == 1 < m) && (rowNames = [string(rowNames[1],i) for i = 1:m])  #"ri"
+	  (length(colNames) == 1 < n) && (colNames = [string(colNames[1],i) for i = 1:n])  #"ci"
+	
+	  if StringFmt == "csv"
+	    (prefixN,suffixN)   = (fill("",n),vcat(fill(",",n-1),""))  #prefix and suffix for column 1:n
+	    (prefixC0,suffixC0) = ("",",")                             #prefix and suffix for column 0
+	  else
+	    (prefixN,suffixN) = (fill("",n),fill("",n))
+	    (prefixC0,suffixC0) = ("","")
+	  end
+	
+	  if length(rowNames) == 0                         #width of column 0 (cell00 and rowNames)
+	    col0Width = 0
+	  else
+	    col0Width = maximum(length,vcat(cell00,rowNames)) + length(prefixC0) + length(suffixC0)
+	  end
+	
+	  colWidth = [width + length(prefixN[j]) + length(suffixN[j]) for j=1:n]  #widths of column 1:n
+	
+	  iob = IOBuffer()
+	
+	  if !isempty(colNames)                                #print (cell00,colNames), if any
+	    !isempty(cell00) ?  txt0 = string(prefixC0,cell00,suffixC0) : txt0 = ""
+	    print(iob,rpad(txt0,col0Width))
+	    for j = 1:n                                #loop over columns
+	      print(iob,lpad(string(prefixN[j],colNames[j],suffixN[j]),colWidth[j]))
+	    end
+	    print(iob,"\n")
+	  end
+	                                                       #print rowNames and x
+	  (i0,j0) = (1 - first(axes(x,1)),1 - first(axes(x,2)))   #i+i0,j+j0 give traditional indices
+	  for i in axes(x,1)                           #loop over rows
+	    !isempty(rowNames) && print(iob,rpad(string(prefixC0,rowNames[i+i0],suffixC0),col0Width))
+	    for j in axes(x,2)                         #loop over columns
+	      print(iob,fmtNumPs(x[i,j],width,prec,"right",prefix=prefixN[j+j0],suffix=suffixN[j+j0]))
+	    end
+	    print(iob,"\n")
+	  end
+	  str = String(take!(iob))
+	
+	  if NoPrinting                              #no printing, just return str
+	    return str
+	  else                                       #print, return nothing
+	    print(fh,str,"\n")
+	    return nothing
+	  end
+	
+	end
+	                        #when fh is not supplied: printing to screen
+	printmat(x...;colNames=[],rowNames=[],width=10,prec=3,NoPrinting=false,StringFmt="",cell00="") =
+	    printmat(stdout::IO,x...;colNames,rowNames,width,prec,NoPrinting,StringFmt,cell00)
+	#------------------------------------------------------------------------------
+	
 	
 	#------------------------------------------------------------------------------
-"""
-    printmat([fh::IO],x...;colNames=[],rowNames=[],
-             width=10,prec=3,NoPrinting=false,StringFmt="",cell00="")
-
-Print all elements of a matrix (or several) with predefined formatting. It can also handle
-OffsetArrays. StringFmt = "csv" prints using a csv format.
-
-# Input
-- `fh::IO`:            (optional) file handle. If not supplied, prints to screen
-- `x::Array(s)`:       (of numbers, dates, strings, ...) to print
-- `colNames::Array`:   of strings with column headers
-- `rowNames::Array`:   of strings with row labels
-- `width::Int`:        (keyword) scalar, minimum width of printed cells
-- `prec::Int`:         (keyword) scalar, precision of printed cells
-- `NoPrinting::Bool`:  (keyword) bool, true: no printing, just return formatted string [false]
-- `StringFmt::String`: (keyword) string, "", "csv"
-- `cell00::String`:    (keyword) string, for row 0, column 0
-
-# Output
-- str         (if NoPrinting) string, (otherwise nothing)
-
-# Examples
-```
-x = [11 12;21 22]
-printmat(x)
-```
-```
-x = [1 "ab"; Date(2018,10,7) 3.14]
-printmat(x,width=20,colNames=["col 1","col 2"])
-```
-```
-printmat([11,12],[21,22])
-```
-Can also call as
-```
-opt = Dict(:rowNames=>["1";"4"],:width=>10,:prec=>3,:NoPrinting=>false,:StringFmt=>"")
-printmat(x;colNames=["a","b"],opt...)     #notice ; and ...
-```
-(not all keywords are needed)
-
-# Requires
-- fmtNumPs
-
-# Notice
-- The prefixN and suffixN could potentially be made function inputs. This would allow
-a fairly flexible way to format tables.
-
-
-Paul.Soderlind@unisg.ch
-
-"""
-function printmat(fh::IO,x...;colNames=[],rowNames=[],
-                  width=10,prec=3,NoPrinting=false,StringFmt="",cell00="")
-
-  isempty(x) && return nothing                         #do nothing is isempty(x)
-
-  typeTestQ = any(!=(eltype(x[1])),[eltype(z) for z in x])  #test if eltype(x[i]) differs
-  if typeTestQ                                      #create matrix from tuple created by x...
-    x = hcat(Matrix{Any}(hcat(x[1])),x[2:end]...)   #preserving types of x[i]
-  else
-    x = hcat(x...)
-  end
-
-  (m,n) = (size(x,1),size(x,2))
-
-  (length(rowNames) == 1 < m) && (rowNames = [string(rowNames[1],i) for i = 1:m])  #"ri"
-  (length(colNames) == 1 < n) && (colNames = [string(colNames[1],i) for i = 1:n])  #"ci"
-
-  if StringFmt == "csv"
-    (prefixN,suffixN)   = (fill("",n),vcat(fill(",",n-1),""))  #prefix and suffix for column 1:n
-    (prefixC0,suffixC0) = ("",",")                             #prefix and suffix for column 0
-  else
-    (prefixN,suffixN) = (fill("",n),fill("",n))
-    (prefixC0,suffixC0) = ("","")
-  end
-
-  if length(rowNames) == 0                         #width of column 0 (cell00 and rowNames)
-    col0Width = 0
-  else
-    col0Width = maximum(length,vcat(cell00,rowNames)) + length(prefixC0) + length(suffixC0)
-  end
-
-  colWidth = [width + length(prefixN[j]) + length(suffixN[j]) for j=1:n]  #widths of column 1:n
-
-  iob = IOBuffer()
-
-  if !isempty(colNames)                                #print (cell00,colNames), if any
-    !isempty(cell00) ?  txt0 = string(prefixC0,cell00,suffixC0) : txt0 = ""
-    print(iob,rpad(txt0,col0Width))
-    for j = 1:n                                #loop over columns
-      print(iob,lpad(string(prefixN[j],colNames[j],suffixN[j]),colWidth[j]))
-    end
-    print(iob,"\n")
-  end
-                                                       #print rowNames and x
-  (i0,j0) = (1 - first(axes(x,1)),1 - first(axes(x,2)))   #i+i0,j+j0 give traditional indices
-  for i in axes(x,1)                           #loop over rows
-    !isempty(rowNames) && print(iob,rpad(string(prefixC0,rowNames[i+i0],suffixC0),col0Width))
-    for j in axes(x,2)                         #loop over columns
-      print(iob,fmtNumPs(x[i,j],width,prec,"right",prefix=prefixN[j+j0],suffix=suffixN[j+j0]))
-    end
-    print(iob,"\n")
-  end
-  str = String(take!(iob))
-
-  if NoPrinting                              #no printing, just return str
-    return str
-  else                                       #print, return nothing
-    print(fh,str,"\n")
-    return nothing
-  end
-
-end
-                        #when fh is not supplied: printing to screen
-printmat(x...;colNames=[],rowNames=[],width=10,prec=3,NoPrinting=false,StringFmt="",cell00="") =
-    printmat(stdout::IO,x...;colNames,rowNames,width,prec,NoPrinting,StringFmt,cell00)
-#------------------------------------------------------------------------------
-
-
-#------------------------------------------------------------------------------
-"""
-    printlnPs([fh::IO],z...;width=10,prec=3)
-
-Subsitute for println, with predefined formatting.
-
-
-# Input
-- `fh::IO`:    (optional) file handle. If not supplied, prints to screen
-- `z::String`: string, numbers and arrays to print
-
-Paul.Soderlind@unisg.ch
-
-"""
-function printlnPs(fh::IO,z...;width=10,prec=3)
-
-  for x in z                              #loop over inputs in z...
-    if isa(x,AbstractArray)
-      iob = IOBuffer()
-      for i = 1:length(x)
-        print(iob,fmtNumPs(x[i],width,prec,"right"))
-      end
-      print(fh,String(take!(iob)))
-    else
-      print(fh,fmtNumPs(x,width,prec,"right"))
-    end
-  end
-
-  print(fh,"\n")
-
-end
-                      #when fh is not supplied: printing to screen
-printlnPs(z...;width=10,prec=3) = printlnPs(stdout::IO,z...;width,prec)
-#------------------------------------------------------------------------------
-
-
-#------------------------------------------------------------------------------
-"""
-    fmtNumPs(z,width=10,prec=2,justify="right";prefix="",suffix="")
-
-Create a formatted string of a float (eg, "%10.4f"), nothing (""),
-while other values are passed through. Strings are right (or left) justified
-and can optionally be given prefix and suffix (eg, ",")
-
-# Notice
-- With prec > 0 and isa(z,Integer), then the string is padded with 1+prec spaces
-to align with the printing of floats with the same prec.
-
-# Requires
-- Printf (for 1.6-), fmtNumPsC (for < 1.6)
-
-"""
-function fmtNumPs(z,width=10,prec=2,justify="right";prefix="",suffix="")
-
-  isa(z,Bool) && (z = convert(Int,z))             #Bool -> Int
-
-  if isa(z,AbstractFloat)                         #example: 101.0234, prec=3
-    if VERSION < v"1.6-"
-      fmt    = "%$(width).$(prec)f"
-      zRound = round(z,digits=prec)
-      strLR  = fmtNumPsC(fmt,zRound)                #C fallback solution
-    else
-      fmt   = Printf.Format("%$(width).$(prec)f")
-      strLR = Printf.format(fmt,z)
-    end
-  elseif isa(z,Nothing)
-    strLR = ""
-  elseif isa(z,Integer) && prec > 0               #integer followed by (1+prec spaces)
-    strLR = string(z," "^(1+prec))
-  else                                            #Int, String, Date, Missing, etc
-    strLR = string(z)
-  end
-
-  strLR = string(prefix,strLR,suffix)
-
-  if justify == "left"                            #justification
-    strLR = rpad(strLR,width+length(prefix)+length(suffix))
-  else
-    strLR = lpad(strLR,width+length(prefix)+length(suffix))
-  end
-
-  return strLR
-
-end
-#------------------------------------------------------------------------------
-
-
-#------------------------------------------------------------------------------
-"""
-    fmtNumPsC(fmt,z)
-
-c fallback solution for formatting of floating point number. Used if VERSION < v"1.6-"
-"""
-function fmtNumPsC(fmt,z)                           #c fallback solution
-  if ismissing(z) || isnan(z) || isinf(z)    #asprintf does not work for these cases
-    str = string(z)
-  else
-    strp = Ref{Ptr{Cchar}}(0)
-    len = ccall(:asprintf,Cint,(Ptr{Ptr{Cchar}},Cstring,Cdouble...),strp,fmt,z)
-    str = unsafe_string(strp[],len)
-    Libc.free(strp[])
-  end
-  return str
-end
-#------------------------------------------------------------------------------
-
-
-#------------------------------------------------------------------------------
-function printblue(x...)
-  foreach(z->printstyled(z,color=:blue,bold=true),x)
-  print("\n")
-end
-function printred(x...)
-  foreach(z->printstyled(z,color=:red,bold=true),x)
-  print("\n")
-end
-function printmagenta(x...)
-  foreach(z->printstyled(z,color=:magenta,bold=true),x)
-  print("\n")
-end
-function printyellow(x...)
-  foreach(z->printstyled(z,color=:yellow,bold=true),x)
-  print("\n")
-end
-#------------------------------------------------------------------------------
-
+	"""
+	    printlnPs([fh::IO],z...;width=10,prec=3)
 	
-#using Logging
-#global_logger(NullLogger())
+	Subsitute for println, with predefined formatting.
 	
-display("")
+	
+	# Input
+	- `fh::IO`:    (optional) file handle. If not supplied, prints to screen
+	- `z::String`: string, numbers and arrays to print
+	
+	Paul.Soderlind@unisg.ch
+	
+	"""
+	function printlnPs(fh::IO,z...;width=10,prec=3)
+	
+	  for x in z                              #loop over inputs in z...
+	    if isa(x,AbstractArray)
+	      iob = IOBuffer()
+	      for i = 1:length(x)
+	        print(iob,fmtNumPs(x[i],width,prec,"right"))
+	      end
+	      print(fh,String(take!(iob)))
+	    else
+	      print(fh,fmtNumPs(x,width,prec,"right"))
+	    end
+	  end
+	
+	  print(fh,"\n")
+	
+	end
+	                      #when fh is not supplied: printing to screen
+	printlnPs(z...;width=10,prec=3) = printlnPs(stdout::IO,z...;width,prec)
+	#------------------------------------------------------------------------------
+	
+	
+	#------------------------------------------------------------------------------
+	"""
+	    fmtNumPs(z,width=10,prec=2,justify="right";prefix="",suffix="")
+	
+	Create a formatted string of a float (eg, "%10.4f"), nothing (""),
+	while other values are passed through. Strings are right (or left) justified
+	and can optionally be given prefix and suffix (eg, ",")
+	
+	# Notice
+	- With prec > 0 and isa(z,Integer), then the string is padded with 1+prec spaces
+	to align with the printing of floats with the same prec.
+	
+	# Requires
+	- Printf (for 1.6-), fmtNumPsC (for < 1.6)
+	
+	"""
+	function fmtNumPs(z,width=10,prec=2,justify="right";prefix="",suffix="")
+	
+	  isa(z,Bool) && (z = convert(Int,z))             #Bool -> Int
+	
+	  if isa(z,AbstractFloat)                         #example: 101.0234, prec=3
+	    if VERSION < v"1.6-"
+	      fmt    = "%$(width).$(prec)f"
+	      zRound = round(z,digits=prec)
+	      strLR  = fmtNumPsC(fmt,zRound)                #C fallback solution
+	    else
+	      fmt   = Printf.Format("%$(width).$(prec)f")
+	      strLR = Printf.format(fmt,z)
+	    end
+	  elseif isa(z,Nothing)
+	    strLR = ""
+	  elseif isa(z,Integer) && prec > 0               #integer followed by (1+prec spaces)
+	    strLR = string(z," "^(1+prec))
+	  else                                            #Int, String, Date, Missing, etc
+	    strLR = string(z)
+	  end
+	
+	  strLR = string(prefix,strLR,suffix)
+	
+	  if justify == "left"                            #justification
+	    strLR = rpad(strLR,width+length(prefix)+length(suffix))
+	  else
+	    strLR = lpad(strLR,width+length(prefix)+length(suffix))
+	  end
+	
+	  return strLR
+	
+	end
+	#------------------------------------------------------------------------------
+	
+	
+	#------------------------------------------------------------------------------
+	"""
+	    fmtNumPsC(fmt,z)
+	
+	c fallback solution for formatting of floating point number. Used if VERSION < v"1.6-"
+	"""
+	function fmtNumPsC(fmt,z)                           #c fallback solution
+	  if ismissing(z) || isnan(z) || isinf(z)    #asprintf does not work for these cases
+	    str = string(z)
+	  else
+	    strp = Ref{Ptr{Cchar}}(0)
+	    len = ccall(:asprintf,Cint,(Ptr{Ptr{Cchar}},Cstring,Cdouble...),strp,fmt,z)
+	    str = unsafe_string(strp[],len)
+	    Libc.free(strp[])
+	  end
+	  return str
+	end
+	#------------------------------------------------------------------------------
+	
+	
+	#------------------------------------------------------------------------------
+	function printblue(x...)
+	  foreach(z->printstyled(z,color=:blue,bold=true),x)
+	  print("\n")
+	end
+	function printred(x...)
+	  foreach(z->printstyled(z,color=:red,bold=true),x)
+	  print("\n")
+	end
+	function printmagenta(x...)
+	  foreach(z->printstyled(z,color=:magenta,bold=true),x)
+	  print("\n")
+	end
+	function printyellow(x...)
+	  foreach(z->printstyled(z,color=:yellow,bold=true),x)
+	  print("\n")
+	end
+	#------------------------------------------------------------------------------
+	
+		
+	#using Logging
+	#global_logger(NullLogger())
+		
+	display("")
 	
 end
 
-# ╔═╡ 5fc44a1a-2c5c-4cdf-b2da-4cbc17c8f8a3
-TableOfContents(aside=true, depth=1)
+# ╔═╡ 72cce814-aa8f-4ac8-98c1-f556ce43ed6d
+TableOfContents( indent=true, depth=1, aside=true)
 
-# ╔═╡ 5141ad80-2374-11ec-2455-c7ff63842559
+# ╔═╡ 960b2ed0-2394-11ec-17c0-5bdaeef72b5d
 md"""
-## FINC 672: The Capital Asset Pricing Model (CAPM)
+# FINC 672: Performance Evaluation
+
+- In this notebook, we summarize conventional performance measures for an investment fund. 
+- Then, we perform a "style analysis" to find out how a fund has changed its portfolio weights over time.
+
 """
 
-# ╔═╡ 86379ab2-018c-4038-9d09-a12658f473d5
+# ╔═╡ e7029f0e-832a-4b62-a4f4-09002dbd7159
 md"""
-# The Theoretical Predictions of CAPM
+We are going to use the following dataset in the performance analysis.
+1. S&P 500
+2. S&P MidCap 400
+3. S&P Small Cap 600
+4. World Developed - Ex. U.S.
+5. Emerging Markets
+6. US Corporate Bonds
+7. U.S. Treasury Bills	
+8. US Treasury	Bonds/Notes
+9. Putnam Asset Allocation: Growth A
+10. Vanguard Wellington Mutual Fund
 
-In this lecture, we will study the theoretical predictions of CAPM by taking the following steps:
-
-1. define a set of investable assets
-2. find the tangency portfolio
-3. calculate the betas of each asset against the tangency portfolio
-4. check whether the average returns are in accordance with CAPM.
-
-Let's start with three assets.
+This dataset is provided to you in the file `lecture_14_PerfEval.csv` (available on Canvas).
 """
 
-# ╔═╡ 72c219a7-1c04-4678-988c-8f17674d9d75
+# ╔═╡ ba9c36aa-e791-4411-85f6-5c230d19b017
 md"""
-# Characteristics of Three Assets: 
-Means and Covariances
+## The Idea behind Performance Evaluation
+
+- Traditional performance analysis tries to answer the following question: “should we include an asset in our portfolio, assuming that future returns will have the same distribution as in a historical sample.” 
+
+- Since returns are random variables (although with different means, variances, etc.) and investors are risk averse, this means that performance analysis will typically not rank the fund with the highest return (in a historical sample) first.
+
+- Although that high return certainly was good for the old investors, it is more interesting to understand what kind of distribution of future returns this investment strategy might entail. In short, the high return will be compared with the risk of the strategy.
+
+- Most performance measures are based on mean-variance (MV) analysis, but the full MV portfolio choice problem is not solved. Instead, the performance measures can be seen as different approximations of the MV problem, where the issue is whether we should invest in fund `p` or in fund `q`. (We don’t allow a mix of them.) 
+
+- There are several popular performance measures, corresponding to different situations: is this an investment of your entire wealth, or just a small increment? 
+  - However, all these measures are (increasing) functions of Jensen’s alpha, the intercept in the CAPM regression.
+
+
 """
 
-# ╔═╡ 652dc6ae-6f9d-4ebd-9251-00821a8ee09d
-begin
-	μ = [0.115, 0.095, 0.06]    #expected returns
-	Σ = [166  34  58;           #covariance matrix
-		  34  64   4;
-		  58   4 100]/100^2
-	Rf = 0.03
-
-	assetNames = ["A","B","C"]
-
-	with_terminal() do
-		printred("expected returns:")
-		printmat(μ,rowNames=assetNames)
-		printred("covariance matrix:")
-		printmat(Σ,colNames=assetNames,rowNames=assetNames)
-	end
-end
-
-# ╔═╡ 74e6c915-5dca-4c84-a890-0b829ba6cd92
+# ╔═╡ 833249db-8526-4fa1-b136-c48850d7e37f
 md"""
-# The Tangency Portfolio
-
-We will use the same function that we used in lecture 10 to calculate the tangency portfolio.
+## Data
 """
 
-# ╔═╡ 3fca5d0e-c342-4520-867c-917116495ac2
-begin
-"""
-    MVTangencyP(μ,Σ,Rf)
-
-Calculate the tangency portfolio
-"""
-function MVTangencyP(μ,Σ,Rf)           #calculates the tangency portfolio
-    n    = length(μ)
-    μe   = μ .- Rf                    #expected excess returns
-    Σ_1  = inv(Σ)
-    w    = Σ_1 *μe/(ones(n)'Σ_1*μe)
-    muT  = w'μ + (1-sum(w))*Rf
-    StdT = sqrt(w'Σ*w)
-    return w,muT,StdT                  #portolio weights, mean and std
-end
-
-end
-
-# ╔═╡ 2eb2f178-85b5-49e6-aedd-0ccaa19d2fdc
-begin
-	(wT,μT,σT) = MVTangencyP(μ,Σ,Rf)
+# ╔═╡ c67dda3c-8044-436e-b668-e5c7c8feddaf
+PerfDat = CSV.File("lecture_14_PerfEval.csv") |> DataFrame
 	
-	with_terminal() do
-		printred("Tangency portfolio weights:")
-		printmat(wT,rowNames=assetNames)
-	end
-end
 
-# ╔═╡ 15636226-d021-47de-bc86-83fbd034ad00
+
+# ╔═╡ 4efcb4b6-9000-4db6-b951-37c9c9c9676d
 md"""
-# (Theoretical) β of the Assets
-
-Recall from lecture 10 that the tangency portfolio is a portfolio of the investable assets ($R_T=w_T'R$). 
-It is therefore straightforward to calculate the covariance (and betas) of $R_T$ with each of the assets.
-
-Specifically:
-
-$$\textrm{Cov}(R_i,R_T) = w_i'\Sigma w_T$$ 
-and
-
-$$\beta_i = \textrm{Cov}(R_i,R_T)/\textrm{Var}(R_T).$$
-
+- Let's get some information on the dataset.
 """
 
-# ╔═╡ 87acf96f-490b-4299-a1cd-454e545a4c5d
+# ╔═╡ 3d51f5f0-752d-407e-80e3-7e44849dd76b
+describe(PerfDat, :eltype, :mean, :std, :min, :median, :max, (x->length(collect(skipmissing(x)))) =>:nobs, :nmissing)
+
+# ╔═╡ a2946345-b457-4e02-a3eb-7646a7083058
+md"""
+- Let's take a look at the first six rows.
+"""
+
+# ╔═╡ c02ae1b0-ba3f-4c94-83d8-425af6cf8ed9
+first(PerfDat, 6)
+
+# ╔═╡ c8c2e3c2-d2dc-448e-9d32-8ba29697a1f3
+md"""
+- Let's take a look at the last six rows.
+"""
+
+# ╔═╡ 0580541d-29f0-4731-9ea9-f36494f70516
+last(PerfDat,6)
+
+# ╔═╡ 561f5088-7a2a-47f4-bfbf-6977ae6a27a5
+md"""
+- Let's work with matrices going forward.
+"""
+
+# ╔═╡ fb093381-1109-450b-898e-1a0f87bd54d4
 begin
-	n = length(μ)                      #no. assets
+	x=Matrix(PerfDat)
+	
+	IndNames = names(PerfDat)[2:9]
+	FundNames = names(PerfDat)[10:11]
 
-	β     = fill(NaN,n)
-	for i = 1:n
-		#local wi, CoviT               #local/global is needed in script
-		wi     = zeros(n)
-		wi[i]  = 1                      #weight 1 on asset i
-		CoviT = wi'Σ*wT
-		β[i]   = CoviT/σT^2          #usual OLS coefficient: Cov(x,y)/Var(x)
-	end
-
-	with_terminal() do
-		printred("β of the $n assets:")
-		printmat(β,rowNames=assetNames)
-	end
-end
-
-# ╔═╡ a542c249-6c97-42e5-97d4-adda80981e7e
-md"""
-# Trying CAPM on the Three Assets
-
-Recall that the CAPMS says
-
-$$\textrm{E}R_{i}  = R_f + \beta_{i}(\mu_{T}-R_f)$$
-
-This can be compared with the (actual) average returns.
-
-"""
-
-# ╔═╡ 7799e685-8e3d-4120-8edf-e31eab89515c
-begin
-	ERi_CAPM = Rf .+ β*(μT-Rf)      #ERi_CAPM is a vector since β is a vector
-
-	with_terminal() do
-		printred("μ and ER as suggested by CAPM: ")
-		printmat([μ ERi_CAPM],rowNames=assetNames,colNames=["actual","from CAPM"])
-	end
-end
-
-# ╔═╡ 6c427188-a09b-4d4e-b93b-daa500e22b45
-md"""
-Let's plot this.
-"""
-
-# ╔═╡ 4a1bdfcb-c5dc-448a-afbd-024f4fd70b82
-begin
-	p1 = scatter( β,ERi_CAPM*100,
-              xlim = (0,2),
-              ylim = (0,15),
-              legend = false,
-              title = L"\beta \mathrm{\ vs \ ER}",
-              xlabel = L"\beta",
-              ylabel = "ER, %" )	
-end
-
-# ╔═╡ 853970c0-fea6-4fe0-b76f-2b3a8e878e2c
-md"""
-# An Empirical Test of CAPM
-
-Let's test the CAPM empirically using real data.
-First, we load the data. Second, we run linear regressions and test whether the intercept is zero (the CAPM prediction) or not.
-
-The data we are using is given to you for convenience in the file `FF25Ps.csv`.
-The data are from Kenneth French's website. Click [here](http://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html).
-"""
-
-# ╔═╡ 191e450b-ad7c-4d4a-b66b-5ca879747dec
-md"""
-The first dataset is the the Fama/French 3 Factors from Jan-1979 to Aug-2021.
-The second dataset is the Fama/French 25 Portolios sorted by Size and Book-to-Market from Jan-1979 to Aug-2021.
-"""
-
-# ╔═╡ a0c2d59c-7d42-420c-a9dc-7ef11dcb3eff
-md"""
-#### Loading Data
-"""
-
-# ╔═╡ be19f8e2-dd77-4990-a5db-9161ba57139e
-begin
-	dat1    = CSV.File("FFmFactorsPs.csv") |> DataFrame
-	Rme  = dat1[:,2]                #market excess return
-	RSMB = dat1[:,3]                #small minus big firms
-	RHML = dat1[:,4]                #high minus low book-to-market ratio
-	rf   = dat1[:,5]                #interest rate
-	display("")	
-end
-
-# ╔═╡ 593bc8f4-ef30-40b9-8029-de755659acad
-begin
-	dat2  = CSV.File("FF25Ps.csv") |> DataFrame
-	R  = dat2[:,2:end]                  #returns for 25 FF portfolios
-	Re = R .- Rf                        #excess returns for the 25 FF portfolios
-	Re = Re[:,[1;7;13;19;25]]           #use just 5 assets to make the printing easier 
-
-	(T,nAssets) = size(Re)              #no. obs and  no. test assets
+	dN             = PerfDat[:,1]
+	(Rb,RFunds,Rf) = (convert.(Float64,x[:,2:9]),convert.(Float64,x[:,10:11]),
+					  convert.(Float64,x[:,12]));     #convert to Float64
 	display("")
 end
 
-# ╔═╡ 3f0cadc4-fa59-49dc-bb66-765fa64dddbe
+# ╔═╡ 5595417a-6333-4acd-b14b-27865d4f8736
 md"""
-Let's take a look at the Fama French 3-Factor dataset
+# Sharpe Ratio and M2
 """
 
-# ╔═╡ 8ada2d53-ef06-4f0f-978b-3e2188e3d9eb
-first(dat1,10)
-
-# ╔═╡ 6afc16e2-a7c2-4d52-915c-39566f193820
+# ╔═╡ a9e20df4-96aa-4798-a5ef-204671de44af
 md"""
-Let's calculate summary statistics.
+- Suppose we want to know if fund `p` is better than fund `q` to place all our savings in. (We don’t allow a mix of them.) 
+- The answer is that `p` is better if it has a higher Sharpe ratio—defined as
+
+$$SR_p = \mu_{p}^{e}/\sigma_p$$
+
+ - where $\mu_{p}^{e}$ is the excess return of fund `p` and $/\sigma_p$ is fund `p`s standard deviation of returns.
+
 """
 
-# ╔═╡ c689d677-a9e1-46c8-96e7-86d96badf993
-describe(dat1,:all)
-
-# ╔═╡ c29ae740-d045-4017-bb09-bd95a91306da
+# ╔═╡ 2732613f-2546-4fb4-93ee-1805a43e7521
 md"""
-Let's also take a glimpse at the excess returns on the Fama French 25 Portfolios sorted by Size and Book-to-Market.
+
+- The reason is that MV behaviour (MV preferences or normally distributed returns) implies that we should maximize the Sharpe ratio (selecting the tangency portfolio). 
+
+- Intuitively, for a given volatility, we then get the highest expected return.
+
+- A version of the Sharpe ratio, called $M^2$ is
+
+$$M_p^2 = \mu_{p^{\star}}^e - \mu_{m}^e $$
+
+where $\mu_{p^{\star}}^e$ is the expected return on a mix of portfolio $p$ and the riskfree asset such that the volatility is the same as for the market return.
+
+$$R_{p^{\star}} = a R_p + (1-a) R_f$$
+
+with $a=\sigma_m/\sigma_p.$
+
+- This gives the mean and standard deviation of portfolio $p^{\star}$
+
+$$\mu_{p^{\star}}^e = a \mu_{p}^e = \mu_{p}^e \sigma_m \ \sigma_p$$
+
+$$\sigma_{p^{\star}} = a \sigma_p= \sigma_m$$
+
+- Thus, $R_p$ indeed has the same volatility as the market.
+
 """
 
-# ╔═╡ 688ca09e-4dae-4b2d-a8e8-1db5045b1242
-first(Re,10)
+# ╔═╡ 9280b21d-d44e-49e5-a0c0-f31dbf90f51a
+md""" 
+-  $M^2$ has the advantage of being easily interpreted because it is just a comparison of two returns. It shows how much better (or worse) this asset is compared to the capital market line (which is the location of efficient portfolios provided the market is MV efficient). """
 
-# ╔═╡ 16036315-c9ae-4a37-9e52-7d5920a5b150
-describe(Re,:all)
-
-# ╔═╡ 00c090d8-9582-4675-82c3-af46b03ac548
+# ╔═╡ 59e2e16a-d5ee-4fb0-ae02-94c05b07b306
 md"""
-### OLS Estimation and Testing α = 0
+Let's now calculate $SR$ and $M^2$ empirically using our data.
 """
 
-# ╔═╡ e278ca23-90c5-4279-9c9b-2eb6d18ebde9
-md"""
-We now use the market return as a proxy for the tangency portfolio - and test if the model holds.
-
-Recall: estimate $$(\alpha_{i},b_{i})$$ in the CAPM regression
-
-$$R_{it}^{e}  =\alpha_{i}+b_{i}R_{mt}^{e}+\varepsilon_{it}$$
-
-Test if:
-
-$$\alpha_{i}=0$$.
-"""
-
-# ╔═╡ c0e7c6b8-1c54-43c2-b963-af3212855e46
-md"""
-- We can use Julia's GLM package to run linear regressions, but we will create our own function. Recall the discussion from `lecture_11_Reading_02` (page 36).
-"""
-
-# ╔═╡ fdbc9826-148e-4390-a1cd-6c8b6fe742d5
-#------------------------------------------------------------------------------
-"""
-    OlsGMFn(Y,X)
-
-LS of Y on X; for one dependent variable, Gauss-Markov assumptions
-
-**Usage**
-(b,u,Yhat,V,R2) = OlsGMFn(Y,X)
-
-**Input**
-- `Y::Vector`:    Tx1, the dependent variable
-- `X::Matrix`:    Txk matrix of regressors (including deterministic ones)
-
-**Output**
-- `b::Vector`:    kx1, regression coefficients
-- `u::Vector`:    Tx1, residuals Y - yhat
-- `Yhat::Vector`: Tx1, fitted values X*b
-- `V::Matrix`:    kxk matrix, covariance matrix of b
-- `R2::Number`:   scalar, R2 value
-
-"""
-function OlsGMFn(Y,X)
-
-    T    = size(Y,1)
-
-    b    = X\Y
-    Yhat = X*b
-    u    = Y - Yhat
-
-    σ2   = var(u)
-    V    = inv(X'X)*σ2
-    R2   = 1 - σ2/var(Y)
-
-    return b, u, Yhat, V, R2
-
-end
-#------------------------------------------------------------------------------
-
-
-# ╔═╡ a609ab99-1373-4b88-880e-33944dfa12a1
+# ╔═╡ 8ee5dcd0-0ae6-4d7e-9270-38f36c9260d4
 begin
-	x   = [ones(T) Rme]                   #regressors
+	Re  = RFunds .- Rf           #excess returns of the funds
+	Rme = Rb[:,1] - Rf           #excess returns of the market (S&P 500)
 
-	(α,b,tstat) = (fill(NaN,nAssets),fill(NaN,nAssets),fill(NaN,nAssets))
-	for i = 1:nAssets                        #loop over the different test assets
-		#local b_i, residual, Covb           #local/global is needed in script
-		(b_i,_,_,Covb,) = OlsGMFn(Re[:,i],x)
-		α[i]            = b_i[1]                      #estimated α
-		b[i]            = b_i[2]                      #estimated β   
-		tstat[i]        = (b_i[1]-0)/sqrt(Covb[1,1])  #tstat of H₀: true α=0
-	end
+	μᵉp = mean(Re,dims=1)        #average excess returns of funds, 1xn
+	σp  = std(Re,dims=1)         #std, 1xn
 
+	μᵉm = mean(Rme)              #average excess returns of market
+	σm  = std(Rme)
+
+	SRp = (μᵉp./σp)*sqrt(52)       #Sharpe ratio
+	SRm = (μᵉm/σm)*sqrt(52)
+
+	M2p = (SRp.-SRm)*σm*sqrt(52)*100
+	M2m = 0                      #(SRm.-SRm)*σm=0
+
+	xut = hcat([μᵉm;μᵉp']*52*100,[SRm;SRp'],[M2m;M2p'])
+	
 	with_terminal() do
-		printred("OLS intercepts and t-stats:")
-		colNames = [string("asset ",i) for i=1:nAssets]
-		rowNames = ["β","α","t-stat"]
-		printmat([b';α';tstat'];colNames,rowNames)
+		printmat(xut,colNames=["ERe","SR","M2"],rowNames=["Market";FundNames])
 	end
 end
 
-# ╔═╡ 985ab89d-9493-411b-a72c-95082360f6b7
+# ╔═╡ 658f89c1-5452-491d-bed4-e0b189c7f457
 md"""
-- Let's compare our estimates from our own function to those from a Julia library.
-- We will use the `LinearRegressionKit` package which is a simplified version of the more complex `GLM` package, designed for linear regressions. [Link](https://github.com/ericqu/LinearRegressionKit.jl).
+# Appraisal Ratio
 """
 
-# ╔═╡ 92ecb31b-6b08-4a45-9f24-583e5a98a44d
+# ╔═╡ 9e7b7ef3-856d-4fca-907b-845666463e42
+md"""
+- If the question is “should we add fund `p` or fund `q` to our holding of the market portfolio?,” then the appraisal ratio can be used to provide an answer. 
+
+- The appraisal ratio of fund `p` is
+
+$$AR_p = \alpha_p / Std(\epsilon_{pt}$$
+
+where $\alpha_p$ is the intercept and $Std(\epsilon_{pt})$ is the volatility of the residual of a CAPM regression. (The residual is often called the tracking error.) 
+
+- A higher appraisal ratio is better. The intuition is as follows. 
+ - If you think of $b_p R_{mt}^e$, as the benchmark return, then $AR_p$ is the average extra return per unit of extra volatility (standard deviation). 
+ - For instance, a ratio of 1.7 could be interpreted as a 1.7 USD profit per each dollar at risk.
+
+"""
+
+# ╔═╡ ba46a9a7-b469-401f-a3b4-10ab4a6f47cb
+md"""
+Let's calculate the Appraisal Ratios in our data.
+"""
+
+# ╔═╡ 6024747f-e21a-40d7-8cd1-1681ca12718e
+begin
+	T_app = size(Re,1)
+	x_app = [ones(T_app) Rme]
+
+	b_app  = x_app\Re        	#2xn, OLS Re = α + β*Rme + ϵ, n = number of funds
+	ϵ_app  = Re - x_app*b_app   #Txn, residuals
+	σϵ_app = std(ϵ_app,dims=1)   #1xn
+
+	ARp = (b_app[1:1,:]*52*100)./(σϵ_app*sqrt(52)*100)   #b[1:1,:] is 1xn
+	ARm = 0
+
+	xut_app = [ARm;ARp']
+	
+	with_terminal() do
+		printmat(xut_app,colNames=["AR"],rowNames=["Market";FundNames])
+	end
+end
+
+# ╔═╡ 1424b025-89be-4adc-9c0f-38abca54bb2a
+md"""
+# Treynor's Ratio and T2
+"""
+
+# ╔═╡ c42c62c4-db4d-44c3-81a6-0573f8d03258
+md"""
+- Suppose instead that the issue is whether we should add a small amount of fund `p` or fund `q` to an already well diversified portfolio (not the market portfolio). 
+- In this case, Treynor’s ratio might be useful 
+
+$$TR_p = \mu_{p}^e/\beta_p$$
+
+- A higher Treynor’s ratio is better.
+
+- The TR measure can be rephrased in terms of expected returns---and could then be called the $T^2$ measure.  
+ - Mix `p` and `q` with the riskfree rate to get the same $\beta$ for both portfolios (here 1 to make it comparable with the market), the one with the highest Treynor’s ratio has the highest expected return ($T^2$ measure).
+
+- The $T^2$ measure is defined as
+
+$$T_p^2=\mu_{p^{\star}}^e - \mu_m^e = \mu_p^e/\beta_p - \mu_m^e.$$
+
+"""
+
+# ╔═╡ 6fd86104-021a-4ec7-acdb-4ac4c771f03e
+md"""
+Let's now calculate Treynor's Ratio and $T^2$ in the data.
+"""
+
+# ╔═╡ 40109f1e-f391-485e-80d1-5b60bd1ede63
+begin
+	T_tr = size(Re,1)
+	x_tr = [ones(T_tr) Rme]
+
+	b_tr  = x_tr\Re        		#2xn, OLS Re = α + β*Rme + ϵ, n = number of funds
+	ϵ_tr  = Re - x_tr*b_tr   #Txn, residuals
+	σϵ_tr = std(ϵ_tr,dims=1)   #1xn
+	
+	TRp = 52*100*μᵉp./b_tr[2:2,:]
+	TRm = 52*100*μᵉm/1           #market has β=1
+
+	T2p = TRp .- μᵉm*52*100
+	T2m = 0                      #TRm - μᵉm*52*100
+
+	with_terminal() do
+		xut = hcat([TRm;TRp'],[T2m;T2p'])
+		printmat(xut,colNames=["TR","T2"],rowNames=["Market";FundNames])
+	end
+end
+
+# ╔═╡ 0f0a5bcf-f0ca-4cd8-9722-ce8282780a3a
+md"""
+# Style Analysis
+"""
+
+# ╔═╡ 5f3ab6a9-d093-4fcc-9370-79bc76a94b0c
+md"""
+- Style analysis is a way to use econometric tools to find out the portfolio composition from a series of the returns, at least in broad terms.
+- The basic idea is to identify a number (5 to 10 perhaps) return indices that are expected to account for the brunt of the portfolio's returns, and then run a regression to find the portfolio “weights.” 
+- It is essentially a multi-factor regression without any intercept and where the coefficients are constrained to sum to unity and to be positive.
+
+  - The regression is $R^{e}_{pt} = b_1 X_1 + \ldots + b_K X_K + \epsilon_{pt}$, where $b_j \geq 0$ for all $j$, and $\sum_{i=1}^K b_i = 1$.
+  - The coefficients are typically estimated by minimizing the sum of squared residuals. This is a nonlinear estimation problem, but there are very efficient methods for it (since it is a quadratic problem).
+  - We will use the optimization packages [Convex.jl](https://jump.dev/Convex.jl/stable/) for the interface and [SCS.jl](https://github.com/jump-dev/SCS.jl) for the optimization algorithm.
+
+- A pseudo-$R^2$ (the squared correlation of the fitted and actual values) is sometimes used to gauge how well the regression captures the returns of the portfolio. 
+- The residuals can be thought of as the effect of stock selection, or possibly changing portfolio weights more generally. 
+  - One way to get a handle of the latter is to run the regression on a moving data sample. 
+  - The time-varying weights are often compared with the returns on the indices to see if the weights were moved in the right direction.
+
+"""
+
+# ╔═╡ d86594f9-b563-42d9-812c-7dc663b9b8c3
+md"""
+- Note on the implementation. 
+- The regression is 
+$$Y = b_1 X_1 + \ldots + b_K X_K + u,$$ where $b_j \geq 0$ for all $j$, and $\sum_{i=1}^K b_i = 1$.
+- We write the sum of squared residuals as
+$$(Y- X\,b)' (Y - X\,b) = YY' - 2Y'Xb + b'X'Xb.$$
+  - Only the two last terms matter for the choice of $b$.
+"""
+
+# ╔═╡ 4a60f8df-a871-4f96-9c1c-499a36310985
+md"""
+- Let's write a function to implement the style analysis regression.
+"""
+
+# ╔═╡ 28c593e8-0ce6-4db6-a8bb-f64ec8307391
+begin
+
+md"""
+StyleAnalysisPs(Y,X)
+
+
+# Input:
+- `Y::Vector`:          T-vector, returns of a fund
+- `X ::Matrix`:         TxK matrix, returns on m benchmarks
+
+ # Output:
+- `b_sa::Vector`:       K-vector, restricted regression coefficients
+- `b_ls::Vector`:       K-vector, OLS regression coefficients
+
+"""
+function StyleAnalysisPs(Y,X)
+
+    K = size(X,2)
+    b_ls = X\Y                          #LS estimate of weights, no restrictions
+
+    b    = Variable(K)
+    Q    = X'X
+    L1   = quadform(b,Q)              #b'X'X*b
+    c    = X'Y
+    L2   = dot(c,b)                   #same as Y'X*b 
+    
+    c1   = sum(b) == 1                #sum of coeffs = 1
+    c2   = 0.0 <= b                   #0 <= coeffs <= 1
+    c3   = b <= 1.0
+    sc   = length(Q)/sum(abs,Q)       #scale up L1 and L2 by this (better precision)  
+   
+    Sol  = minimize(sc*L1-2*sc*L2,c1,c2,c3)
+    solve!(Sol,SCS.Optimizer;silent_solver = true)
+    if Sol.status == Convex.MOI.OPTIMAL
+        b_sa = vec(evaluate(b))
+    else
+        b_sa = NaN
+    end
+
+    return b_sa, b_ls
+
+end
+	
+display("")
+end
+
+# ╔═╡ 49a66213-b8b7-4789-b967-7bdfb859de9d
+md"""
+- Next, we run the style regression.
+- The next cell makes a "style analysis regression" based on the entire sample. 
+- The dependent variable is the first mutual fund (_Putnam Asset Allocation: Growth A_) and the regressors include all indices.
+"""
+
+# ╔═╡ b22fb358-658a-44be-a99b-b5301c2dcadf
 let
-	(α,b,tstat) = (fill(NaN,nAssets),fill(NaN,nAssets),fill(NaN,nAssets))
 	
-	for i = 1:nAssets                        #loop over the different test assets
+	(b,b_ls) = StyleAnalysisPs(RFunds[:,1],Rb)
+	
+	printblue("OLS and style analysis coeffs:")
+	colNames = ["OLS" "Restricted LS"]
+	xut      = [b_ls b;sum([b_ls b],dims=1)]
 
-		df = DataFrame(REx=Re[:,i], RExM=Rme)
-		dropmissing!(df)
-		lm = regress(@formula(REx ~ 1 + RExM), df)
-	
-		α[i]            = lm.coefs[1]                      #estimated α
-		b[i]            = lm.coefs[2]                      #estimated β   
-		tstat[i]        = lm.t_values[1]  #tstat of H₀: true α=0
-	end
-	
 	with_terminal() do
-		printred("OLS intercepts and t-stats:")
-		colNames = [string("asset ",i) for i=1:nAssets]
-		rowNames = ["β","α","t-stat"]
-		printmat([b';α'; tstat'];colNames,rowNames)
+		printmat(xut,colNames=colNames,rowNames=[IndNames;"Sum"],width=15)
+		
+		printred("Notice that the restricted LS has (approximately) no negative coeffs and that sum(coeffs) = 1")
 	end
 	
 end
 
-# ╔═╡ dc3d1214-f3b2-43db-b851-60746cc18925
+# ╔═╡ e79edd61-e5ea-4da2-a28a-483d13e6da71
 md"""
-- What do you conclude about the CAPM based on the estimates for the $\alpha$ coefficients?
+- We also run the style analysis on a moving window and then we plot coefficients change over time.
 """
+
+# ╔═╡ 925fd389-4d7d-4fdd-b84c-c81c7f6408e4
+let
+
+	(T,K)   = size(Rb)
+	
+	WinSize = 104
+
+	b = fill(NaN,(T,K))
+	
+	for t = (WinSize+1):T
+	    vv     = (t-WinSize):t    #moving data window
+	    b[t,:] = StyleAnalysisPs(RFunds[vv,1],Rb[vv,:])[1]
+	end
+
+	xTicksLoc = [Date(2000);Date(2005);Date(2010);Date(2015)]
+	xTicksLab = Dates.format.(xTicksLoc,"Y")
+
+	p1 = plot( dN,b,
+           #layout = (3,3),
+           layout = @layout[a a a;a a a;a a _],   #_ to get blank subplot
+           legend = false,
+           size = (800,600),
+           linecolor = :blue,
+           xticks = (xTicksLoc,xTicksLab),
+           ylims = (0,0.6),
+           title = reshape(string.(IndNames),1,:),
+           titlefont = font(10) )
+
+end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+Convex = "f65535da-76fb-5f13-bab9-19810c17039a"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearRegressionKit = "e91d531d-6e51-44a8-96b7-a10d5d51daa3"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+SCS = "c946c3f1-0d1f-5ce8-9dea-7daa1f7e2d13"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 StatsModels = "3eaba693-59b7-5ba5-a881-562e759f1c8d"
 
 [compat]
 CSV = "~0.10.3"
+Convex = "~0.15.0"
 DataFrames = "~1.2.2"
 LaTeXStrings = "~1.3.0"
 LinearRegressionKit = "~0.7.4"
-Plots = "~1.26.0"
-PlutoUI = "~0.7.36"
+Plots = "~1.27.0"
+PlutoUI = "~0.7.37"
+SCS = "~1.1.0"
+StatsBase = "~0.33.16"
 StatsModels = "~0.6.29"
 """
 
@@ -639,11 +722,22 @@ StatsModels = "~0.6.29"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
+[[AMD]]
+deps = ["Libdl", "LinearAlgebra", "SparseArrays", "Test"]
+git-tree-sha1 = "fc66ffc5cff568936649445f58a55b81eaf9592c"
+uuid = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
+version = "0.4.0"
+
 [[AbstractPlutoDingetjes]]
 deps = ["Pkg"]
 git-tree-sha1 = "8eaf9f1b4921132a4cff3f36a1d9ba923b14a481"
 uuid = "6e696c72-6542-2067-7265-42206c756150"
 version = "1.1.4"
+
+[[AbstractTrees]]
+git-tree-sha1 = "03e0550477d86222521d254b741d470ba17ea0b5"
+uuid = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
+version = "0.3.4"
 
 [[Adapt]]
 deps = ["LinearAlgebra"]
@@ -659,6 +753,12 @@ uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+
+[[BenchmarkTools]]
+deps = ["JSON", "Logging", "Printf", "Profile", "Statistics", "UUIDs"]
+git-tree-sha1 = "4c10eee4af024676200bc7752e536f858c6b8f93"
+uuid = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+version = "1.3.1"
 
 [[Bzip2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -686,9 +786,9 @@ version = "0.5.1"
 
 [[CategoricalArrays]]
 deps = ["DataAPI", "Future", "Missings", "Printf", "Requires", "Statistics", "Unicode"]
-git-tree-sha1 = "3b60064cb48efe986179359e08ffb568a6d510a2"
+git-tree-sha1 = "5196120341b6dfe3ee5f33cf97392a05d6fe80d0"
 uuid = "324d7699-5711-5eae-9e2f-1d82baa6b597"
-version = "0.10.3"
+version = "0.10.4"
 
 [[ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
@@ -701,6 +801,12 @@ deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
 git-tree-sha1 = "bf98fa45a0a4cee295de98d4c1462be26345b9a1"
 uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
 version = "0.1.2"
+
+[[CodecBzip2]]
+deps = ["Bzip2_jll", "Libdl", "TranscodingStreams"]
+git-tree-sha1 = "2e62a725210ce3c3c2e1a3080190e7ca491f18d7"
+uuid = "523fee87-0ab8-5b00-afb7-3ecf72e48cfd"
+version = "0.7.2"
 
 [[CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -757,6 +863,12 @@ deps = ["StaticArrays"]
 git-tree-sha1 = "9f02045d934dc030edad45944ea80dbd1f0ebea7"
 uuid = "d38c429a-6771-53c6-b99e-75d170b6e991"
 version = "0.5.7"
+
+[[Convex]]
+deps = ["AbstractTrees", "BenchmarkTools", "LDLFactorizations", "LinearAlgebra", "MathOptInterface", "OrderedCollections", "SparseArrays", "Test"]
+git-tree-sha1 = "88746604d00ba4441d13d5eb2332977a0e428f3b"
+uuid = "f65535da-76fb-5f13-bab9-19810c17039a"
+version = "0.15.0"
 
 [[Crayons]]
 git-tree-sha1 = "249fe38abf76d48563e2f4556bebd215aa317e15"
@@ -875,9 +987,9 @@ version = "0.9.17"
 
 [[FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
-git-tree-sha1 = "4c7d3757f3ecbcb9055870351078552b7d1dbd2d"
+git-tree-sha1 = "0dbc5b9683245f905993b51d2814202d75b34f1a"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "0.13.0"
+version = "0.13.1"
 
 [[FixedPointNumbers]]
 deps = ["Statistics"]
@@ -997,9 +1109,9 @@ version = "0.9.3"
 
 [[HypothesisTests]]
 deps = ["Combinatorics", "Distributions", "LinearAlgebra", "Random", "Rmath", "Roots", "Statistics", "StatsBase"]
-git-tree-sha1 = "0350e82af1a120772dbe21527f9b2c3c9cca8cf0"
+git-tree-sha1 = "d49e34c0b93e4281391710f70ae648d76c377d35"
 uuid = "09f84164-cd44-5f33-b23f-e6b0d136a0d5"
-version = "0.10.7"
+version = "0.10.8"
 
 [[IOCapture]]
 deps = ["Logging", "Random"]
@@ -1024,9 +1136,9 @@ uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
 [[InverseFunctions]]
 deps = ["Test"]
-git-tree-sha1 = "a7254c0acd8e62f1ac75ad24d5db43f5f19f3c65"
+git-tree-sha1 = "91b5dcf362c5add98049e6c29ee756910b03051d"
 uuid = "3587e190-3f89-42d0-90ee-14403ec27112"
-version = "0.1.2"
+version = "0.1.3"
 
 [[InvertedIndices]]
 git-tree-sha1 = "bee5f1ef5bf65df56bdd2e40447590b272a5471f"
@@ -1078,6 +1190,12 @@ git-tree-sha1 = "f6250b16881adf048549549fba48b1161acdac8c"
 uuid = "c1c5ebd0-6772-5130-a774-d5fcae4a789d"
 version = "3.100.1+0"
 
+[[LDLFactorizations]]
+deps = ["AMD", "LinearAlgebra", "SparseArrays", "Test"]
+git-tree-sha1 = "399bbe845e06e1c2d44ebb241f554d45eaf66788"
+uuid = "40e66cde-538c-5869-a4ad-c39174c6795b"
+version = "0.8.1"
+
 [[LERC_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "bf36f528eec6634efc60d7ec062008f171071434"
@@ -1097,9 +1215,9 @@ version = "1.3.0"
 
 [[Latexify]]
 deps = ["Formatting", "InteractiveUtils", "LaTeXStrings", "MacroTools", "Markdown", "Printf", "Requires"]
-git-tree-sha1 = "a6552bfeab40de157a297d84e03ade4b8177677f"
+git-tree-sha1 = "4f00cc36fede3c04b8acf9b2e2763decfdcecfa6"
 uuid = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
-version = "0.15.12"
+version = "0.15.13"
 
 [[LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -1180,9 +1298,9 @@ version = "0.7.4"
 
 [[LogExpFunctions]]
 deps = ["ChainRulesCore", "ChangesOfVariables", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "3f7cb7157ef860c637f3f4929c8ed5d9716933c6"
+git-tree-sha1 = "56ad13e26b7093472eba53b418eba15ad830d6b5"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.7"
+version = "0.3.9"
 
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -1196,6 +1314,12 @@ version = "0.5.9"
 [[Markdown]]
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
+
+[[MathOptInterface]]
+deps = ["BenchmarkTools", "CodecBzip2", "CodecZlib", "JSON", "LinearAlgebra", "MutableArithmetics", "OrderedCollections", "Printf", "SparseArrays", "Test", "Unicode"]
+git-tree-sha1 = "a62df301482a41cb7b1db095a4e6949ba7eb3349"
+uuid = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
+version = "1.1.0"
 
 [[MbedTLS]]
 deps = ["Dates", "MbedTLS_jll", "Random", "Sockets"]
@@ -1224,6 +1348,12 @@ uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 [[MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 
+[[MutableArithmetics]]
+deps = ["LinearAlgebra", "SparseArrays", "Test"]
+git-tree-sha1 = "ba8c0f8732a24facba709388c74ba99dcbfdda1e"
+uuid = "d8a4904e-b15c-11e9-3269-09a3773c0cb0"
+version = "1.0.0"
+
 [[NaNMath]]
 git-tree-sha1 = "737a5957f387b17e74d4ad2f440eb330b39a62c5"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
@@ -1249,6 +1379,12 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
 version = "1.3.5+1"
+
+[[OpenBLAS32_jll]]
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "ba4a8f683303c9082e84afba96f25af3c7fb2436"
+uuid = "656ef2d0-ae68-5445-9ca0-591084a874a2"
+version = "0.3.12+1"
 
 [[OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -1285,9 +1421,9 @@ version = "8.44.0+0"
 
 [[PDMats]]
 deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
-git-tree-sha1 = "7e2166042d1698b6072352c74cfd1fca2a968253"
+git-tree-sha1 = "e8185b83b9fc56eb6456200e873ce598ebc7f262"
 uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
-version = "0.11.6"
+version = "0.11.7"
 
 [[Parsers]]
 deps = ["Dates"]
@@ -1318,16 +1454,16 @@ uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
 version = "1.1.3"
 
 [[Plots]]
-deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "GeometryBasics", "JSON", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "PlotThemes", "PlotUtils", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
-git-tree-sha1 = "23d109aad5d225e945c813c6ebef79104beda955"
+deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "GeometryBasics", "JSON", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
+git-tree-sha1 = "9213b4c18b57b7020ee20f33a4ba49eb7bef85e0"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.26.0"
+version = "1.27.0"
 
 [[PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
-git-tree-sha1 = "2c87c85e397b7ffed5ffec054f532d4edd05d901"
+git-tree-sha1 = "bf0a1121af131d9974241ba53f601211e9303a9e"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.36"
+version = "0.7.37"
 
 [[PooledArrays]]
 deps = ["DataAPI", "Future"]
@@ -1337,9 +1473,9 @@ version = "1.4.0"
 
 [[Preferences]]
 deps = ["TOML"]
-git-tree-sha1 = "de893592a221142f3db370f48290e3a2ef39998f"
+git-tree-sha1 = "d3538e7f8a790dc8903519090857ef8e1283eecd"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
-version = "1.2.4"
+version = "1.2.5"
 
 [[PrettyTables]]
 deps = ["Crayons", "Formatting", "Markdown", "Reexport", "Tables"]
@@ -1350,6 +1486,10 @@ version = "1.3.1"
 [[Printf]]
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+
+[[Profile]]
+deps = ["Printf"]
+uuid = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
 
 [[Qt5Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "xkbcommon_jll"]
@@ -1413,9 +1553,27 @@ version = "0.3.0+0"
 
 [[Roots]]
 deps = ["CommonSolve", "Printf", "Setfield"]
-git-tree-sha1 = "0abe7fc220977da88ad86d339335a4517944fea2"
+git-tree-sha1 = "554149b8b82e167c1fa79df99aeabed4f8404119"
 uuid = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
-version = "1.3.14"
+version = "1.3.15"
+
+[[SCS]]
+deps = ["MathOptInterface", "Requires", "SCS_GPU_jll", "SCS_jll", "SparseArrays"]
+git-tree-sha1 = "8663c54fd5312f6ee27a94285a9a0381b29e6707"
+uuid = "c946c3f1-0d1f-5ce8-9dea-7daa1f7e2d13"
+version = "1.1.0"
+
+[[SCS_GPU_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "OpenBLAS32_jll", "Pkg"]
+git-tree-sha1 = "f912271ecccb00acaddfab2943e9b33d5ec36d3b"
+uuid = "af6e375f-46ec-5fa0-b791-491b0dfa44a4"
+version = "3.2.0+0"
+
+[[SCS_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "OpenBLAS32_jll", "Pkg"]
+git-tree-sha1 = "ba5c0d3b23220d3598d2877b4cf913e3fcf8add3"
+uuid = "f4f2fc5b-1d94-523c-97ea-2ab488bedf4b"
+version = "3.2.0+0"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -1814,41 +1972,45 @@ version = "0.9.1+5"
 """
 
 # ╔═╡ Cell order:
-# ╠═fed4473e-8e0c-41cc-acfc-8cd4f4f4d06a
-# ╟─c43df4a3-a1d8-433e-9a1c-f7c0984be879
-# ╟─5fc44a1a-2c5c-4cdf-b2da-4cbc17c8f8a3
-# ╟─5141ad80-2374-11ec-2455-c7ff63842559
-# ╟─86379ab2-018c-4038-9d09-a12658f473d5
-# ╟─72c219a7-1c04-4678-988c-8f17674d9d75
-# ╟─652dc6ae-6f9d-4ebd-9251-00821a8ee09d
-# ╟─74e6c915-5dca-4c84-a890-0b829ba6cd92
-# ╠═3fca5d0e-c342-4520-867c-917116495ac2
-# ╠═2eb2f178-85b5-49e6-aedd-0ccaa19d2fdc
-# ╟─15636226-d021-47de-bc86-83fbd034ad00
-# ╠═87acf96f-490b-4299-a1cd-454e545a4c5d
-# ╟─a542c249-6c97-42e5-97d4-adda80981e7e
-# ╠═7799e685-8e3d-4120-8edf-e31eab89515c
-# ╟─6c427188-a09b-4d4e-b93b-daa500e22b45
-# ╠═4a1bdfcb-c5dc-448a-afbd-024f4fd70b82
-# ╟─853970c0-fea6-4fe0-b76f-2b3a8e878e2c
-# ╟─191e450b-ad7c-4d4a-b66b-5ca879747dec
-# ╟─a0c2d59c-7d42-420c-a9dc-7ef11dcb3eff
-# ╠═be19f8e2-dd77-4990-a5db-9161ba57139e
-# ╠═593bc8f4-ef30-40b9-8029-de755659acad
-# ╟─3f0cadc4-fa59-49dc-bb66-765fa64dddbe
-# ╠═8ada2d53-ef06-4f0f-978b-3e2188e3d9eb
-# ╟─6afc16e2-a7c2-4d52-915c-39566f193820
-# ╠═c689d677-a9e1-46c8-96e7-86d96badf993
-# ╟─c29ae740-d045-4017-bb09-bd95a91306da
-# ╠═688ca09e-4dae-4b2d-a8e8-1db5045b1242
-# ╠═16036315-c9ae-4a37-9e52-7d5920a5b150
-# ╟─00c090d8-9582-4675-82c3-af46b03ac548
-# ╟─e278ca23-90c5-4279-9c9b-2eb6d18ebde9
-# ╟─c0e7c6b8-1c54-43c2-b963-af3212855e46
-# ╠═fdbc9826-148e-4390-a1cd-6c8b6fe742d5
-# ╠═a609ab99-1373-4b88-880e-33944dfa12a1
-# ╟─985ab89d-9493-411b-a72c-95082360f6b7
-# ╠═92ecb31b-6b08-4a45-9f24-583e5a98a44d
-# ╟─dc3d1214-f3b2-43db-b851-60746cc18925
+# ╠═8b90477d-5887-49bd-bcf3-d2d7276885af
+# ╟─3820a86d-fefa-43ca-a308-40d9ff2b3599
+# ╟─72cce814-aa8f-4ac8-98c1-f556ce43ed6d
+# ╟─960b2ed0-2394-11ec-17c0-5bdaeef72b5d
+# ╟─e7029f0e-832a-4b62-a4f4-09002dbd7159
+# ╟─ba9c36aa-e791-4411-85f6-5c230d19b017
+# ╟─833249db-8526-4fa1-b136-c48850d7e37f
+# ╠═c67dda3c-8044-436e-b668-e5c7c8feddaf
+# ╟─4efcb4b6-9000-4db6-b951-37c9c9c9676d
+# ╠═3d51f5f0-752d-407e-80e3-7e44849dd76b
+# ╟─a2946345-b457-4e02-a3eb-7646a7083058
+# ╠═c02ae1b0-ba3f-4c94-83d8-425af6cf8ed9
+# ╟─c8c2e3c2-d2dc-448e-9d32-8ba29697a1f3
+# ╠═0580541d-29f0-4731-9ea9-f36494f70516
+# ╟─561f5088-7a2a-47f4-bfbf-6977ae6a27a5
+# ╠═fb093381-1109-450b-898e-1a0f87bd54d4
+# ╟─5595417a-6333-4acd-b14b-27865d4f8736
+# ╟─a9e20df4-96aa-4798-a5ef-204671de44af
+# ╟─2732613f-2546-4fb4-93ee-1805a43e7521
+# ╟─9280b21d-d44e-49e5-a0c0-f31dbf90f51a
+# ╟─59e2e16a-d5ee-4fb0-ae02-94c05b07b306
+# ╠═8ee5dcd0-0ae6-4d7e-9270-38f36c9260d4
+# ╟─658f89c1-5452-491d-bed4-e0b189c7f457
+# ╟─9e7b7ef3-856d-4fca-907b-845666463e42
+# ╟─ba46a9a7-b469-401f-a3b4-10ab4a6f47cb
+# ╠═6024747f-e21a-40d7-8cd1-1681ca12718e
+# ╟─1424b025-89be-4adc-9c0f-38abca54bb2a
+# ╟─c42c62c4-db4d-44c3-81a6-0573f8d03258
+# ╟─6fd86104-021a-4ec7-acdb-4ac4c771f03e
+# ╠═40109f1e-f391-485e-80d1-5b60bd1ede63
+# ╟─0f0a5bcf-f0ca-4cd8-9722-ce8282780a3a
+# ╟─5f3ab6a9-d093-4fcc-9370-79bc76a94b0c
+# ╟─d86594f9-b563-42d9-812c-7dc663b9b8c3
+# ╟─4a60f8df-a871-4f96-9c1c-499a36310985
+# ╠═653d8f23-3a60-4778-897d-c092106ce20d
+# ╠═28c593e8-0ce6-4db6-a8bb-f64ec8307391
+# ╟─49a66213-b8b7-4789-b967-7bdfb859de9d
+# ╠═b22fb358-658a-44be-a99b-b5301c2dcadf
+# ╟─e79edd61-e5ea-4da2-a28a-483d13e6da71
+# ╠═925fd389-4d7d-4fdd-b84c-c81c7f6408e4
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
