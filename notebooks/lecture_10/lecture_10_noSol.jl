@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.17.2
 
 using Markdown
 using InteractiveUtils
@@ -7,6 +7,7 @@ using InteractiveUtils
 # ╔═╡ 3d731294-71d0-4b34-85e2-96d29bd8a7ca
 begin
 	using CSV, Chain, DataFrames, Dates, LinearAlgebra, Plots, LaTeXStrings, PlutoUI, Printf, ShiftedArrays, Statistics
+	
 	gr(size=(480,320)) #for plotting
 end
 
@@ -266,8 +267,8 @@ end
 #round to digits, e.g. 6 digits then prec=1e-6
 roundmult(val, prec) = (inv_prec = 1 / prec; round(val * inv_prec) / inv_prec)
 	
-#using Logging
-#global_logger(NullLogger())
+using Logging
+global_logger(NullLogger())
 	
 display("")
 	
@@ -824,6 +825,7 @@ DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
@@ -1820,7 +1822,7 @@ version = "0.9.1+5"
 """
 
 # ╔═╡ Cell order:
-# ╟─3d731294-71d0-4b34-85e2-96d29bd8a7ca
+# ╠═3d731294-71d0-4b34-85e2-96d29bd8a7ca
 # ╟─c43df4a3-a1d8-433e-9a1c-f7c0984be879
 # ╟─5141ad80-2374-11ec-2455-c7ff63842559
 # ╟─5fc44a1a-2c5c-4cdf-b2da-4cbc17c8f8a3
