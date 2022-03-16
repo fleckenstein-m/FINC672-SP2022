@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.17.2
 
 using Markdown
 using InteractiveUtils
@@ -445,7 +445,7 @@ md"""
 """
 
 # ╔═╡ aee2e708-6b13-4609-b60c-a33cbd741023
-
+describe(CRSP)
 
 # ╔═╡ d99160b7-9421-404d-bef4-55f634d6e586
 md"""
@@ -518,7 +518,9 @@ md"""
 
 # ╔═╡ 6cb63947-6490-4a02-8b74-55eb5e2efa96
 let
-	
+	df = @chain CRSP begin
+		filter(:TICKER => (x-> ismissing(x) ? false : x=="AAPL" ), _)
+	end
 end
 
 # ╔═╡ a65fa0ae-1ceb-451e-ab37-08c0d23a508e
@@ -528,7 +530,11 @@ md"""
 
 # ╔═╡ 523e0191-237e-4bdb-b9a3-53079b9e92d5
 begin
-	
+	df = @chain CRSP begin
+		filter(:TICKER => (x-> ismissing(x) ? false : x=="AAPL" ), _)
+		transform(:date => ByRow(x-> Date(string(x),dateformat"yyyymmdd")) => :date)
+		select(:date, :TICKER, :PERMCO, :PERMNO, :PRC, :DIVAMT)
+	end
 end
 
 # ╔═╡ b8051d63-ed26-4e21-8a98-f564a3b8a967
@@ -537,7 +543,16 @@ md"""
 """
 
 # ╔═╡ a0cf0361-422a-4bcd-8b9e-943dc00044b3
-
+@chain df begin
+	groupby(:date)
+	combine(_) do sdf
+		if nrow(sdf) == 1
+			DataFrame()
+		else
+			sdf
+		end
+	end
+end
 
 # ╔═╡ 6b720ade-5e4c-4f58-8fcd-f609df29df7b
 md"""
@@ -545,7 +560,16 @@ md"""
 """
 
 # ╔═╡ 0cf85da2-a538-402d-9785-094425260bdb
-
+@chain df begin
+	groupby(:date)
+	combine(_) do sdf
+		if nrow(sdf) == 2
+			DataFrame(sdf[2,:])
+		else
+			sdf
+		end
+	end
+end
 
 # ╔═╡ 8a869ecb-a6ed-499d-873b-131c9bc2e0b1
 md"""
@@ -553,7 +577,24 @@ md"""
 """
 
 # ╔═╡ 446e0db1-8107-4724-b774-561c5d37f87a
+begin
+	AAPL = @chain CRSP begin
+		filter(:TICKER => (x-> ismissing(x) ? false : x=="AAPL" ), _)
+		transform(:date => ByRow(x-> Date(string(x),dateformat"yyyymmdd")) => :date)
+		select(:date, :TICKER, :PERMCO, :PERMNO, :PRC, :DIVAMT)
 
+		groupby(:date)
+		combine(_) do sdf
+			if nrow(sdf) == 2
+				DataFrame(sdf[2,:])
+			else
+				sdf
+			end
+		end
+	
+		sort(:date)
+	end
+end
 
 # ╔═╡ 45868894-a317-4370-9631-6ef3c31661e3
 md"""
@@ -567,7 +608,12 @@ md"""
 """
 
 # ╔═╡ 83a3993e-073f-4e84-acfe-61bfc76dde3a
-
+@chain AAPL begin
+	sort(:date)
+	groupby(:TICKER)
+	transform(:PRC => (x->lag(x)) => :PRC_L)
+	select(:date, :TICKER, :PERMCO, :PERMNO, :PRC, :PRC_L, :DIVAMT)
+end
 
 # ╔═╡ 4805e8a6-34d6-49f0-8706-88c916e4689f
 md"""
@@ -575,10 +621,32 @@ md"""
 """
 
 # ╔═╡ 9b816236-f9de-4aad-aea0-b5f8fbfc6b11
+function GetRx(Px_t,Px_tminus,div)
+	divAmt = 0.0
+	if !ismissing(div)
+		divAmt = div
+	end
 
+	if any(ismissing.([Px_t,Px_tminus]))
+		return missing
+	else
+		return (Px_t + divAmt - Px_tminus)/Px_tminus
+	end
+end
 
 # ╔═╡ d300be65-f494-4181-9924-e69cc6c04f09
+function GetLogRx(Px_t,Px_tminus,div)
+	divAmt = 0.0
+	if !ismissing(div)
+		divAmt = div
+	end
 
+	if any(ismissing.([Px_t,Px_tminus]))
+		return missing
+	else
+		return log(Px_t + divAmt) - log(Px_tminus)
+	end
+end
 
 # ╔═╡ 2bd1674d-2254-45a8-9f02-5caa5bd0bd1c
 md"""
@@ -586,7 +654,17 @@ md"""
 """
 
 # ╔═╡ a23a366d-fa73-4672-b59c-e14b2b817ce8
+AAPL_Rx = @chain AAPL begin
 
+	sort(:date)
+	groupby(:TICKER)
+	transform(:PRC => (x->lag(x)) => :PRC_L)
+	select(:date, :TICKER, :PERMCO, :PERMNO, :PRC, :PRC_L, :DIVAMT)
+
+	transform( [:PRC, :PRC_L, :DIVAMT] => ByRow( (Px_t,Px_tminus,div)->GetRx(Px_t,Px_tminus,div) ) => :Rx, [:PRC, :PRC_L, :DIVAMT] => ByRow( (Px_t,Px_tminus,div)->GetLogRx(Px_t,Px_tminus,div) ) => :LogRx)
+
+	dropmissing(:Rx)
+end
 
 # ╔═╡ 5baa1a9f-7ad5-4bfc-b468-9e0b40438548
 md"""
@@ -594,10 +672,14 @@ md"""
 """
 
 # ╔═╡ 0c821308-45ca-4317-80b3-9e87c6840465
-
+@chain AAPL_Rx begin
+	combine(:Rx => (rx-> prod(1 .+ rx) ) => :V_T)
+end
 
 # ╔═╡ 8c58cbc6-cfbd-43de-9e68-bbaf447213fa
-
+@chain AAPL_Rx begin
+	combine( :LogRx => (rx -> exp(sum(rx)) ) => :V_T)
+end
 
 # ╔═╡ a488a679-6dc0-4a33-b327-9d0f6e3b9eb2
 md"""
@@ -610,7 +692,32 @@ Let's pick 5 stocks: AAPL, BA, DIS, GS and JNJ.
 """
 
 # ╔═╡ 99c0ee6b-e040-4261-992c-0f5a0eb8158c
+Portfolio = @chain CRSP begin
+	dropmissing(:TICKER)
+	filter(:TICKER => (x-> x ∈ ["AAPL","BA","DIS","GS","JNJ"]),_)
+	transform(:date => ByRow(x->Date(string(x),dateformat"yyyymmdd")) => :date)
+	select(:date, :TICKER, :PERMCO, :PERMNO, :PRC, :DIVAMT)
 
+	groupby([:date,:TICKER])
+	combine(_) do sdf
+       if nrow(sdf) == 2 
+            DataFrame(sdf[2,:])
+       else
+            sdf
+       end
+    end
+	
+    sort([:TICKER,:date])
+	groupby([:TICKER])
+	transform(:PRC => (x-> lag(x)) => :PRC_L)
+	
+	transform([:PRC, :PRC_L, :DIVAMT] => ByRow((Px_t,Px_tminus,div) -> GetRx(Px_t,Px_tminus,div)) => :Rx,
+			  [:PRC, :PRC_L, :DIVAMT] => ByRow((Px_t,Px_tminus,div) -> GetLogRx(Px_t,Px_tminus,div)) => :LogRx)
+	dropmissing(:Rx)
+
+	select(:date, :TICKER, :PERMCO, :PERMNO, :PRC, :PRC_L, :DIVAMT, :Rx, :LogRx)
+	
+end
 
 # ╔═╡ 0eefd0af-f5dd-4b87-9be0-391d86cf8bf9
 md"""
