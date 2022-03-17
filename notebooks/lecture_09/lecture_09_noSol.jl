@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.2
+# v0.18.1
 
 using Markdown
 using InteractiveUtils
@@ -725,7 +725,10 @@ md"""
 """
 
 # ╔═╡ da35b9a0-5ac8-4608-8dc5-2c08901cc2e3
-
+@chain Portfolio begin
+	select(:date,:TICKER,:Rx)
+	unstack(:date, :TICKER, :Rx)
+end
 
 # ╔═╡ 6572bd2f-76e8-4735-9dff-d371fe7f69bd
 md"""
@@ -733,7 +736,7 @@ md"""
 """
 
 # ╔═╡ e5c2b68f-4f1e-4bd1-8240-ac52d268304b
-
+w = [0.2, 0.2, 0.2, 0.2, 0.2]
 
 # ╔═╡ 16cc7074-d786-4bb5-a735-187465e815e2
 md"""
@@ -741,7 +744,13 @@ md"""
 """
 
 # ╔═╡ 87099910-dfde-4fee-8910-1d6bd25d5170
+PortfRx = @chain Portfolio begin
+	select(:date, :TICKER,:Rx)
+	unstack(:date, :TICKER, :Rx)
 
+	transform( [:AAPL, :BA, :DIS, :GS, :JNJ] => ByRow((a,b,d,g,j)-> w'Array([a,b,d,g,j]) ) => :PortfRx)
+	
+end
 
 # ╔═╡ c63e96e7-0ea0-4daf-a230-26b258f12e79
 md"""
@@ -749,7 +758,7 @@ md"""
 """
 
 # ╔═╡ 07e767e6-d6fc-4f52-8b9d-72ca7c633955
-
+describe(PortfRx)
 
 # ╔═╡ fb69d701-e623-443e-b6f0-c75180b9be1b
 md"""
@@ -764,7 +773,9 @@ That is we have on column for the TICKER and one column for the return for each 
 """
 
 # ╔═╡ cdda5183-46c6-4283-a66f-168ed5790a77
-
+@chain PortfRx begin
+	stack([:AAPL,:BA,:DIS,:GS,:JNJ,:PortfRx],[:date], variable_name=:TICKER, value_name=:Rx) 
+end
 
 # ╔═╡ c799f1ad-b82b-4421-bb71-d07cb7b6afd7
 md"""
@@ -772,7 +783,12 @@ md"""
 """
 
 # ╔═╡ b1a76909-a53f-492a-bec2-5415d90d5de4
+PortfSummary = @chain PortfRx begin
+	stack([:AAPL,:BA,:DIS,:GS,:JNJ,:PortfRx],[:date], variable_name=:TICKER, value_name=:Rx) 
 
+	groupby(:TICKER)
+	combine(:Rx => (x-> (Mean=mean(x), StdDev=std(x), Min=minimum(x), Med=median(x), Max=maximum(x))) => AsTable)
+end
 
 # ╔═╡ 4cfeda6b-6b12-4ffa-9379-15c00b53a49d
 md"""
@@ -780,7 +796,7 @@ md"""
 """
 
 # ╔═╡ 80865386-79cf-45b0-836d-e55a1ca64174
-
+cov( Matrix(PortfRx[:,Not(:date)]) ) 
 
 # ╔═╡ aa21f05c-1e78-4919-86fa-57ae89d4d633
 md"""
@@ -789,6 +805,23 @@ md"""
 
 # ╔═╡ fa05b130-4ab5-49ea-8a8c-f6d9fcfd1656
 let
+	assets = filter(:TICKER => (x->x!="PortfRx"), PortfSummary)
+	μ = assets.Mean
+	Σ = cov( Matrix(PortfRx[:,Not([:date, :PortfRx])]))
+
+	ERp = w'μ
+	VarRp = w'Σ*w
+
+	with_terminal() do
+		printyellow("expected returns*100")
+		printmat(μ*100,rowNames=assets.TICKER)
+
+		printyellow("covariance matrix*100^2")
+		printmat(Σ*100^2, rowNames=assets.TICKER, colNames=assets.TICKER)
+
+		printlnPs("Expected portfolio return:", ERp)
+		printlnPs("Portfolio variance and std", VarRp, sqrt(VarRp))
+	end
 	
 
 end
