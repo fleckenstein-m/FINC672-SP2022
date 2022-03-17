@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.2
+# v0.18.1
 
 using Markdown
 using InteractiveUtils
@@ -293,18 +293,7 @@ Let's look at an example where we have a stock with three price observations.
 
 # ╔═╡ 6c19fbf2-342d-48ff-97d7-983bb1ae1122
 let
-	P = [100, 108, 109]
-	D = [0, 2, 0]
-
-	R = zeros(length(P))
-	for t=2:length(P)
-		R[t] = (P[t]+D[t])/P[t-1] - 1
-	end
-	popfirst!(R)
-
-	with_terminal() do
-		printmat(R*100,colNames=["return, %"],rowNames=2:3, cell00="period", width=15 )
-	end
+	
 		
 end
 
@@ -326,14 +315,7 @@ If the return series is an excess return, add the riskfree rate to convert it to
 
 # ╔═╡ c1a5ff0e-ce5e-4390-bed7-af5be140a145
 let
-	R = [20, -35, 25]/100
-	V = cumprod(1 .+ R)
-	lnV = cumsum( log.(1.0 .+ R) )
-	expLnV = exp.(lnV)
-
-	with_terminal() do
-		printmat(R,V,lnV,expLnV, colNames=["R","V","lnV","expLnV"], rowNames=1:3, cell00="period")
-	end
+	
 	
 end
 
@@ -357,66 +339,22 @@ $$\text{Cov}(R_q,R_p) = v'\Sigma w$$.
 
 # ╔═╡ e89ecb62-4c0f-4266-863b-529694cca1c0
 let
-	w = [0.8, 0.2]
-	R = [10, 5]/100
-	Rp = w'R
-	with_terminal() do
-		printred("Portfolio Weights")
-		printmat(w,rowNames=["asset 1","asset 2"])
-
-		printred("Returns:")
-		printmat(R, rowNames=["asset 1","asset 2"])
-
-		printred("Portfolio return:")
-		printlnPs(Rp)
-		
-	end
 	
 end
 
 # ╔═╡ 3369be71-2a11-4dc8-8d1b-d2b1d7749c5f
 let
-	μ = [9, 6]/100
-	Σ = [256 96;
-	     96 144]/100^2
 
-	with_terminal() do
-		printblue("expected returns*100")
-		printmat(μ*100,rowNames=["asset 1","asset 2"])
-
-		printblue("covariance matrix*100^2")
-		printmat(Σ*100^2, rowNames=["asset 1","asset 2"], colNames=["asset 1","asset 2"])
-	end
 end
 
 # ╔═╡ 4dece1db-3305-4b94-8a1b-f5c833d67444
 let
-	w = [0.8, 0.2]
-	R = [10,5]/100
-	μ = [9, 6]/100
-	Σ = [256 96;
-	     96 144]/100^2
-	ERp = w'μ
-	VarRp = w'Σ*w
-	
-	with_terminal() do
-		printlnPs("Expected portfolio return:", ERp)
-		printlnPs("Portfolio variance and std", VarRp, sqrt(VarRp))
-	end
+
 end
 
 # ╔═╡ e5318e00-c074-4074-8eb4-3245ceceb4c4
 let
-	w = [0.8, 0.2]
-	μ = [9, 6]/100
-	Σ = [256 -96;
-	     -96 144]/100^2
-	ERp = w'μ
-	VarRp = w'Σ*w
-	
-	with_terminal() do
-		printlnPs("Portfolio variance and std", VarRp, sqrt(VarRp))
-	end
+
 end
 
 # ╔═╡ c537a2e6-114f-4a86-9323-cc7e7b94ceb3
@@ -437,7 +375,7 @@ md"""
 """
 
 # ╔═╡ 2a18e0ef-4332-4a11-af9f-3efea3f8f69d
- CRSP = DataFrame(CSV.File("CRSP_monthly.csv", ntasks=1))
+
 
 # ╔═╡ ad26e54b-85b1-4631-b1ed-531873ba712a
 md"""
@@ -445,7 +383,7 @@ md"""
 """
 
 # ╔═╡ aee2e708-6b13-4609-b60c-a33cbd741023
-describe(CRSP)
+
 
 # ╔═╡ d99160b7-9421-404d-bef4-55f634d6e586
 md"""
@@ -518,9 +456,7 @@ md"""
 
 # ╔═╡ 6cb63947-6490-4a02-8b74-55eb5e2efa96
 let
-	df = @chain CRSP begin
-		filter(:TICKER => (x-> ismissing(x) ? false : x=="AAPL" ), _)
-	end
+	
 end
 
 # ╔═╡ a65fa0ae-1ceb-451e-ab37-08c0d23a508e
@@ -530,11 +466,7 @@ md"""
 
 # ╔═╡ 523e0191-237e-4bdb-b9a3-53079b9e92d5
 begin
-	df = @chain CRSP begin
-		filter(:TICKER => (x-> ismissing(x) ? false : x=="AAPL" ), _)
-		transform(:date => ByRow(x-> Date(string(x),dateformat"yyyymmdd")) => :date)
-		select(:date, :TICKER, :PERMCO, :PERMNO, :PRC, :DIVAMT)
-	end
+	
 end
 
 # ╔═╡ b8051d63-ed26-4e21-8a98-f564a3b8a967
@@ -543,16 +475,7 @@ md"""
 """
 
 # ╔═╡ a0cf0361-422a-4bcd-8b9e-943dc00044b3
-@chain df begin
-	groupby(:date)
-	combine(_) do sdf
-		if nrow(sdf) == 1
-			DataFrame()
-		else
-			sdf
-		end
-	end
-end
+
 
 # ╔═╡ 6b720ade-5e4c-4f58-8fcd-f609df29df7b
 md"""
@@ -560,16 +483,7 @@ md"""
 """
 
 # ╔═╡ 0cf85da2-a538-402d-9785-094425260bdb
-@chain df begin
-	groupby(:date)
-	combine(_) do sdf
-		if nrow(sdf) == 2
-			DataFrame(sdf[2,:])
-		else
-			sdf
-		end
-	end
-end
+
 
 # ╔═╡ 8a869ecb-a6ed-499d-873b-131c9bc2e0b1
 md"""
@@ -578,22 +492,7 @@ md"""
 
 # ╔═╡ 446e0db1-8107-4724-b774-561c5d37f87a
 begin
-	AAPL = @chain CRSP begin
-		filter(:TICKER => (x-> ismissing(x) ? false : x=="AAPL" ), _)
-		transform(:date => ByRow(x-> Date(string(x),dateformat"yyyymmdd")) => :date)
-		select(:date, :TICKER, :PERMCO, :PERMNO, :PRC, :DIVAMT)
-
-		groupby(:date)
-		combine(_) do sdf
-			if nrow(sdf) == 2
-				DataFrame(sdf[2,:])
-			else
-				sdf
-			end
-		end
 	
-		sort(:date)
-	end
 end
 
 # ╔═╡ 45868894-a317-4370-9631-6ef3c31661e3
@@ -608,12 +507,7 @@ md"""
 """
 
 # ╔═╡ 83a3993e-073f-4e84-acfe-61bfc76dde3a
-@chain AAPL begin
-	sort(:date)
-	groupby(:TICKER)
-	transform(:PRC => (x->lag(x)) => :PRC_L)
-	select(:date, :TICKER, :PERMCO, :PERMNO, :PRC, :PRC_L, :DIVAMT)
-end
+
 
 # ╔═╡ 4805e8a6-34d6-49f0-8706-88c916e4689f
 md"""
@@ -621,32 +515,10 @@ md"""
 """
 
 # ╔═╡ 9b816236-f9de-4aad-aea0-b5f8fbfc6b11
-function GetRx(Px_t,Px_tminus,div)
-	divAmt = 0.0
-	if !ismissing(div)
-		divAmt = div
-	end
 
-	if any(ismissing.([Px_t,Px_tminus]))
-		return missing
-	else
-		return (Px_t + divAmt - Px_tminus)/Px_tminus
-	end
-end
 
 # ╔═╡ d300be65-f494-4181-9924-e69cc6c04f09
-function GetLogRx(Px_t,Px_tminus,div)
-	divAmt = 0.0
-	if !ismissing(div)
-		divAmt = div
-	end
 
-	if any(ismissing.([Px_t,Px_tminus]))
-		return missing
-	else
-		return log(Px_t + divAmt) - log(Px_tminus)
-	end
-end
 
 # ╔═╡ 2bd1674d-2254-45a8-9f02-5caa5bd0bd1c
 md"""
@@ -654,17 +526,7 @@ md"""
 """
 
 # ╔═╡ a23a366d-fa73-4672-b59c-e14b2b817ce8
-AAPL_Rx = @chain AAPL begin
 
-	sort(:date)
-	groupby(:TICKER)
-	transform(:PRC => (x->lag(x)) => :PRC_L)
-	select(:date, :TICKER, :PERMCO, :PERMNO, :PRC, :PRC_L, :DIVAMT)
-
-	transform( [:PRC, :PRC_L, :DIVAMT] => ByRow( (Px_t,Px_tminus,div)->GetRx(Px_t,Px_tminus,div) ) => :Rx, [:PRC, :PRC_L, :DIVAMT] => ByRow( (Px_t,Px_tminus,div)->GetLogRx(Px_t,Px_tminus,div) ) => :LogRx)
-
-	dropmissing(:Rx)
-end
 
 # ╔═╡ 5baa1a9f-7ad5-4bfc-b468-9e0b40438548
 md"""
@@ -672,14 +534,10 @@ md"""
 """
 
 # ╔═╡ 0c821308-45ca-4317-80b3-9e87c6840465
-@chain AAPL_Rx begin
-	combine(:Rx => (rx-> prod(1 .+ rx) ) => :V_T)
-end
+
 
 # ╔═╡ 8c58cbc6-cfbd-43de-9e68-bbaf447213fa
-@chain AAPL_Rx begin
-	combine( :LogRx => (rx -> exp(sum(rx)) ) => :V_T)
-end
+
 
 # ╔═╡ a488a679-6dc0-4a33-b327-9d0f6e3b9eb2
 md"""
@@ -692,32 +550,7 @@ Let's pick 5 stocks: AAPL, BA, DIS, GS and JNJ.
 """
 
 # ╔═╡ 99c0ee6b-e040-4261-992c-0f5a0eb8158c
-Portfolio = @chain CRSP begin
-	dropmissing(:TICKER)
-	filter(:TICKER => (x-> x ∈ ["AAPL","BA","DIS","GS","JNJ"]),_)
-	transform(:date => ByRow(x->Date(string(x),dateformat"yyyymmdd")) => :date)
-	select(:date, :TICKER, :PERMCO, :PERMNO, :PRC, :DIVAMT)
 
-	groupby([:date,:TICKER])
-	combine(_) do sdf
-       if nrow(sdf) == 2 
-            DataFrame(sdf[2,:])
-       else
-            sdf
-       end
-    end
-	
-    sort([:TICKER,:date])
-	groupby([:TICKER])
-	transform(:PRC => (x-> lag(x)) => :PRC_L)
-	
-	transform([:PRC, :PRC_L, :DIVAMT] => ByRow((Px_t,Px_tminus,div) -> GetRx(Px_t,Px_tminus,div)) => :Rx,
-			  [:PRC, :PRC_L, :DIVAMT] => ByRow((Px_t,Px_tminus,div) -> GetLogRx(Px_t,Px_tminus,div)) => :LogRx)
-	dropmissing(:Rx)
-
-	select(:date, :TICKER, :PERMCO, :PERMNO, :PRC, :PRC_L, :DIVAMT, :Rx, :LogRx)
-	
-end
 
 # ╔═╡ 0eefd0af-f5dd-4b87-9be0-391d86cf8bf9
 md"""
@@ -790,7 +623,6 @@ md"""
 # ╔═╡ fa05b130-4ab5-49ea-8a8c-f6d9fcfd1656
 let
 	
-
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001

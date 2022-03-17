@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.18.2
 
 using Markdown
 using InteractiveUtils
@@ -260,8 +260,8 @@ end
 #------------------------------------------------------------------------------
 
 	
-#using Logging
-#global_logger(NullLogger())
+using Logging
+global_logger(NullLogger())
 	
 display("")
 	
@@ -653,7 +653,7 @@ end
 
 # ╔═╡ 2bd1674d-2254-45a8-9f02-5caa5bd0bd1c
 md"""
-**Let's now create a new datafram with the returns for AAPL.**
+**Let's now create a new dataframe with the returns for AAPL.**
 """
 
 # ╔═╡ a23a366d-fa73-4672-b59c-e14b2b817ce8
@@ -773,7 +773,7 @@ average return, standard deviation of returns, minimum, median, and the maximum 
 # ╔═╡ cb78be8c-f039-434e-acbb-9375f3174588
 md"""
 **To create this table, it is easier to work with the data in `long` format.**
-That is we have on column for the TICKER and one column for the return for each date. In this format, it is easier to group the data and to apply a data transformation.
+That is we have one column for the TICKER and one column for the return for each date. In this format, it is easier to group the data and to apply a data transformation.
 """
 
 # ╔═╡ cdda5183-46c6-4283-a66f-168ed5790a77
@@ -838,6 +838,7 @@ CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 ShiftedArrays = "1277b4bf-5013-50f5-be3d-901d8477a67a"

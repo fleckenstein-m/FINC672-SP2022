@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.18.2
 
 using Markdown
 using InteractiveUtils
@@ -8,18 +8,6 @@ using InteractiveUtils
 begin
 	using CSV, Chain, DataFrames, Dates, LinearAlgebra, Plots, LaTeXStrings, PlutoUI, Printf, ShiftedArrays, Statistics
 	gr(size=(480,320)) #for plotting
-end
-
-# ╔═╡ 49fdad82-e563-4e4c-88a1-33166e9ddee4
-begin
-	using JuMP
-	import Ipopt
-end
-
-# ╔═╡ 81404cf5-bd49-4dda-8471-fc1c8417199b
-begin
-	using Convex
-	import SCS 
 end
 
 # ╔═╡ c43df4a3-a1d8-433e-9a1c-f7c0984be879
@@ -278,11 +266,23 @@ end
 #round to digits, e.g. 6 digits then prec=1e-6
 roundmult(val, prec) = (inv_prec = 1 / prec; round(val * inv_prec) / inv_prec)
 	
-#using Logging
-#global_logger(NullLogger())
+using Logging
+global_logger(NullLogger())
 	
 display("")
 	
+end
+
+# ╔═╡ 49fdad82-e563-4e4c-88a1-33166e9ddee4
+begin
+	using JuMP
+	import Ipopt
+end
+
+# ╔═╡ 81404cf5-bd49-4dda-8471-fc1c8417199b
+begin
+	using Convex
+	import SCS 
 end
 
 # ╔═╡ 5141ad80-2374-11ec-2455-c7ff63842559
@@ -1093,6 +1093,7 @@ Ipopt = "b6b21f68-93f8-5de0-b562-5493be1d77c9"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
@@ -2251,8 +2252,8 @@ version = "0.9.1+5"
 """
 
 # ╔═╡ Cell order:
-# ╟─3d731294-71d0-4b34-85e2-96d29bd8a7ca
 # ╟─c43df4a3-a1d8-433e-9a1c-f7c0984be879
+# ╠═3d731294-71d0-4b34-85e2-96d29bd8a7ca
 # ╟─5141ad80-2374-11ec-2455-c7ff63842559
 # ╟─5fc44a1a-2c5c-4cdf-b2da-4cbc17c8f8a3
 # ╟─72c219a7-1c04-4678-988c-8f17674d9d75
