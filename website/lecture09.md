@@ -6,6 +6,6 @@
 Topic | Slides
 :-----: | :--------:
 Portfolio Mathematics           | [notebook](../lecture09_noSol_pluto)
-                                | [Solution](../notebooks/lecture_09/lecture_09_wSol.html)  
+                                | [Solution](../notebooks/lecture_09/lecture_09_wSol_html.html)  
 <!--  -->
 
