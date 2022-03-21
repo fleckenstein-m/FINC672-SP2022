@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.17.2
 
 using Markdown
 using InteractiveUtils
@@ -7,6 +7,7 @@ using InteractiveUtils
 # ╔═╡ 3d731294-71d0-4b34-85e2-96d29bd8a7ca
 begin
 	using CSV, Chain, DataFrames, Dates, LinearAlgebra, Plots, LaTeXStrings, PlutoUI, Printf, ShiftedArrays, Statistics
+	
 	gr(size=(480,320)) #for plotting
 end
 
@@ -273,18 +274,6 @@ display("")
 	
 end
 
-# ╔═╡ 49fdad82-e563-4e4c-88a1-33166e9ddee4
-begin
-	using JuMP
-	import Ipopt
-end
-
-# ╔═╡ 81404cf5-bd49-4dda-8471-fc1c8417199b
-begin
-	using Convex
-	import SCS 
-end
-
 # ╔═╡ 5141ad80-2374-11ec-2455-c7ff63842559
 md"""
 ## FINC 672: Mean-Variance Analysis
@@ -302,20 +291,7 @@ md"""
 
 # ╔═╡ 652dc6ae-6f9d-4ebd-9251-00821a8ee09d
 begin
-	μ = [0.115, 0.095, 0.06]    #expected returns
-	Σ = [166  34  58;           #covariance matrix
-		  34  64   4;
-		  58   4 100]/100^2
-	Rf = 0.03
-
-	assetNames = ["A","B","C"]
-
-	with_terminal() do
-		printred("expected returns:")
-		printmat(μ,rowNames=assetNames)
-		printred("covariance matrix:")
-		printmat(Σ,colNames=assetNames,rowNames=assetNames)
-	end
+	
 end
 
 # ╔═╡ d558b927-2cea-45ef-b50b-0f53640e49d4
@@ -338,18 +314,7 @@ Calculate the std and weights of a portfolio (with mean return μstar) on MVF of
   - Only (λ,δ) and thus (w,stdRp) depend on μstar. We could therefore speed up the computations a bit by doing the loop over different μstar values inside the function (and thus not recalculate Σ_1,a,b,c).
   - See p. 60 of lecture notes `lecture_10_Reading.pdf` available on Canvas.
 """
-function MVCalc(μstar,μ,Σ)
-    n    = length(μ)
-    Σ_1  = inv(Σ)
-    a    = μ'Σ_1*μ
-    b    = μ'Σ_1*ones(n)
-    c    = ones(n)'Σ_1*ones(n)
-    λ    = (c*μstar - b)/(a*c-b^2)
-    δ    = (a-b*μstar)/(a*c-b^2)
-    w    = Σ_1 *(μ*λ.+δ)
-    StdRp = sqrt(w'Σ*w)
-    return StdRp,w
-end
+
 
 # ╔═╡ b16ecff8-2dc1-4827-b33c-5eb0af4a6961
 md"""
@@ -358,13 +323,7 @@ md"""
 
 # ╔═╡ 95a13699-95b4-4f7b-baaa-80627f33841f
 begin
-	μ_MV = collect(0.01:0.001:0.20)
-	σ_MV = Array{Float64}(undef,length(μ_MV))
-	for (i,mu) in enumerate(μ_MV)
-		σ_MV[i] = MVCalc(mu,μ,Σ)[1]
-	end
 	
-	p_MV = plot(σ_MV,μ_MV, color=:blue, xlim=(0,0.20), ylim=(0,0.15), xlabel=L"\sigma", ylabel=L"\mu", label="MV Frontier", legend=:topleft)
 end
 
 # ╔═╡ 63c6b02c-4674-45b4-a96a-2545959d9d7c
@@ -374,15 +333,7 @@ md"""
 
 # ╔═╡ c40dc723-1169-4826-941d-ba162d2bf7b8
 begin
-	#Add Asset A
-	p_MV2 = scatter!(p_MV,[sqrt.((Σ[1,1]))],[μ[1]], markershape=:cross,markersize=7, markerstrokewidth=15, markercolor=:red,label="")
-	annotate!(p_MV2,[sqrt.((Σ[1,1]))+0.01],[μ[1]],"A")
-	#Add Asset B
-	scatter!(p_MV2,[sqrt.((Σ[2,2]))],[μ[2]], markershape=:cross,markersize=7, markerstrokewidth=15, markercolor=:red,label="")
-	annotate!(p_MV2,[sqrt.((Σ[2,2]))+0.01],[μ[2]],"B")
-	#Add Asset C
-	scatter!(p_MV2,[sqrt.((Σ[3,3]))],[μ[3]], markershape=:cross,markersize=7, markerstrokewidth=15, markercolor=:red,label="")
-	annotate!(p_MV2,[sqrt.((Σ[3,3]))+0.01],[μ[3]],"C")
+	
 end
 
 # ╔═╡ ef313c73-14bd-42d9-a1d4-c35709dec26c
@@ -405,10 +356,7 @@ md"""
 
 # ╔═╡ 212685c3-9049-42e9-b535-6e515f19153b
 begin
- df_MV = DataFrame(P1=[0.72,0.08,0.20],P2=[0.02,0.63,0.35],P3=[0.05,0.15,0.8])
- df_MV_μ = combine(df_MV, [:P1,:P2,:P3] .=> (x->x'μ), renamecols=false)
- df_MV_σ = combine(df_MV, [:P1,:P2,:P3] .=> (x->sqrt(x'Σ*x)), renamecols=false)	
- df_MV_μσ = vcat(df_MV_μ,df_MV_σ)
+ 
 end
 
 # ╔═╡ 77a08244-548c-4a7a-be3e-cdc8c6e29622
@@ -418,16 +366,7 @@ md"""
 
 # ╔═╡ f3f52640-d079-4d6c-8c2a-63f89c53b061
 begin
-	#add other portfolios
-	#1
-	p_MV3 = scatter!(p_MV2,[df_MV_μσ[1,:P1]], [df_MV_μσ[2,:P1]], markershape=:star,markersize=3, label="")
-	annotate!(p_MV3,[df_MV_μσ[2,:P1]+0.005],[df_MV_μσ[1,:P1]],("1",12,:green))
-	#2
-	scatter!(p_MV3,[df_MV_μσ[1,:P2]], [df_MV_μσ[2,:P2]], markershape=:star,markersize=3, label="")
-	annotate!(p_MV3,[df_MV_μσ[2,:P2]+0.005],[df_MV_μσ[1,:P2]],("2",12,:green))
-	#3
-	scatter!(p_MV3,[df_MV_μσ[1,:P3]], [df_MV_μσ[2,:P3]], markershape=:star,markersize=3, label="")
-	annotate!(p_MV3,[df_MV_μσ[2,:P3]+0.005],[df_MV_μσ[1,:P3]],("3",12,:green))
+	
 end
 
 # ╔═╡ fa8d6069-e8da-4bba-8475-d20c5c6dc090
@@ -451,13 +390,7 @@ md"""
 
 Calculate the std and portfolio weights of a portfolio (with a given mean, μstar) on MVF of (risky assets,riskfree). See p. 62 of lecture notes `lecture_10_Reading.pdf` available on Canvas.
 """
-function MVCalcRf(μstar,μ,Σ,Rf)
-    μe    = μ .- Rf
-    Σ_1   = inv(Σ)
-    w     = (μstar-Rf)/(μe'Σ_1*μe) * Σ_1*μe
-    StdRp = sqrt(w'Σ*w)
-    return StdRp,w                    #std and portfolio weights
-end
+
 
 # ╔═╡ 2e082d7a-7fec-44e9-8697-78a1328e7d3d
 md"""
@@ -466,13 +399,7 @@ md"""
 
 # ╔═╡ e1ac8d53-000e-44d7-8090-334468a6d2ad
 begin
-	μ_MVRf = collect(Rf:0.001:0.20)
-	σ_MVRf = Array{Float64}(undef,length(μ_MVRf))
-	w_MVRf = Array{Float64}(undef,length(μ_MVRf))
-	for (i,mu) in enumerate(μ_MVRf)
-		σ_MVRf[i] = MVCalcRf(mu,μ,Σ,Rf)[1]
-	end
-	p_MVRf = plot(σ_MVRf,μ_MVRf, color=:blue, xlim=(0,0.20), ylim=(0,0.15), xlabel=L"\sigma", ylabel=L"\mu", label="MV/Rf Frontier", legend=:topleft)
+	
 end
 
 # ╔═╡ aa126d99-3fba-49bc-91c0-bde7cdfeb3bb
@@ -482,8 +409,7 @@ md"""
 
 # ╔═╡ a0782ccf-5fb4-4ca3-9e3e-c8da69909847
 begin
-	p_MVRf2 = p_MVRf
-	plot!(p_MVRf2,σ_MV,μ_MV, label="MV Frontier", color=:red)
+	
 end
 
 # ╔═╡ 74e6c915-5dca-4c84-a890-0b829ba6cd92
@@ -504,15 +430,7 @@ md"""
 
 Calculate the tangency portfolio. See p. 65 of lecture notes `lecture_10_Reading.pdf` available on Canvas.
 """
-function MVTangencyP(μ,Σ,Rf)           #calculates the tangency portfolio
-    n    = length(μ)
-    μe   = μ .- Rf                    #expected excess returns
-    Σ_1  = inv(Σ)
-    w    = Σ_1 *μe/(ones(n)'Σ_1*μe)
-    muT  = w'μ + (1-sum(w))*Rf
-    StdT = sqrt(w'Σ*w)
-    return w,muT,StdT                  #portolio weights, mean and std
-end
+
 
 
 # ╔═╡ 3652b806-8991-47d4-ad82-e8affde497f6
@@ -522,8 +440,7 @@ md"""
 
 # ╔═╡ fc304ff1-e4ff-4047-a8d3-353816202724
 begin
-	wT,muT,StdT = MVTangencyP(μ,Σ,Rf)
-	df_T = DataFrame(wA=wT[1],wB=wT[2],wC=wT[3],μ=muT,σ=StdT)
+	
 end
 
 # ╔═╡ 0b30896b-d6da-4391-a2dc-e9e0bcbe2fa2
@@ -533,8 +450,7 @@ md"""
 
 # ╔═╡ 83a1fb1d-221b-4f26-8e65-e319ea9b899d
 let
-	p_MVRf2T = p_MVRf2
-	scatter!(p_MVRf2T,[df_T.σ],[df_T.μ], label="")
+	
 end
 
 # ╔═╡ 3f73b5cf-fe07-4bd5-8306-e319024f4bb9
@@ -560,7 +476,7 @@ WMT  | 	Walmart Inc
 """
 
 # ╔═╡ 296b85d2-2dac-4cf4-aa86-b33f0ca13650
-StockTicker = ["AAPL","AXP","CAT","GS","MRK","WMT"]
+
 
 # ╔═╡ 322112e3-3aee-4e70-8203-6a1227a448de
 md"""
@@ -568,7 +484,7 @@ md"""
 """
 
 # ╔═╡ 624bfb0a-3336-448d-982a-511f9743202c
-CRSP = DataFrame(CSV.File("CRSP_monthly.csv", ntasks=1))
+
 
 # ╔═╡ e2e22821-c6c1-4e98-a5f4-725595c3f250
 md"""
@@ -578,7 +494,7 @@ md"""
 """
 
 # ╔═╡ b3ac63b0-aebd-4fff-9e98-82d0f4bbb8dc
-FF = DataFrame(CSV.File("F-F_Research_Data_Factors.csv",header=4,skipto=5))
+
 
 # ╔═╡ d751ef72-7ab1-45f0-8375-7831175f075f
 md"""
@@ -586,10 +502,7 @@ md"""
 """
 
 # ╔═╡ 7465eeed-9af0-4504-9154-be22c8160a4b
-RF = @chain FF begin
-	transform(:Date => ByRow(x->lastdayofmonth(Dates.Date(string(x),dateformat"yyyymm"))), :RF =>(x-> x./100), renamecols=false)
-	select(:Date,:RF)
-end
+
 
 # ╔═╡ f07348bf-2ec1-4a83-9f1d-6af7787bd42d
 md"""
@@ -597,32 +510,10 @@ md"""
 """
 
 # ╔═╡ a53c4108-7ee7-4547-afee-dfaacf87d944
-function GetRx(Px_t,Px_tminus,div)
-	divAmt = 0.0
-	if !ismissing(div)
-		divAmt = div
-	end
-		
-	if any(ismissing.([Px_t,Px_tminus]))
-		return missing
-	else
-		return (Px_t + divAmt - Px_tminus)/Px_tminus
-	end
-end
+
 
 # ╔═╡ 3d053364-5a63-41b1-b654-9d99e00cc6c3
-function GetLogRx(Px_t,Px_tminus,div)
-	divAmt = 0.0
-	if !ismissing(div)
-		divAmt = div
-	end
-		
-	if any(ismissing.([Px_t,Px_tminus]))
-		return missing
-	else
-		return log((Px_t + divAmt)) - log(Px_tminus)
-	end
-end
+
 
 # ╔═╡ db15e7a8-6912-49ae-81b4-c22abc40aac5
 md"""
@@ -630,32 +521,7 @@ md"""
 """
 
 # ╔═╡ 5deea522-f60b-4242-8c9f-26ee7c243677
-df = @chain CRSP begin
-	dropmissing(:TICKER)
-	filter(:TICKER => (x-> x ∈ StockTicker),_)
-	transform(:date => ByRow(x->Date(string(x),dateformat"yyyymmdd")) => :date)
-	select(:date, :TICKER, :PERMCO, :PERMNO, :PRC, :DIVAMT)
 
-	groupby([:date,:TICKER])
-	combine(_) do sdf
-       if nrow(sdf) == 2 
-            DataFrame(sdf[2,:])
-       else
-            sdf
-       end
-    end
-	
-    sort([:TICKER,:date])
-	groupby([:TICKER])
-	transform(:PRC => (x-> lag(x)) => :PRC_L)
-	
-	transform([:PRC, :PRC_L, :DIVAMT] => ByRow((Px_t,Px_tminus,div) -> GetRx(Px_t,Px_tminus,div)) => :Rx,
-			  [:PRC, :PRC_L, :DIVAMT] => ByRow((Px_t,Px_tminus,div) -> GetLogRx(Px_t,Px_tminus,div)) => :LogRx)
-	dropmissing(:Rx)
-
-	select(:date, :TICKER, :PERMCO, :PERMNO, :PRC, :PRC_L, :DIVAMT, :Rx, :LogRx)
-	
-end
 
 # ╔═╡ b26bf12b-f377-4228-9ac6-9af67eaf6880
 md"""
@@ -664,10 +530,7 @@ md"""
 
 # ╔═╡ 3f2eb8f8-b30f-487d-a915-bcfa6ebd0954
 #https://dataframes.juliadata.org/stable/lib/functions/#DataFrames.unstack
-Stocks = @chain df begin
-	select(:date,:TICKER,:Rx) 
-	unstack(:date,:TICKER,:Rx)
-end
+
 
 # ╔═╡ b4a689de-eb5a-42a0-b7f1-274bb81884f4
 md"""
@@ -675,13 +538,10 @@ md"""
 """
 
 # ╔═╡ 201bdaf1-bcb4-4e9e-8b38-fba457527ba6
-μ_Stocks = let 
-	df = combine(Stocks, StockTicker .=> (x-> mean(x)), renamecols=false)
-	Array(df[1,:])
-end
+
 
 # ╔═╡ 1af038cd-1f76-4473-9abb-ca25efd5ef5b
-Σ_Stocks= cov(Matrix(Stocks[:,Not(:date)]))
+
 
 # ╔═╡ b10c5e71-2cd7-46ff-9a49-c749312becc9
 md"""
@@ -690,20 +550,7 @@ md"""
 
 # ╔═╡ 9583fcde-ddc0-4463-b9e1-7c8f69921f17
 begin
-	Rf_Stocks = @chain RF begin
-		filter(:Date => (x-> (year(x)>=2000 && year(x)<=2020)),_)
-		combine(:RF => mean, renamecols=false)
-		_.RF[1]
-	end
-		
-	with_terminal() do
-		printred("riskfree rate:")
-		printmat(Rf_Stocks,rowNames="RF")
-		printred("expected returns:")
-		printmat(μ_Stocks,rowNames=StockTicker)
-		printred("covariance matrix:")
-		printmat(Σ_Stocks,colNames=StockTicker,rowNames=StockTicker)
-	end
+	
 end
 
 # ╔═╡ 63e089e7-19da-4b22-b4f8-93c7dcf3fffd
@@ -713,13 +560,7 @@ md"""
 
 # ╔═╡ 41b4f432-2218-427b-b9b0-c882e3e4c0f0
 begin
-	μ_MVStocks = collect(0.0010:0.0001:0.03)
-	σ_MVStocks = Array{Float64}(undef,length(μ_MVStocks))
-	for (i,mu) in enumerate(μ_MVStocks)
-		σ_MVStocks[i] = MVCalc(mu,μ_Stocks,Σ_Stocks)[1]
-	end
 	
-	p_MVStocks = plot(σ_MVStocks,μ_MVStocks, color=:blue, xlim=(0,0.15), ylim=(0,0.03), xlabel=L"\sigma", ylabel=L"\mu", label="MV Frontier", legend=:topleft)
 end
 
 # ╔═╡ 0d2c744c-cfbc-4ee7-b50f-56fa5f2faef6
@@ -729,12 +570,7 @@ md"""
 
 # ╔═╡ 68c13c22-274b-4e9b-ba45-6cd7054b1642
 begin
-	p_MVStocks2 = plot(σ_MVStocks,μ_MVStocks, color=:blue, xlim=(0,0.15), ylim=(0,0.03), xlabel=L"\sigma", ylabel=L"\mu", label="MV Frontier", legend=:topleft)	
-	for i=1:length(StockTicker)
-		scatter!(p_MVStocks2,[sqrt.((Σ_Stocks[i,i]))],[μ_Stocks[i]], markershape=:cross,markersize=4, markerstrokewidth=15, markercolor=:red,label="")
-		annotate!(p_MVStocks2,[sqrt.((Σ_Stocks[i,i]))+0.01],[μ_Stocks[i]],(StockTicker[i],10))
-	end
-	p_MVStocks2
+	
 end
 
 # ╔═╡ 66b6a673-8a3f-46e6-ad02-43451c6b75f2
@@ -744,13 +580,7 @@ md"""
 
 # ╔═╡ 28059fe1-7051-4846-83c4-4dc6a3a0217c
 begin
-	μ_MVRfStocks = collect(Rf_Stocks:0.0001:0.10)
-	σ_MVRfStocks = Array{Float64}(undef,length(μ_MVRfStocks))
-	w_MVRfStocks = Array{Float64}(undef,length(μ_MVRfStocks))
-	for (i,mu) in enumerate(μ_MVRfStocks)
-		σ_MVRfStocks[i] = MVCalcRf(mu,μ_Stocks,Σ_Stocks,Rf_Stocks)[1]
-	end
-	p_MVRfStocks = plot(σ_MVRfStocks,μ_MVRfStocks, color=:blue, xlim=(0,0.20), ylim=(0,0.05), xlabel=L"\sigma", ylabel=L"\mu", label="MV/Rf Frontier", legend=:topleft)
+	
 end
 
 # ╔═╡ f652f235-ea75-4498-b1a7-e2d8d6a9839a
@@ -760,8 +590,7 @@ md"""
 
 # ╔═╡ dbc7a54a-2010-4ece-9f5c-830ca732bc2e
 begin
-	p_MVRfStocks2 = p_MVRfStocks
-	plot!(p_MVRfStocks2,σ_MVStocks,μ_MVStocks, label="MV Frontier", color=:red)
+	
 end
 
 # ╔═╡ 46e17e2e-6b1f-459f-8586-409f84a1e70d
@@ -771,19 +600,11 @@ md"""
 
 # ╔═╡ 1f75311f-7311-4b1a-bdf7-b904645f3433
 begin
-	wTStocks,muTStocks,stdTStocks = MVTangencyP(μ_Stocks,Σ_Stocks,Rf_Stocks)
-	df_TStocks = DataFrame(Ticker=StockTicker, PortfolioWeights=wTStocks)
+	
 end
 
 # ╔═╡ ed6bd06e-91ca-4904-b419-9224c506ba06
-with_terminal() do
-		printred("Expected Return Tangency Portfolio:")
-		printmat(muTStocks,rowNames="μ")
-		printred("Standard Deviation Tangency Portfolio:")
-		printmat(stdTStocks,rowNames="σ")
-		printred("Portfolio Weights:")
-		printmat(wTStocks,colNames="w",rowNames=StockTicker)
-	end
+
 
 # ╔═╡ 7bc6b7af-3734-4bbd-9fd1-918b809ac824
 md"""
@@ -859,6 +680,11 @@ md"""
 - We import the JuMP and the Ipopt packages.
 """
 
+# ╔═╡ 49fdad82-e563-4e4c-88a1-33166e9ddee4
+begin
+	
+end
+
 # ╔═╡ 20e2e63b-a815-48e1-8c9b-fc58c37fc7f4
 md"""
 - Next, we set up the constrained optimization problem as follows:
@@ -866,17 +692,11 @@ md"""
 
 # ╔═╡ 3f1f9312-5aa7-4659-a9cd-a6087325db6f
 begin
-	portfolio = Model(Ipopt.Optimizer)
-	set_silent(portfolio)
-	@variable(portfolio, x[1:6] >= 0)
-	@objective(portfolio, Min, x' * Σ_Stocks * x)
-	@constraint(portfolio, sum(x) <= 1000)
-	@constraint(portfolio, sum(μ_Stocks[i] * x[i] for i in 1:6) >= 10)
-	optimize!(portfolio)
+	
 end
 
 # ╔═╡ 032fa9cd-59a0-4a8d-a11f-035185b4a68d
-objective_value(portfolio)
+
 
 # ╔═╡ 2a1d3f42-4a6a-4463-a7e8-1d42faeef67e
 md"""
@@ -884,7 +704,7 @@ md"""
 """
 
 # ╔═╡ cf0f4d47-b2a5-4068-9bb4-8a7d92b220a5
-df_JuMP = DataFrame(Ticker=StockTicker, PortfolioWeight=roundmult.(value.(x)/sum(value.(x)),1e-4), 		PortfolioAmount=roundmult.(value.(x),1e-2))
+
 
 # ╔═╡ 66f01e97-7b13-430c-ac17-9a790d54b9bc
 md"""
@@ -911,6 +731,11 @@ md"""
 - We import the Convex and the SCS packages.
 """
 
+# ╔═╡ 81404cf5-bd49-4dda-8471-fc1c8417199b
+begin
+	
+end
+
 # ╔═╡ 069eb48b-ef05-45e3-9415-db5e083d59aa
 md"""
 - Next, we set up the optimization problem and solve it.
@@ -918,21 +743,7 @@ md"""
 
 # ╔═╡ deab3f39-c1df-40ca-b8be-4f069fd9bd96
 begin
-	N = 101
-	λ_vals = range(0.01, stop = 0.99, length = N)
-
-	n = length(StockTicker)
-	w = Variable(n)
-	ret = dot(w, μ_Stocks)
-	risk = quadform(w, Σ_Stocks)
 	
-	MeanVarA = zeros(N, 2)
-	for i in 1:N
-	    λ = λ_vals[i]
-	    p = minimize(λ * risk - (1 - λ) * ret, sum(w) == 1)
-	    solve!(p, SCS.Optimizer; silent_solver = true)
-	    MeanVarA[i, :] = [evaluate(ret), evaluate(risk)]
-	end
 end
 
 # ╔═╡ a6de58d1-40a3-445a-8e4d-9629ef44b5ad
@@ -942,21 +753,7 @@ md"""
 
 # ╔═╡ 683643a3-fbb9-4971-ad24-38df63a1e8b4
 begin
-	w_lower = 0                     #bounds on w
-	w_upper = 1
 	
-	MeanVarB = zeros(N, 2)   #repeat, but with 0<w[i]<1
-	for i in 1:N
-	    λ = λ_vals[i]
-	    p = minimize(
-	        λ * risk - (1 - λ) * ret,
-	        sum(w) == 1,
-	        w_lower <= w,     #w[i] is bounded
-	        w <= w_upper,
-	    )
-	    solve!(p, SCS.Optimizer; silent_solver = true)
-	    MeanVarB[i, :] = [evaluate(ret), evaluate(risk)]
-	end
 end
 
 # ╔═╡ 9a9c7a6c-1ec2-41b7-917a-fc5fb6455302
@@ -966,22 +763,7 @@ md"""
 
 # ╔═╡ f6c08155-4fa8-453e-b030-f3fd1a848762
 let
-	pOpt = plot(
-	    sqrt.([MeanVarA[:, 2] MeanVarB[:, 2]]),
-	    [MeanVarA[:, 1] MeanVarB[:, 1]],
-	    xlim = (0, 0.15),
-	    ylim = (0, 0.02),
-	    title = "Markowitz Efficient Frontier",
-	    xlabel = "Standard deviation",
-	    ylabel = "Expected return",
-	    label = ["no bounds on w" "with 0<w<1"],
-		legend = :topleft
-	)
-	for i=1:length(StockTicker)
-		scatter!(pOpt,[sqrt.((Σ_Stocks[i,i]))],[μ_Stocks[i]], markershape=:cross,markersize=4, markerstrokewidth=15, markercolor=:red,label="")
-		annotate!(pOpt,[sqrt.((Σ_Stocks[i,i]))+0.01],[μ_Stocks[i]],(StockTicker[i],10))
-	end
-	pOpt
+	
 end
 
 # ╔═╡ c68a311d-a336-48ec-80da-4d26556d8041
@@ -991,19 +773,7 @@ We now instead impose a restriction on  $\sum_i |w_i| - 1$, allowing for varying
 
 # ╔═╡ bd01048f-4c5b-4bfb-b0c3-d6eb09aa6cd6
 begin
-	Lmax = 0.5
 	
-	MeanVarC = zeros(N, 2)   #repeat, but with restriction on Sum(|w[i]|)
-	for i in 1:N
-	    λ = λ_vals[i]
-	    p = minimize(
-	        λ * risk - (1 - λ) * ret,
-	        sum(w) == 1,
-	        (norm(w, 1) - 1) <= Lmax,
-	    )
-	    solve!(p, SCS.Optimizer; silent_solver = true)
-	    MeanVarC[i, :] = [evaluate(ret), evaluate(risk)]
-	end
 end
 
 # ╔═╡ 1d9b10c4-f5e8-4992-b7f2-8f10cce049e2
@@ -1013,22 +783,7 @@ md"""
 
 # ╔═╡ 6b8170eb-9f1f-4e65-8681-fc6f7018bfd5
 let
-	pOpt = plot(
-	    sqrt.([MeanVarA[:, 2] MeanVarB[:, 2] MeanVarC[:, 2]]),
-	    [MeanVarA[:, 1] MeanVarB[:, 1] MeanVarC[:, 1]],
-	    xlim = (0, 0.15),
-	    ylim = (0, 0.02),
-	    title = "Markowitz Efficient Frontier",
-	    xlabel = "Standard deviation",
-	    ylabel = "Expected return",
-	    label = ["no bounds on w" "with 0<w<1" "restriction on sum(|w|)"],
-		legend=:topleft
-	)
-	for i=1:length(StockTicker)
-		scatter!(pOpt,[sqrt.((Σ_Stocks[i,i]))],[μ_Stocks[i]], markershape=:cross,markersize=4, markerstrokewidth=15, markercolor=:red,label="")
-		annotate!(pOpt,[sqrt.((Σ_Stocks[i,i]))+0.01],[μ_Stocks[i]],(StockTicker[i],10))
-	end
-	pOpt
+	
 end
 
 # ╔═╡ 10f0edd8-157e-43e5-a64a-40fdcf1d9dd4
@@ -1058,26 +813,6 @@ md"""
 
 # ╔═╡ 2113af57-bc73-4351-bc87-12ce3e17b7bc
 let
-	R_target = 0.01
-	w_lower = 0
-	w_upper = 0.5
-	
-	w    = Variable(n)
-	ret  = dot(w,μ_Stocks)
-	risk = quadform(w,Σ_Stocks)
-	
-	p = minimize( risk,
-	              ret >= R_target,
-	              sum(w) == 1,
-	              w_lower <= w,
-	              w <= w_upper )
-	
-	solve!(p, () -> SCS.Optimizer())     #use SCS.Optimizer(verbose = false) to 
-	
-	with_terminal() do
-		printred("Portfolio Weights:")
-		printmat(evaluate(w),colNames="w",rowNames=StockTicker)
-	end
 	
 end
 
@@ -1086,32 +821,24 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
-Convex = "f65535da-76fb-5f13-bab9-19810c17039a"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
-Ipopt = "b6b21f68-93f8-5de0-b562-5493be1d77c9"
-JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
-SCS = "c946c3f1-0d1f-5ce8-9dea-7daa1f7e2d13"
 ShiftedArrays = "1277b4bf-5013-50f5-be3d-901d8477a67a"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
 CSV = "~0.10.2"
 Chain = "~0.4.10"
-Convex = "~0.15.0"
 DataFrames = "~1.3.2"
-Ipopt = "~1.0.2"
-JuMP = "~0.23.1"
 LaTeXStrings = "~1.3.0"
 Plots = "~1.26.0"
 PlutoUI = "~0.7.35"
-SCS = "~1.1.0"
 ShiftedArrays = "~1.0.0"
 """
 
@@ -1119,28 +846,11 @@ ShiftedArrays = "~1.0.0"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-[[AMD]]
-deps = ["Libdl", "LinearAlgebra", "SparseArrays", "Test"]
-git-tree-sha1 = "fc66ffc5cff568936649445f58a55b81eaf9592c"
-uuid = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
-version = "0.4.0"
-
-[[ASL_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "6252039f98492252f9e47c312c8ffda0e3b9e78d"
-uuid = "ae81ac8f-d209-56e5-92de-9978fef736f9"
-version = "0.1.3+0"
-
 [[AbstractPlutoDingetjes]]
 deps = ["Pkg"]
 git-tree-sha1 = "8eaf9f1b4921132a4cff3f36a1d9ba923b14a481"
 uuid = "6e696c72-6542-2067-7265-42206c756150"
 version = "1.1.4"
-
-[[AbstractTrees]]
-git-tree-sha1 = "03e0550477d86222521d254b741d470ba17ea0b5"
-uuid = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
-version = "0.3.4"
 
 [[Adapt]]
 deps = ["LinearAlgebra"]
@@ -1156,12 +866,6 @@ uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
-
-[[BenchmarkTools]]
-deps = ["JSON", "Logging", "Printf", "Profile", "Statistics", "UUIDs"]
-git-tree-sha1 = "4c10eee4af024676200bc7752e536f858c6b8f93"
-uuid = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
-version = "1.3.1"
 
 [[Bzip2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1181,12 +885,6 @@ git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
 
-[[Calculus]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "f641eb0a4f00c343bbc32346e1217b86f3ce9dad"
-uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
-version = "0.5.1"
-
 [[Chain]]
 git-tree-sha1 = "339237319ef4712e6e5df7758d0bccddf5c237d9"
 uuid = "8be319e6-bccf-4806-a6f7-6fae938471bc"
@@ -1203,12 +901,6 @@ deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
 git-tree-sha1 = "bf98fa45a0a4cee295de98d4c1462be26345b9a1"
 uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
 version = "0.1.2"
-
-[[CodecBzip2]]
-deps = ["Bzip2_jll", "Libdl", "TranscodingStreams"]
-git-tree-sha1 = "2e62a725210ce3c3c2e1a3080190e7ca491f18d7"
-uuid = "523fee87-0ab8-5b00-afb7-3ecf72e48cfd"
-version = "0.7.2"
 
 [[CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -1234,12 +926,6 @@ git-tree-sha1 = "417b0ed7b8b838aa6ca0a87aadf1bb9eb111ce40"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
 version = "0.12.8"
 
-[[CommonSubexpressions]]
-deps = ["MacroTools", "Test"]
-git-tree-sha1 = "7b8a93dba8af7e3b42fecabf646260105ac373f7"
-uuid = "bbf7d656-a473-5ed7-a52c-81e309532950"
-version = "0.3.0"
-
 [[Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "SHA", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
 git-tree-sha1 = "44c37b4636bc54afac5c574d2d02b625349d6582"
@@ -1255,12 +941,6 @@ deps = ["StaticArrays"]
 git-tree-sha1 = "9f02045d934dc030edad45944ea80dbd1f0ebea7"
 uuid = "d38c429a-6771-53c6-b99e-75d170b6e991"
 version = "0.5.7"
-
-[[Convex]]
-deps = ["AbstractTrees", "BenchmarkTools", "LDLFactorizations", "LinearAlgebra", "MathOptInterface", "OrderedCollections", "SparseArrays", "Test"]
-git-tree-sha1 = "88746604d00ba4441d13d5eb2332977a0e428f3b"
-uuid = "f65535da-76fb-5f13-bab9-19810c17039a"
-version = "0.15.0"
 
 [[Crayons]]
 git-tree-sha1 = "249fe38abf76d48563e2f4556bebd215aa317e15"
@@ -1296,18 +976,6 @@ uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 [[DelimitedFiles]]
 deps = ["Mmap"]
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
-
-[[DiffResults]]
-deps = ["StaticArrays"]
-git-tree-sha1 = "c18e98cba888c6c25d1c3b048e4b3380ca956805"
-uuid = "163ba53b-c6d8-5494-b064-1a9d43ac40c5"
-version = "1.0.3"
-
-[[DiffRules]]
-deps = ["IrrationalConstants", "LogExpFunctions", "NaNMath", "Random", "SpecialFunctions"]
-git-tree-sha1 = "dd933c4ef7b4c270aacd4eb88fa64c147492acf0"
-uuid = "b552c78f-8df3-52c6-915a-8e097449b14b"
-version = "1.10.0"
 
 [[Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
@@ -1370,12 +1038,6 @@ deps = ["Printf"]
 git-tree-sha1 = "8339d61043228fdd3eb658d86c926cb282ae72a8"
 uuid = "59287772-0a20-5a39-b81b-1366585eb4c0"
 version = "0.4.2"
-
-[[ForwardDiff]]
-deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "LinearAlgebra", "LogExpFunctions", "NaNMath", "Preferences", "Printf", "Random", "SpecialFunctions", "StaticArrays"]
-git-tree-sha1 = "1bd6fc0c344fc0cbee1f42f8d2e7ec8253dda2d2"
-uuid = "f6369f11-7733-5829-9624-2563aa707210"
-version = "0.10.25"
 
 [[FreeType2_jll]]
 deps = ["Artifacts", "Bzip2_jll", "JLLWrappers", "Libdl", "Pkg", "Zlib_jll"]
@@ -1495,18 +1157,6 @@ git-tree-sha1 = "bee5f1ef5bf65df56bdd2e40447590b272a5471f"
 uuid = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"
 version = "1.1.0"
 
-[[Ipopt]]
-deps = ["Ipopt_jll", "MathOptInterface"]
-git-tree-sha1 = "8b7b5fdbc71d8f88171865faa11d1c6669e96e32"
-uuid = "b6b21f68-93f8-5de0-b562-5493be1d77c9"
-version = "1.0.2"
-
-[[Ipopt_jll]]
-deps = ["ASL_jll", "Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "MUMPS_seq_jll", "OpenBLAS32_jll", "Pkg"]
-git-tree-sha1 = "e3e202237d93f18856b6ff1016166b0f172a49a8"
-uuid = "9cc047cb-c261-5740-88fc-0cf96f7bdcc7"
-version = "300.1400.400+0"
-
 [[IrrationalConstants]]
 git-tree-sha1 = "7fd44fd4ff43fc60815f8e764c0f352b83c49151"
 uuid = "92d709cd-6900-40b7-9082-c6be49f344b6"
@@ -1540,23 +1190,11 @@ git-tree-sha1 = "b53380851c6e6664204efb2e62cd24fa5c47e4ba"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "2.1.2+0"
 
-[[JuMP]]
-deps = ["Calculus", "DataStructures", "ForwardDiff", "LinearAlgebra", "MathOptInterface", "MutableArithmetics", "NaNMath", "OrderedCollections", "Printf", "SparseArrays", "SpecialFunctions"]
-git-tree-sha1 = "ab093fae27d6ccbb41eb7c8e8c5664b881c79929"
-uuid = "4076af6c-e467-56ae-b986-b466b2749572"
-version = "0.23.1"
-
 [[LAME_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "f6250b16881adf048549549fba48b1161acdac8c"
 uuid = "c1c5ebd0-6772-5130-a774-d5fcae4a789d"
 version = "3.100.1+0"
-
-[[LDLFactorizations]]
-deps = ["AMD", "LinearAlgebra", "SparseArrays", "Test"]
-git-tree-sha1 = "399bbe845e06e1c2d44ebb241f554d45eaf66788"
-uuid = "40e66cde-538c-5869-a4ad-c39174c6795b"
-version = "0.8.1"
 
 [[LERC_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1661,18 +1299,6 @@ version = "0.3.6"
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
-[[METIS_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "1d31872bb9c5e7ec1f618e8c4a56c8b0d9bddc7e"
-uuid = "d00139f3-1899-568f-a2f0-47f597d42d70"
-version = "5.1.1+0"
-
-[[MUMPS_seq_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "METIS_jll", "OpenBLAS32_jll", "Pkg"]
-git-tree-sha1 = "29de2841fa5aefe615dea179fcde48bb87b58f57"
-uuid = "d7ed1dd3-d0ae-5e8e-bfb4-87a502085b8d"
-version = "5.4.1+0"
-
 [[MacroTools]]
 deps = ["Markdown", "Random"]
 git-tree-sha1 = "3d3e902b31198a27340d0bf00d6ac452866021cf"
@@ -1682,12 +1308,6 @@ version = "0.5.9"
 [[Markdown]]
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
-
-[[MathOptInterface]]
-deps = ["BenchmarkTools", "CodecBzip2", "CodecZlib", "JSON", "LinearAlgebra", "MutableArithmetics", "OrderedCollections", "Printf", "SparseArrays", "Test", "Unicode"]
-git-tree-sha1 = "a62df301482a41cb7b1db095a4e6949ba7eb3349"
-uuid = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
-version = "1.1.0"
 
 [[MbedTLS]]
 deps = ["Dates", "MbedTLS_jll", "Random", "Sockets"]
@@ -1716,12 +1336,6 @@ uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 [[MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 
-[[MutableArithmetics]]
-deps = ["LinearAlgebra", "SparseArrays", "Test"]
-git-tree-sha1 = "ba8c0f8732a24facba709388c74ba99dcbfdda1e"
-uuid = "d8a4904e-b15c-11e9-3269-09a3773c0cb0"
-version = "1.0.0"
-
 [[NaNMath]]
 git-tree-sha1 = "b086b7ea07f8e38cf122f5016af580881ac914fe"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
@@ -1736,27 +1350,11 @@ git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
 version = "1.3.5+1"
 
-[[OpenBLAS32_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "ba4a8f683303c9082e84afba96f25af3c7fb2436"
-uuid = "656ef2d0-ae68-5445-9ca0-591084a874a2"
-version = "0.3.12+1"
-
-[[OpenLibm_jll]]
-deps = ["Artifacts", "Libdl"]
-uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
-
 [[OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "648107615c15d4e09f7eca16307bc821c1f718d8"
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
 version = "1.1.13+0"
-
-[[OpenSpecFun_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "13652491f6856acfd2db29360e1bbcd4565d04f1"
-uuid = "efe28fd5-8261-553b-a9e1-b2916fc3738e"
-version = "0.5.5+0"
 
 [[Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1837,10 +1435,6 @@ version = "1.3.1"
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
-[[Profile]]
-deps = ["Printf"]
-uuid = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
-
 [[Qt5Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "xkbcommon_jll"]
 git-tree-sha1 = "ad368663a5e20dbb8d6dc2fddeefe4dae0781ae8"
@@ -1882,24 +1476,6 @@ deps = ["UUIDs"]
 git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.0"
-
-[[SCS]]
-deps = ["MathOptInterface", "Requires", "SCS_GPU_jll", "SCS_jll", "SparseArrays"]
-git-tree-sha1 = "8663c54fd5312f6ee27a94285a9a0381b29e6707"
-uuid = "c946c3f1-0d1f-5ce8-9dea-7daa1f7e2d13"
-version = "1.1.0"
-
-[[SCS_GPU_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "OpenBLAS32_jll", "Pkg"]
-git-tree-sha1 = "f912271ecccb00acaddfab2943e9b33d5ec36d3b"
-uuid = "af6e375f-46ec-5fa0-b791-491b0dfa44a4"
-version = "3.2.0+0"
-
-[[SCS_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "OpenBLAS32_jll", "Pkg"]
-git-tree-sha1 = "ba5c0d3b23220d3598d2877b4cf913e3fcf8add3"
-uuid = "f4f2fc5b-1d94-523c-97ea-2ab488bedf4b"
-version = "3.2.0+0"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -1946,12 +1522,6 @@ version = "1.0.1"
 [[SparseArrays]]
 deps = ["LinearAlgebra", "Random"]
 uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
-
-[[SpecialFunctions]]
-deps = ["ChainRulesCore", "IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
-git-tree-sha1 = "5ba658aeecaaf96923dce0da9e703bd1fe7666f9"
-uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
-version = "2.1.4"
 
 [[StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
@@ -2252,8 +1822,8 @@ version = "0.9.1+5"
 """
 
 # ╔═╡ Cell order:
-# ╟─c43df4a3-a1d8-433e-9a1c-f7c0984be879
 # ╠═3d731294-71d0-4b34-85e2-96d29bd8a7ca
+# ╟─c43df4a3-a1d8-433e-9a1c-f7c0984be879
 # ╟─5141ad80-2374-11ec-2455-c7ff63842559
 # ╟─5fc44a1a-2c5c-4cdf-b2da-4cbc17c8f8a3
 # ╟─72c219a7-1c04-4678-988c-8f17674d9d75
