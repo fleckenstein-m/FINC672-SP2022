@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.2
+# v0.18.1
 
 using Markdown
 using InteractiveUtils
@@ -291,6 +291,21 @@ md"""
 
 # ╔═╡ 652dc6ae-6f9d-4ebd-9251-00821a8ee09d
 begin
+	μ = [0.115, 0.095, 0.06]
+	Σ = [166 34 58;
+	     34  64 4;
+	     58  4  100]/100^2
+	Rf = 0.03
+
+	assetNames = ["A","B","C"]
+
+	with_terminal() do
+		printred("expected returns:")
+		printmat(μ,rowNames=assetNames)
+
+		printred("covariance matrix:")
+		printmat(Σ,colNames=assetNames,rowNames=assetNames)
+	end
 	
 end
 
@@ -314,6 +329,18 @@ Calculate the std and weights of a portfolio (with mean return μstar) on MVF of
   - Only (λ,δ) and thus (w,stdRp) depend on μstar. We could therefore speed up the computations a bit by doing the loop over different μstar values inside the function (and thus not recalculate Σ_1,a,b,c).
   - See p. 60 of lecture notes `lecture_10_Reading.pdf` available on Canvas.
 """
+function MVCalc(μstar, μ, Σ)
+	n = length(μ)
+	Σ_1 = inv(Σ)
+	a = μ'Σ_1*μ
+	b = μ'Σ_1*ones(n)
+	c = ones(n)'Σ_1*ones(n)
+	λ = (c*μstar - b)/(a*c-b^2)
+	δ = (a-b*μstar)/(a*c-b^2)
+	w = Σ_1 * (μ*λ .+ δ)
+	StdRp = sqrt(w'Σ*w)
+	return StdRp, w
+end
 
 
 # ╔═╡ b16ecff8-2dc1-4827-b33c-5eb0af4a6961
@@ -323,7 +350,13 @@ md"""
 
 # ╔═╡ 95a13699-95b4-4f7b-baaa-80627f33841f
 begin
-	
+	μ_MV = collect(0.01:0.001:0.20)
+	σ_MV = Array{Float64}(undef,length(μ_MV))
+	for (i,mu) = enumerate(μ_MV)
+		σ_MV[i] = MVCalc(mu,μ,Σ)[1]
+	end
+
+	p_MV = plot(σ_MV,μ_MV, color=:blue, xlim=(0,0.20), ylim=(0,0.15), xlabel=L"\sigma", ylabel=L"\mu", label="MV Frontier", legend=:topleft)
 end
 
 # ╔═╡ 63c6b02c-4674-45b4-a96a-2545959d9d7c
@@ -333,8 +366,22 @@ md"""
 
 # ╔═╡ c40dc723-1169-4826-941d-ba162d2bf7b8
 begin
+	#Add Asset A
+	p_MV2 = scatter!(p_MV, [sqrt.(Σ[1,1])], [μ[1]], markershape=:cross, markersize=7, markerstrokewidth=15, markercolor=:red, label="")
+	annotate!(p_MV2,[sqrt.(Σ[1,1])+0.01],[μ[1]],"A")
+	
+	#Add Asset B
+	scatter!(p_MV2, [sqrt.(Σ[2,2])], [μ[2]], markershape=:cross, markersize=7, markerstrokewidth=15, markercolor=:red, label="")
+	annotate!(p_MV2,[sqrt.(Σ[2,2])+0.01],[μ[2]],"B")
+	
+	#Add Asset C
+	scatter!(p_MV2, [sqrt.(Σ[3,3])], [μ[3]], markershape=:cross, markersize=7, markerstrokewidth=15, markercolor=:red, label="")
+	annotate!(p_MV2,[sqrt.(Σ[3,3])+0.01],[μ[3]],"C")
 	
 end
+
+# ╔═╡ 0e91775f-b061-445c-adcd-d453f98c594f
+MVCalc(0.12, μ, Σ)
 
 # ╔═╡ ef313c73-14bd-42d9-a1d4-c35709dec26c
 md"""
@@ -356,7 +403,11 @@ md"""
 
 # ╔═╡ 212685c3-9049-42e9-b535-6e515f19153b
 begin
- 
+	df_MV = DataFrame(P1=[0.72, 0.08, 0.20], P2=[0.02, 0.63, 0.35], P3=[0.05, 0.15, 0.80])
+	df_MV_μ = combine(df_MV, [:P1, :P2, :P3] .=> (x->x'μ) , renamecols=false)
+	df_MV_σ = combine(df_MV, [:P1, :P2, :P3] .=> ( x-> sqrt(x'Σ*x) ), renamecols=false)
+	df_MV_μσ = vcat(df_MV_μ, df_MV_σ)
+	
 end
 
 # ╔═╡ 77a08244-548c-4a7a-be3e-cdc8c6e29622
@@ -366,7 +417,16 @@ md"""
 
 # ╔═╡ f3f52640-d079-4d6c-8c2a-63f89c53b061
 begin
-	
+	#add other portfolios
+	#1
+	p_MV3 = scatter!(p_MV2,[df_MV_μσ[1,:P1]], [df_MV_μσ[2,:P1]], markershape=:star,markersize=3, label="")
+	annotate!(p_MV3,[df_MV_μσ[2,:P1]+0.005],[df_MV_μσ[1,:P1]],("1",12,:green))
+	#2
+	scatter!(p_MV3,[df_MV_μσ[1,:P2]], [df_MV_μσ[2,:P2]], markershape=:star,markersize=3, label="")
+	annotate!(p_MV3,[df_MV_μσ[2,:P2]+0.005],[df_MV_μσ[1,:P2]],("2",12,:green))
+	#3
+	scatter!(p_MV3,[df_MV_μσ[1,:P3]], [df_MV_μσ[2,:P3]], markershape=:star,markersize=3, label="")
+	annotate!(p_MV3,[df_MV_μσ[2,:P3]+0.005],[df_MV_μσ[1,:P3]],("3",12,:green))
 end
 
 # ╔═╡ fa8d6069-e8da-4bba-8475-d20c5c6dc090
@@ -390,6 +450,13 @@ md"""
 
 Calculate the std and portfolio weights of a portfolio (with a given mean, μstar) on MVF of (risky assets,riskfree). See p. 62 of lecture notes `lecture_10_Reading.pdf` available on Canvas.
 """
+function MVCalcRf(μstar,μ,Σ,Rf)
+    μe    = μ .- Rf
+    Σ_1   = inv(Σ)
+    w     = (μstar-Rf)/(μe'Σ_1*μe) * Σ_1*μe
+    StdRp = sqrt(w'Σ*w)
+    return StdRp,w                    #std and portfolio weights
+end
 
 
 # ╔═╡ 2e082d7a-7fec-44e9-8697-78a1328e7d3d
@@ -399,7 +466,13 @@ md"""
 
 # ╔═╡ e1ac8d53-000e-44d7-8090-334468a6d2ad
 begin
-	
+	μ_MVRf = collect(Rf:0.001:0.20)
+	σ_MVRf = Array{Float64}(undef,length(μ_MVRf))
+	w_MVRf = Array{Float64}(undef,length(μ_MVRf))
+	for (i,mu) in enumerate(μ_MVRf)
+		σ_MVRf[i] = MVCalcRf(mu,μ,Σ,Rf)[1]
+	end
+	p_MVRf = plot(σ_MVRf,μ_MVRf, color=:blue, xlim=(0,0.20), ylim=(0,0.15), xlabel=L"\sigma", ylabel=L"\mu", label="MV/Rf Frontier", legend=:topleft)
 end
 
 # ╔═╡ aa126d99-3fba-49bc-91c0-bde7cdfeb3bb
@@ -409,7 +482,8 @@ md"""
 
 # ╔═╡ a0782ccf-5fb4-4ca3-9e3e-c8da69909847
 begin
-	
+	p_MVRf2 = p_MVRf
+	plot!(p_MVRf2,σ_MV,μ_MV, label="MV Frontier", color=:red)
 end
 
 # ╔═╡ 74e6c915-5dca-4c84-a890-0b829ba6cd92
@@ -430,7 +504,15 @@ md"""
 
 Calculate the tangency portfolio. See p. 65 of lecture notes `lecture_10_Reading.pdf` available on Canvas.
 """
-
+function MVTangencyP(μ,Σ,Rf)           #calculates the tangency portfolio
+    n    = length(μ)
+    μe   = μ .- Rf                    #expected excess returns
+    Σ_1  = inv(Σ)
+    w    = Σ_1 *μe/(ones(n)'Σ_1*μe)
+    muT  = w'μ + (1-sum(w))*Rf
+    StdT = sqrt(w'Σ*w)
+    return w,muT,StdT                  #portolio weights, mean and std
+end
 
 
 # ╔═╡ 3652b806-8991-47d4-ad82-e8affde497f6
@@ -440,7 +522,8 @@ md"""
 
 # ╔═╡ fc304ff1-e4ff-4047-a8d3-353816202724
 begin
-	
+	wT,muT,StdT = MVTangencyP(μ,Σ,Rf)
+	df_T = DataFrame(wA=wT[1],wB=wT[2],wC=wT[3],μ=muT,σ=StdT)
 end
 
 # ╔═╡ 0b30896b-d6da-4391-a2dc-e9e0bcbe2fa2
@@ -450,7 +533,8 @@ md"""
 
 # ╔═╡ 83a1fb1d-221b-4f26-8e65-e319ea9b899d
 let
-	
+	p_MVRf2T = p_MVRf2
+	scatter!(p_MVRf2T,[df_T.σ],[df_T.μ], label="")
 end
 
 # ╔═╡ 3f73b5cf-fe07-4bd5-8306-e319024f4bb9
@@ -460,7 +544,7 @@ md"""
 
 # ╔═╡ dff92924-af65-444c-9ac6-62c0449f7c41
 md"""
-- Let's pick six stocks from CRSP: AAPL BA CAT GS PG WMT.
+- Let's pick six stocks from CRSP: AAPL AXP CAT GS PG WMT.
 """
 
 # ╔═╡ e0bffa07-2db9-4ec1-a116-474d71050df6
@@ -476,7 +560,7 @@ WMT  | 	Walmart Inc
 """
 
 # ╔═╡ 296b85d2-2dac-4cf4-aa86-b33f0ca13650
-
+StockTicker = ["AAPL","AXP","CAT","GS","MRK","WMT"]
 
 # ╔═╡ 322112e3-3aee-4e70-8203-6a1227a448de
 md"""
@@ -484,7 +568,7 @@ md"""
 """
 
 # ╔═╡ 624bfb0a-3336-448d-982a-511f9743202c
-
+CRSP = DataFrame(CSV.File("CRSP_monthly.csv", ntasks=1))
 
 # ╔═╡ e2e22821-c6c1-4e98-a5f4-725595c3f250
 md"""
@@ -494,7 +578,7 @@ md"""
 """
 
 # ╔═╡ b3ac63b0-aebd-4fff-9e98-82d0f4bbb8dc
-
+FF = DataFrame(CSV.File("F-F_Research_Data_Factors.csv",header=4,skipto=5))
 
 # ╔═╡ d751ef72-7ab1-45f0-8375-7831175f075f
 md"""
@@ -502,7 +586,10 @@ md"""
 """
 
 # ╔═╡ 7465eeed-9af0-4504-9154-be22c8160a4b
-
+RF = @chain FF begin
+	transform(:Date => ByRow(x->lastdayofmonth(Dates.Date(string(x),dateformat"yyyymm"))), :RF =>(x-> x./100), renamecols=false)
+	select(:Date,:RF)
+end
 
 # ╔═╡ f07348bf-2ec1-4a83-9f1d-6af7787bd42d
 md"""
@@ -510,10 +597,10 @@ md"""
 """
 
 # ╔═╡ a53c4108-7ee7-4547-afee-dfaacf87d944
-
+# ASSIGNMENT
 
 # ╔═╡ 3d053364-5a63-41b1-b654-9d99e00cc6c3
-
+# ASSIGNMENT
 
 # ╔═╡ db15e7a8-6912-49ae-81b4-c22abc40aac5
 md"""
@@ -1835,6 +1922,7 @@ version = "0.9.1+5"
 # ╠═95a13699-95b4-4f7b-baaa-80627f33841f
 # ╟─63c6b02c-4674-45b4-a96a-2545959d9d7c
 # ╠═c40dc723-1169-4826-941d-ba162d2bf7b8
+# ╠═0e91775f-b061-445c-adcd-d453f98c594f
 # ╟─ef313c73-14bd-42d9-a1d4-c35709dec26c
 # ╟─69f5983a-5e47-4331-9518-6c8c30340b24
 # ╠═212685c3-9049-42e9-b535-6e515f19153b
