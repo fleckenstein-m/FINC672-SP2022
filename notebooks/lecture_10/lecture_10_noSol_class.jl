@@ -445,19 +445,23 @@ md"""
 """
 
 # ╔═╡ ecf84238-b03d-4036-8fd3-88bcb394c925
+
 """
     MVCalcRf(μstar,μ,Σ,Rf)
 
 Calculate the std and portfolio weights of a portfolio (with a given mean, μstar) on MVF of (risky assets,riskfree). See p. 62 of lecture notes `lecture_10_Reading.pdf` available on Canvas.
 """
-function MVCalcRf(μstar,μ,Σ,Rf)
-    μe    = μ .- Rf
-    Σ_1   = inv(Σ)
-    w     = (μstar-Rf)/(μe'Σ_1*μe) * Σ_1*μe
-    StdRp = sqrt(w'Σ*w)
-    return StdRp,w                    #std and portfolio weights
-end
 
+
+
+# ╔═╡ 92a880c2-91c3-4db4-bcb4-a376572396c9
+function MVCalcRf(μstar,μ,Σ,Rf)
+	μe = μ .- Rf
+	Σ_1 = inv(Σ)
+	w = (μstar-Rf)/(μe'Σ_1*μe) * Σ_1 * μe
+	StdRp = sqrt(w'Σ*w)
+	return StdRp, w
+end
 
 # ╔═╡ 2e082d7a-7fec-44e9-8697-78a1328e7d3d
 md"""
@@ -467,12 +471,13 @@ md"""
 # ╔═╡ e1ac8d53-000e-44d7-8090-334468a6d2ad
 begin
 	μ_MVRf = collect(Rf:0.001:0.20)
-	σ_MVRf = Array{Float64}(undef,length(μ_MVRf))
-	w_MVRf = Array{Float64}(undef,length(μ_MVRf))
+	σ_MVRf = Array{Float64}(undef, length(μ_MVRf))
+	w_MVRf = Array{Float64}(undef, length(μ_MVRf))
 	for (i,mu) in enumerate(μ_MVRf)
-		σ_MVRf[i] = MVCalcRf(mu,μ,Σ,Rf)[1]
+		σ_MVRf[i] = MVCalcRf(mu,μ,Σ,Rf)[1] 
 	end
-	p_MVRf = plot(σ_MVRf,μ_MVRf, color=:blue, xlim=(0,0.20), ylim=(0,0.15), xlabel=L"\sigma", ylabel=L"\mu", label="MV/Rf Frontier", legend=:topleft)
+	
+	p_MVRf = plot(σ_MVRf,μ_MVRf, color=:blue, xlim=(0,0.20), ylim=(0,0.15), xlabel=L"\sigma", ylabel = L"\mu", label="MV/Rf Frontier", legend=:topleft )
 end
 
 # ╔═╡ aa126d99-3fba-49bc-91c0-bde7cdfeb3bb
@@ -483,7 +488,7 @@ md"""
 # ╔═╡ a0782ccf-5fb4-4ca3-9e3e-c8da69909847
 begin
 	p_MVRf2 = p_MVRf
-	plot!(p_MVRf2,σ_MV,μ_MV, label="MV Frontier", color=:red)
+	plot!(p_MVRf2, σ_MV, μ_MV, label="MV Frontier", color=:red)
 end
 
 # ╔═╡ 74e6c915-5dca-4c84-a890-0b829ba6cd92
@@ -504,16 +509,19 @@ md"""
 
 Calculate the tangency portfolio. See p. 65 of lecture notes `lecture_10_Reading.pdf` available on Canvas.
 """
-function MVTangencyP(μ,Σ,Rf)           #calculates the tangency portfolio
-    n    = length(μ)
-    μe   = μ .- Rf                    #expected excess returns
-    Σ_1  = inv(Σ)
-    w    = Σ_1 *μe/(ones(n)'Σ_1*μe)
-    muT  = w'μ + (1-sum(w))*Rf
-    StdT = sqrt(w'Σ*w)
-    return w,muT,StdT                  #portolio weights, mean and std
-end
 
+
+# ╔═╡ e45ff2ab-eb7d-40af-887c-b9f56cbcf6a6
+
+function MVTangencyP(μ,Σ,Rf)
+	n = length(μ)
+	μe = μ .- Rf
+	Σ_1 = inv(Σ)
+	w = Σ_1 *μe/(ones(n)'Σ_1*μe)
+	muT = w'μ + (1-sum(w))*Rf
+	StdT = sqrt(w'Σ*w)
+	return w, muT, StdT
+end
 
 # ╔═╡ 3652b806-8991-47d4-ad82-e8affde497f6
 md"""
@@ -522,8 +530,8 @@ md"""
 
 # ╔═╡ fc304ff1-e4ff-4047-a8d3-353816202724
 begin
-	wT,muT,StdT = MVTangencyP(μ,Σ,Rf)
-	df_T = DataFrame(wA=wT[1],wB=wT[2],wC=wT[3],μ=muT,σ=StdT)
+	wT, muT, StdT = MVTangencyP(μ,Σ,Rf)
+	df_T = DataFrame(wA=wT[1], wB=wT[2], wC=wT[3], μ=muT , σ=StdT)
 end
 
 # ╔═╡ 0b30896b-d6da-4391-a2dc-e9e0bcbe2fa2
@@ -534,7 +542,7 @@ md"""
 # ╔═╡ 83a1fb1d-221b-4f26-8e65-e319ea9b899d
 let
 	p_MVRf2T = p_MVRf2
-	scatter!(p_MVRf2T,[df_T.σ],[df_T.μ], label="")
+	scatter!(p_MVRf2T, [df_T.σ], [df_T.μ], label="")
 end
 
 # ╔═╡ 3f73b5cf-fe07-4bd5-8306-e319024f4bb9
@@ -544,7 +552,7 @@ md"""
 
 # ╔═╡ dff92924-af65-444c-9ac6-62c0449f7c41
 md"""
-- Let's pick six stocks from CRSP: AAPL AXP CAT GS PG WMT.
+- Let's pick six stocks from CRSP: AAPL BA CAT GS PG WMT.
 """
 
 # ╔═╡ e0bffa07-2db9-4ec1-a116-474d71050df6
@@ -568,7 +576,7 @@ md"""
 """
 
 # ╔═╡ 624bfb0a-3336-448d-982a-511f9743202c
-CRSP = DataFrame(CSV.File("CRSP_monthly.csv", ntasks=1))
+CRSP = DataFrame(CSV.File("CRSP_monthly.csv",ntasks=1))
 
 # ╔═╡ e2e22821-c6c1-4e98-a5f4-725595c3f250
 md"""
@@ -578,7 +586,7 @@ md"""
 """
 
 # ╔═╡ b3ac63b0-aebd-4fff-9e98-82d0f4bbb8dc
-FF = DataFrame(CSV.File("F-F_Research_Data_Factors.csv",header=4,skipto=5))
+FF = DataFrame(CSV.File("F-F_Research_Data_Factors.CSV", header=4, skipto=5))
 
 # ╔═╡ d751ef72-7ab1-45f0-8375-7831175f075f
 md"""
@@ -587,7 +595,7 @@ md"""
 
 # ╔═╡ 7465eeed-9af0-4504-9154-be22c8160a4b
 RF = @chain FF begin
-	transform(:Date => ByRow(x->lastdayofmonth(Dates.Date(string(x),dateformat"yyyymm"))), :RF =>(x-> x./100), renamecols=false)
+	transform(:Date => ByRow(x-> lastdayofmonth(Date(string(x),dateformat"yyyymm"))) , :RF => (x-> x./100), renamecols=false)
 	select(:Date,:RF)
 end
 
@@ -597,10 +605,10 @@ md"""
 """
 
 # ╔═╡ a53c4108-7ee7-4547-afee-dfaacf87d944
-# ASSIGNMENT
+
 
 # ╔═╡ 3d053364-5a63-41b1-b654-9d99e00cc6c3
-# ASSIGNMENT
+
 
 # ╔═╡ db15e7a8-6912-49ae-81b4-c22abc40aac5
 md"""
@@ -1932,6 +1940,7 @@ version = "0.9.1+5"
 # ╟─67c26862-f6b3-48cc-a884-36adb554c378
 # ╟─33fe5282-db49-4732-9c80-cc1537c120c5
 # ╠═ecf84238-b03d-4036-8fd3-88bcb394c925
+# ╠═92a880c2-91c3-4db4-bcb4-a376572396c9
 # ╟─2e082d7a-7fec-44e9-8697-78a1328e7d3d
 # ╠═e1ac8d53-000e-44d7-8090-334468a6d2ad
 # ╟─aa126d99-3fba-49bc-91c0-bde7cdfeb3bb
@@ -1939,6 +1948,7 @@ version = "0.9.1+5"
 # ╟─74e6c915-5dca-4c84-a890-0b829ba6cd92
 # ╟─5be9cfce-89e0-4ad7-9aef-dd3252829c18
 # ╠═fe44f447-72db-4c05-ba03-6c26e1573bd6
+# ╠═e45ff2ab-eb7d-40af-887c-b9f56cbcf6a6
 # ╟─3652b806-8991-47d4-ad82-e8affde497f6
 # ╠═fc304ff1-e4ff-4047-a8d3-353816202724
 # ╟─0b30896b-d6da-4391-a2dc-e9e0bcbe2fa2
