@@ -5,13 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ 6199926c-0c4a-4991-b4c3-ebed35217375
-begin
-	using PlutoUI, Printf 
-	using Dates, DataFrames, DataFramesMeta, Chain
-	using Statistics
-	using Plots
-	using TimesDates
-end
+using Plots, Statistics, StatsBase, DataFrames, Chain, Dates, DataFramesMeta
 
 # ╔═╡ b0b9984b-45f5-49a2-a5ce-86281745d623
 begin
@@ -275,512 +269,420 @@ begin
 	
 end
 
-# ╔═╡ 6c003a32-ddb4-462b-bc73-3bbf633f184f
-using AlpacaMarkets
+# ╔═╡ cc9ed5ee-ef24-457a-806d-8bed26617b13
+using CoinbasePro
 
 # ╔═╡ 886b6ade-b8df-494c-be5f-13aae328b848
 md"""
-## FINC 672: Tick-by-Tick Stock Quotes and Trades
+## FINC 672: Bitcoin
 """
 
 # ╔═╡ 26a704bf-6b13-45f2-9211-023fbf2e3cb6
 md"""
-_Thanks to [Dean Markwick](https://dm13450.github.io/about/) for making the AlpacMarkets Julia API publicly available._
+_Thanks to [Dean Markwick](https://dm13450.github.io/about/) for making the CoinbasePro Julia API publicly available._
 """
 
 # ╔═╡ 1897543d-5c47-41ee-9f13-a099df5d9ed1
 md"""
-- In this notebook, we will learn to work with real-time stock data. Specifically, we will use data from (Alpaca)[https://alpaca.markets/] on stock trades and quotes.
-- We will connect to IEX using [AlpacaMarkets.jl](https://github.com/dm13450/AlpacaMarkets.jl) API in Julia.
-- First, you need to register a free account [here](https://alpaca.markets/).
-- After your registration is complete, you need to get your `API KEY` and `Secret KEY`."""
-
-# ╔═╡ 89d72808-d09e-421a-ae7b-5491e8fae0ee
-md"""
-- Step 1: Go to Alpaca website https://alpaca.markets/ and login.
-- Step 2: Once you login, Go to paper account.
-- Step 3: Your API Key and API Secret will be located on the right side of the screen. Click on View.
+- In this notebook, we will learn the basic of limit order books. For this purpose, we will use [Coinbase](https://www.coinbase.com/) which is an easy-to-use platform for accessing Bitcoin data.
+- We will connect to Coinbase using the [CoinbasePro](https://github.com/dm13450/CoinbasePro.jl) API in Julia.
+- Using this API we can access
+  - `products` lists the available currency pairs provided by Coinbase.
+  - `book` provides order book information at 3 different levels.
+  - `ticker` a snapshot of the last trade, best bid/offer and volume over the last 24 hours.
+  - `trades` historical trades of a currency.
+  - `candles` historical open-high-low-close (OHLC) market data.
+  - `stats` OHLC and volume data from the last 24 hours.
 """
-
-# ╔═╡ dff6f3d9-f4fc-4964-a075-c1c11a953667
-LocalResource("./AlpacaAPIKeys.png")
-
-# ╔═╡ 931659d2-cae1-43d3-87d9-b67edb7c16d0
-md"""
-- Step 4: Click on “Generate New Key”.
-"""
-
-# ╔═╡ c8cba87a-6ead-4f6a-b29b-bc3bcc3e75f0
-LocalResource("./AlpacaAPIKeys_02.png")
-
-# ╔═╡ 50fb3be3-1674-47a3-9102-0c6fb24241de
-md"""
-- Step 5: Once you generate API Key, an API Key ID and Secret Key will be generated. Please store both of these as they are confidential. DO NOT share API keys and secrets with other people.
-  - __API Secret will be generated only once when you generate the key. In case you forget API Secret, both key ID and Secret will have to be regenerated.__
-"""
-
-# ╔═╡ 81f0904b-3da6-4981-971b-b5e11e301eaa
-md"""
-- Next, we load `AlpacaMarkets.jl` and authenticate us as users.
-"""
-
-# ╔═╡ 34545087-b68d-4271-9771-4686b770c619
-AlpacaMarkets.auth("PKN64AVCL7JD1YF2Q5XN","I9vzYuasn91liH1GkQZNITJ1SQzpQXgliZUtUcUy") #KEY, SECRET
 
 # ╔═╡ 4a235440-1810-4b18-85f9-377f9f5f6876
 md"""
-# Stock Quote Data
+# The Limit Order Book
 """
 
-# ╔═╡ 80b29628-2214-49ab-8eb7-31e99677fb1b
+# ╔═╡ 825c7258-ade5-48ad-83c9-acc362101715
 md"""
-- Let's get _1 second_ of streaming historical quotes on Apple stock (APPL).
+- The limit order book (LOB) is the collection of orders at which people are willing to buy and sell assets (stocks, bond, Bitcoin, etc.). 
+  - Basically, an order in the order book is executed when the market price reaches the limit order price. By contrast, a market order typically is executed right-away at the current market price.
 """
 
-# ╔═╡ 8560c709-61bd-4d7b-a7cd-78c9861b54cc
+# ╔═╡ 16386405-896d-4cea-a733-41e298da1258
+md"""
+- In the order book, data are categorized into different groups ("levels").
+  - Level 1: The best price to buy or sell at (also referred to the "top level" of the book).
+  - Level 2: Aggregated levels, 50 levels at which people are willing to buy and sell.
+  - Level 3: The full order book.
+"""
+
+# ╔═╡ 912ee012-981c-4003-abca-5aa0b3e7f673
+md"""
+- We use the `book` function to select the level and currency pair to query from Coinbase.
+- Let's select USD Bitcoin (`btc-usd`) and get the currently best bid and ask prices.
+"""
+
+# ╔═╡ 451ecc21-b276-4009-ac12-561dd858e507
 begin
-  aapl = AlpacaMarkets.get_stock_quotes("AAPL", 
-  DateTime("2022-01-27T15:00:00"),
-  DateTime("2022-01-27T15:00:01"))
+	l1 = CoinbasePro.book("btc-usd", 1)
+	first(l1, 5)
 end
 
-# ╔═╡ 96ec6830-4c58-48b5-8538-236dc2a3c599
+# ╔═╡ a4b4cb2a-03b4-4498-9978-d786a2663718
 md"""
-- In the `ax` and `bx` columns (ask exchange and bid exchange) we can see what venue was offering that price at a given time.
-- In the `ap` and `bp` columns we see the ask and bid quotes, respectively.
+- As expected, there is just one row---the top level.
+- If we were to place a market order of a size less than the size (see `size_ask` above), this is the price our order would be filled at. 
+- However, if our trade size was larger, our order would be partially filled using the next levels of the order book until our full size was filled.
+- Thus, let's take a look at the second level (`level 2`).
 """
 
-# ╔═╡ 022c457f-83c1-4059-8730-6f788b1ec479
-md"""
-| Exchange Code 	|          Name of Exchange         	|
-|:-------------:	|:---------------------------------:	|
-| A             	| NYSE American (AMEX)              	|
-| B             	| NASDAQ OMX BX                     	|
-| C             	| National Stock Exchange           	|
-| D             	| FINRA ADF                         	|
-| E             	| Market Independent                	|
-| H             	| MIAX                              	|
-| I             	| International Securities Exchange 	|
-| J             	| Cboe EDGA                         	|
-| K             	| Cboe EDGX                         	|
-| L             	| Long Term Stock Exchange          	|
-| M             	| Chicago Stock Exchange            	|
-| N             	| New York Stock Exchange           	|
-| P             	| NYSE Arca                         	|
-| Q             	| NASDAQ OMX                        	|
-| S             	| NASDAQ Small Cap                  	|
-| T             	| NASDAQ Int                        	|
-| U             	| Members Exchange                  	|
-| V             	| IEX                               	|
-| W             	| CBOE                              	|
-| X             	| NASDAQ OMX PSX                    	|
-| Y             	| Cboe BYX                          	|
-| Z             	| Cboe BZX                          	|
-"""
-
-# ╔═╡ 1dadf403-6dff-48d7-bb24-eae5c1147d7d
-md"""
-- Each feed/exchange uses its own set of codes to identify trade and quote conditions, so the same condition may have a different code depending on the originator of the data.
-  - More information at [Link](https://alpaca.markets/docs/market-data/).
-"""
-
-# ╔═╡ 0fbd9fc7-2e7b-4559-a34b-17528e507ebe
-md"""
-- __Quote conditions__
-"""
-
-# ╔═╡ a099bcf5-76df-468b-82df-cf29a914be9c
-md"""
-| Code |              Value             |
-|:----:|:------------------------------:|
-| A    | Manual Ask Automated Bid       |
-| B    | Manual Bid Automated Ask       |
-| F    | Fast Trading                   |
-| H    | Manual Bid And Ask             |
-| I    | Order Imbalance                |
-| L    | Closed Quote                   |
-| N    | Non Firm Quote                 |
-| O    | Opening Quote Automated        |
-| R    | Regular Two Sided Open         |
-| U    | Manual Bid And Ask Non Firm    |
-| Y    | No Offer No Bid One Sided Open |
-| X    | Order Influx                   |
-| Z    | No Open No Resume              |
-"""
-
-# ╔═╡ 6978ce4e-0880-4d37-b894-caa63c5ff91f
-md"""
-- To work with this data, we need to convert the timestamp into a Julia DateTime object.
-- First, we define two functions to extract the date and time components from the `t` column which has entries like `2022-01-27T15:00:00.007566848Z`.
-"""
-
-# ╔═╡ bb9d0cfe-7f25-464e-bcd6-09d732c36eac
+# ╔═╡ 62eeb08c-9c02-47e0-9e44-8dda89fe7f3c
 begin
-
-	function convert_t_timestamp(x)
-   ts =  first(x, 23)
-
-    if endswith(ts, "Z")
-        ts = chop(ts)
-    end
-    DateTime(ts)
+	bookData = CoinbasePro.book("btc-usd", 2)
+	first(bookData, 15)
 end
 
-function convert_t_time(x)
-   ts = split(x, "T")[2]
-   ts = first(ts, 12)
-    if endswith(ts, "Z")
-        ts = chop(ts)
-    end
-    Time(ts)
+# ╔═╡ 8d5c0e6b-ae4a-4f77-a0ff-8de784934136
+md"""
+- Note that the data are aggregated, i.e. there might be multiple orders at one price rather than just a single large order.
+"""
+
+# ╔═╡ d71efea4-1a1e-43b2-ba62-84411b8688b1
+md"""
+- Finally, let's take a look at `level 3`.
+"""
+
+# ╔═╡ ec0eb792-f467-43ac-8f31-91d542b08e67
+begin
+	l3 = CoinbasePro.book("btc-usd", 3)
+	first(l3, 5)
 end
+
+# ╔═╡ ab3fef5d-14d7-4528-ad4b-a395f844e0b9
+nrow(l3)
+
+# ╔═╡ 653dc5ac-245a-4bcd-bfaa-69567275a388
+md"""
+- The full order books shows all orders currently outstanding. Note that there over 60000 orders currently in the order book.
+"""
+
+# ╔═╡ a08832c4-58e8-48fd-a4a1-205399b7a1fb
+md"""
+# Sweeping the Book
+
+"""
+
+# ╔═╡ d3cde55d-0e81-4637-a705-31255148e7b2
+md"""
+- Suppose we want to trade a large quantity of Bitcoin. In that case, what is the average price if our trade were filled at different levels of the order book?
+- This matters because a large order might not be filled at the best bid/ask prices.
+- To calculate the average price, we fix an order size and add up the amount at each level and calculate the cumulative average price at each level. Let's do this calculation on both the bid and ask side to see how they differ.
+"""
+
+# ╔═╡ 8d6cbbed-e8bd-4b43-859d-d86e1a70e7ff
+begin
+askSize = cumsum(bookData[!, "size_ask"])
+askCost = map(n -> sum(bookData[!, "size_ask"][1:n] .* bookData[!, "price_ask"][1:n]) / askSize[n], 1:nrow(bookData))
+
+bidSize = cumsum(bookData[!, "size_bid"])
+bidCost = map(n -> sum(bookData[!, "size_bid"][1:n] .* bookData[!, "price_bid"][1:n]) / bidSize[n], 1:nrow(bookData));
+end
+
+# ╔═╡ 2ed85d07-b706-4ba9-83c2-3e3e0249c4a5
+df = DataFrame(Size=askSize,Cost=askCost)
+
+# ╔═╡ 417a13a8-0594-43fe-97d8-b49b7288992e
+bookData[!, "price_bid"][1]
+
+# ╔═╡ 1bdd1856-8f8b-490b-a6f6-224538fa7356
+md"""
+- Next, let's plot the total amount and the total cost of tradeing.
+"""
+
+# ╔═╡ 8e1246c0-3bf3-4bd0-b7e2-a87dc818831e
+begin
+	plot(askSize, (1e4 .* ((askCost ./ bookData[!, "price_ask"][1]) .- 1)), label="Ask", xlabel="Number of Bitcoins", ylabel="Cost (bps)")
+plot!(bidSize, abs.(1e4 .* ((bidCost ./ bookData[!, "price_bid"][1]) .- 1)), label="Bid", xlim=(0,1), ylim=(0,1))
+end
+
+# ╔═╡ f6d356b2-4b9a-4552-9d4a-7840ff1c253c
+md"""
+- We can improve this plot. In particular, the vertical axis is in basis points of the total amount traded. Let's convert both axis to dollars.
+- To do this, we use the midprice of BTC-USD, which we get using the ticker function from the CoinbasePro API.
+"""
+
+# ╔═╡ ddffd1c1-75b0-463f-89bb-a1ddfb337f7e
+tickerStats = CoinbasePro.ticker("BTC-USD")
+
+# ╔═╡ 9c95c0b9-63b1-46c1-9457-3561c665b127
+mid = (tickerStats.ask + tickerStats.bid)/2
+
+# ╔═╡ 2940c863-1067-493d-8a96-e00aa7bd5d08
+begin
+	askBps = 1e4 .* ((askCost ./ bookData[!, "price_ask"][1]) .- 1)
+	bidBps = abs.(1e4 .* ((bidCost ./ bookData[!, "price_bid"][1]) .- 1))
+
+	plot(askSize .* mid , (askBps /1e4) .* askSize .* mid, label="Ask", xlabel="Dollars")
+	plot!(bidSize .* mid , (bidBps/1e4) .* bidSize .* mid, label="Bid", ylabel = "Cost (dollars)", xlim=(0,10000), ylim=(0,1))
+end
+
+# ╔═╡ 64728fae-6674-4877-a19e-26767b96d7c4
+md"""
+- We can interpret this as follows. Suppose we bought \$500,000 of bitcoin, then the plots shows the intercept at around $50. Thus, it costs $50 dollars to get the $500,000 order executed. Clearly, this is an execution cost. In other words, when we buy $500,000 of BTC, we end up receiving BTC worth $499,950.
+"""
+
+# ╔═╡ 9165b298-c580-420f-b2e5-8190ccb9ce6f
+md"""
+# Trade history
+
+"""
+
+# ╔═╡ 0287028d-b219-4c01-b712-e7dc0db214d7
+md"""
+- We can also get the last 1000 trades.
+"""
+
+# ╔═╡ 0f655a55-7da4-4f99-80e4-d0460c8d083d
+begin
+	trad, pages = CoinbasePro.trades("BTC-USD")
+	first(trad, 5)
+end
+
+# ╔═╡ 49b20294-14ce-408f-91e6-773fc7d15816
+md"""
+- The timestamp contains the number of nanoseconds. Julia's `DateTime` does not support nanoseconds. 
+- Notice that the timestamp looks like 2021-01-01T12:00:00.123456. We'll split on the `.` to get the datetime up to seconds and the nanoseconds.
+"""
+
+# ╔═╡ 2af218ec-0514-431a-a79b-736a83ada996
+trades = @chain trad begin
+	 transform(:time => ByRow(x-> split(string(x),".")) => [:time_2, :time_nano]) 
+	 transform(:time_2 => ByRow(x->DateTime(x)) => :time)
+	 select(Not([:time_2, :time_nano]))
+	sort(:time)
+ end
+
+# ╔═╡ b9c2b715-f99c-4d2b-8d42-10c1e68e1f75
+plot(trades.time, trades.price, group=trades.side, seriestype=:scatter, xlabel="Time", ylabel="Price")
+
+# ╔═╡ fc510d58-17b4-4067-bd6b-967a966bc35b
+begin
+	trades_g = groupby(trades, :side)
+	@combine(trades_g, AvgPrice = mean(:price), 
+	                   N = length(:price), 
+	                   TotalNotional = sum(:size),
+	                   AvgWPrice = mean(:price, Weights(:size)))
+end
+
+# ╔═╡ 45fd2d0e-2e10-43c6-9964-125648dba4ff
+md"""
+# Price Impact
+"""
+
+# ╔═╡ 724bf604-9c31-4307-a6a6-9d4e4038aa7d
+md"""
+- Using the trades we can build up a (very) simple model of price impact. Basically, price impact measures how much we move the market by trading. With each trade we look at the absolute price difference of the next traded price. To look at this, we first need to aggregate trades that occur at the same time and in the same direction.
+"""
+
+# ╔═╡ 37d58842-b064-42ce-a39e-d1c75a4781a3
+trades2 = @chain trades begin
+	groupby([:time, :side])
+	@combine(AvgPrice = mean(:price, Weights(:size)),                          TotalSize = sum(:size), N = length(:price))
+end
+
+# ╔═╡ 11ce1c61-1ac8-4156-8f01-edbc98b8a88d
+begin
+	plot(log.(trades2[2:end, :TotalSize] .+ 1), abs.(diff(log.(trades2.AvgPrice))), seriestype=:scatter, label=:none, xlabel="Trade Size", ylabel="Impact")
+end
+
+# ╔═╡ a719d880-0847-4925-81e3-b9dc77407a6c
+begin
+	trades3 = copy(trades2)
+	trades3.Impact = [NaN; diff(log.(trades3.AvgPrice))]
+	trades3.Sign = [x == "sell" ? -1 : 1 for x in trades3.side]
+	trades3.SignedImpact = trades3.Impact .* trades3.Sign
+	first(trades3, 5)
+end
+
+# ╔═╡ 903dfdf7-ec30-4c22-a8da-2cbc8adb359d
+begin
+	using CategoricalArrays
+
+	trades4 = trades3[2:end, :]
+	
+	trades4.SizeBucket = cut(trades4.TotalSize, quantile(trades4.TotalSize, 0:0.1:1), extend=true)
+	
 	
 end
 
-# ╔═╡ e861bcff-9e3f-453a-989f-1fbd342bccf8
-md"""
-- The timestaps are up to nanosecond precision. However, Julia’s default DateTime type only allows up millisecond precision. To work with nanosecond data, we use the [TimeDate.jl](https://github.com/JeffreySarnoff/TimesDates.jl) package.
-"""
-
-# ╔═╡ 3a4c94b5-6fd3-4253-839b-e898ab9025be
-aapl2 = @chain aapl begin
-	transform(:t => (x-> convert_t_timestamp.(x)) => :TimeStamp,
-			  :t => (x-> TimeDate.(string.(chop.(x)))) => :TimeStamp_nano)
+# ╔═╡ 8918ea92-5792-4f4d-b640-e827410cf004
+quantileSummary = @chain trades4 begin
+	groupby([:SizeBucket, :side])
+	@combine(AvgSize = mean(:TotalSize), MeanImpact = mean(:Impact), MeanAbsImpact = mean(abs.(:Impact)))
 end
 
-# ╔═╡ 3bf77a4e-5019-4ad6-9e05-60d2dff701e6
+# ╔═╡ 561bdf9a-77d3-426d-a788-264f9e6ba520
+plot(log.(quantileSummary.AvgSize), log.(quantileSummary.MeanAbsImpact), group=quantileSummary.side, seriestype=:scatter)
+
+# ╔═╡ 9b460614-9c7b-4224-a40f-470b9bd195e8
 md"""
-- Let's now plot the bid and ask prices.
+# Trade Sign Correlation
+
 """
 
-# ╔═╡ 435f564e-c550-4a54-bb7d-86ed3d3017bc
+# ╔═╡ 122ff387-ee13-4bf8-b323-279d9620d1f6
+md"""
+- The distribution of trade signs also gives insight into the nature of markets. To look into whether buys are more or less likely followed by buys (or sells), we first aggregate those trades that occurred on the same timestamp and in the same direction.
+"""
+
+# ╔═╡ f8f91e89-2637-40bc-baec-9651ace19609
+aggTrades = @chain trades begin
+	groupby([:time, :side])
+	@combine( N=length(:size), TotalSize = sum(:size))
+end
+
+# ╔═╡ b4f9926f-1828-43c2-9946-b4d44c57c819
+
+
+# ╔═╡ c311670b-4127-4426-a179-e314db3e3078
+md"""
+- For each of the aggregated timestamp trades we assign buys as 1 and sells as -1. Then by looking at the autocorrelation between the trades we can come up with an explanation of how likely a buy is followed by another buy.
+"""
+
+# ╔═╡ 80d45c3e-6c44-426e-88bf-85760d1a1ffb
 begin
-	ticks = minimum(aapl2.TimeStamp):Millisecond(250):maximum(aapl2.TimeStamp)
-	tick_labels = Dates.format.(ticks, "HH:MM:SS.sss")
-
-	plot(aapl2.TimeStamp, aapl2.ap, label = "Ask Price", seriestype=:steppre, xticks = (ticks, tick_labels))
-	plot!(aapl2.TimeStamp, aapl2.bp, label = "Bid Price", seriestype=:steppre)
-end
-
-# ╔═╡ 04c1af80-11cd-4a97-8d8c-5e35fd233d24
-md"""
-# Stock Trade Data
-"""
-
-# ╔═╡ 77339769-19c5-4299-bacc-72719804b1e5
-md"""
-- Let's look at the same one-second period, but use trades instead of quotes.
-"""
-
-# ╔═╡ e398ea5c-575e-4aa5-ad3b-2dd3cc0c1164
-aaplTrades  = AlpacaMarkets.get_stock_trades("AAPL", DateTime("2022-01-27T15:00:00"), DateTime("2022-01-27T15:00:01"))
-
-
-# ╔═╡ b16c32a6-cf18-4854-bd7d-020e324b4ff1
-md"""
-- Column `c` shows the condition code which describes the type of trade. For the first two trades we see:
-  - @ : Is a regular trade
-  - I: is an odd lot trade
-- The `x` column dictates where the trade happened, so the venue that executed the trade. 
-- The `z` column tells us what tape the trade was recorded on. 
-  - There are three possible tapes, A, B, and C.
-"""
-
-# ╔═╡ b9229901-5355-4479-836f-90310ce17a28
-md"""
-- __Trade conditions__
-"""
-
-# ╔═╡ 8c47c245-27e3-4e9b-88bf-10a9b807c451
-md"""
-| Code |             Value            | Code |                       Value                       |
-|:----:|:----------------------------:|:----:|:-------------------------------------------------:|
-| @    | Regular Sale                 | R    | Seller                                            |
-| A    | Acquisition                  | S    | Split Trade                                       |
-| B    | Bunched Trade                | T    | Form T                                            |
-| C    | Cash Sale                    | U    | Extended trading hours (Sold Out of Sequence)     |
-| D    | Distribution                 | V    | Contingent Trade                                  |
-| E    | Placeholder                  | W    | Average Price Trade                               |
-| F    | Intermarket Sweep            | X    | Cross Trade                                       |
-| G    | Bunched Sold Trade           | Y    | Yellow Flag Regular Trade                         |
-| H    | Price Variation Trade        | Z    | Sold (out of sequence)                            |
-| I    | Odd Lot Trade                | 1    | Stopped Stock (Regular Trade)                     |
-| K    | Rule 155 Trade (AMEX)        | 4    | Derivatively priced                               |
-| L    | Sold Last                    | 5    | Re-Opening Prints                                 |
-| M    | Market Center Official Close | 6    | Closing Prints                                    |
-| N    | Next Day                     | 7    | Qualified Contingent Trade (QCT)                  |
-| O    | Opening Prints               | 8    | Placeholder For 611 Exempt                        |
-| P    | Prior Reference Price        | 9    | Corrected Consolidated Close (per listing market) |
-| Q    | Market Center Official Open  |      |                                                   |
-"""
-
-# ╔═╡ 8f7c8ce2-ce16-45fa-8244-3422b1abd03b
-md"""
-- Again, we convert the timestamp and plot it against the prices. In doing so, We also select only the unique trade ids (`i`) so that each trade is represented once.
-"""
-
-# ╔═╡ 03fcdb25-0b2d-4022-8945-f7a66df81419
-aaplTrades2 = @chain aaplTrades begin
-	 unique(_, :i)
-	 transform(:t => (x-> convert_t_timestamp.(x)) => :TimeStamp, 
-			   :t => (x-> TimeDate.(string.(chop.(x)))) => :TimeStamp_nano)
-end
-
-# ╔═╡ 3760c655-d8a9-4893-a17a-0978ee1a4f40
-md"""
-- Let's creat the plot next.
-"""
-
-# ╔═╡ a345db06-db99-4262-9b18-b4f4ce229515
-begin
-	plotTrades = plot(aapl2.TimeStamp, aapl2.ap, label = "Ask Price", seriestype=:steppre, xticks = (ticks, tick_labels))
-	plot!(plotTrades, aapl2.TimeStamp, aapl2.bp, label = "Bid Price", seriestype=:steppre)
-	plot!(plotTrades, aaplTrades2.TimeStamp, aaplTrades2.p, label="Trades", seriestype=:scatter)
-end
-
-# ╔═╡ b861419a-6e7a-4708-91d1-f160015241c5
-md"""
-- The trades line up with the prices at the same time and we can see the series of trades that appears to move the price higher between 500 and 750 milliseconds past 15:00.
-- Note that all this occured in the second between 15:00:00 and 15:00:01.
-  - 344 price updates
-  - 384 trades
-"""
-
-# ╔═╡ 612c2a18-5038-4b79-b768-fa93ad073cac
-md"""
-# Equity Venue Analysis
-"""
-
-# ╔═╡ 17fc303a-0b4a-4c03-9f6e-c8919e993557
-md"""
-- Let's look at where stocks are traded and evaluate stock trading venues by
-  - How long did they have the best price?
-  - How much volume did they have at this best price?
-- To do this, let's use Apple quotes over a window of one hour.
-"""
-
-# ╔═╡ f9a3339a-4858-4fde-9967-427ea6fc933c
-aaplVenue = AlpacaMarkets.get_stock_quotes("AAPL", DateTime("2022-01-27T15:00:00"), DateTime("2022-01-27T16:00:00"))
-
-# ╔═╡ ddbf5a8f-083c-4796-9f92-150e050d963d
-md"""
-- We will use the TimeDate package to create an object with the correct resolution up to the nanosecond as reported by Alpaca Markets. Then, we calculate how long that price was the best bid or offer using the `diff` function.
-"""
-
-# ╔═╡ 837cf9b4-92ba-4539-802d-e3e37e83182d
-function get_ns(x)
-    getfield(x, :value)
-end
-
-# ╔═╡ 7242e288-5eb3-42ab-8a7b-9b7cfdaa361e
-begin
-	aaplVenue2 = @chain aaplVenue begin
-		transform(:t => (x-> convert_t_timestamp.(x)) => :TimeStamp, 
-			      :t => (x-> TimeDate.(string.(chop.(x)))) => :TimeStamp_nano)
-		transform(:TimeStamp_nano => (x-> [diff(x); NaN]) => :TimeDelta)
-	end
-	aaplVenue2 = aaplVenue2[1:(end-1), :]
-	transform!(aaplVenue2, :TimeDelta => (x->get_ns.(x)) => :ns)
-end
-
-# ╔═╡ 9fba2de3-878b-4bcc-95b0-66aa868b925e
-md"""
-- Next, for each venue, as well as for bid and ask prices, we group by exchange and calculate the following:
-  - Number of times it was the best bid and best offer.
-  - The average number of shares available at the best bid/ask price.
-  - The length of time the quote the best bid or offer.
-- This gives us three different values to evaluate of each venue.
-"""
-
-# ╔═╡ 16689d26-739c-4581-b210-01998ace0d06
-begin
-	venue_bids = @chain aaplVenue2 begin
-		groupby(:bx)
-		combine(:c  => (x->length(x)) => :n_best_bid,
-				:as => (x->mean(x))   => :ave_size_bid,
-				:ns => (x->mean(x)*1e-9) => :avg_time_best_bid)
-		rename(["venue", "n_best_bid", "avg_size_bid", "avg_time_best_bid"])
-	end
-
-	venue_asks = @chain aaplVenue2 begin
-		groupby(:ax)
-		combine(:c  => (x->length(x)) => :n_best_bid,
-				:as => (x->mean(x)) => :ave_size_ask,
-				:ns => (x->mean(x)*1e-9) => :avg_time_best_ask)
-		rename(["venue", "n_best_ask", "avg_size_ask", "avg_time_best_ask"])
-	end
+	sides = aggTrades.side
+	sidesI = zeros(length(sides))
+	sidesI[sides .== "buy"] .= 1
+	sidesI[sides .== "sell"] .= -1
 	
-	venue = leftjoin(venue_bids, venue_asks, on = "venue")
-	venue = leftjoin(venue, rename!(AlpacaMarkets.STOCK_EXCHANGES, ["Name", "venue"]), on = "venue")
-	
+	ac = autocor(sidesI);
 end
 
-# ╔═╡ 6f145c34-a0e9-47ec-99ac-f7cf0d11b4d2
-first(venue[!,["Name", "n_best_ask", "avg_size_ask", "avg_time_best_ask"]], 4)
-
-# ╔═╡ 191ddc32-d1f1-44c0-a1d8-2db523997791
+# ╔═╡ adad8237-7b4d-404c-9976-83fa6cc67fc8
 md"""
-- We can visualize this using a quadrant plot.
+- As we are looking at a possible power law relationship, we take the log of both the autocorrelation and the lag to see if there is a straight line. 
 """
 
-# ╔═╡ 0cb113ad-75f0-433d-85f2-e242a18e24fd
+# ╔═╡ 2859fbaf-e284-4156-ba27-b4981c96041f
 begin
-	plot(log.(venue.n_best_bid), venue.avg_size_bid, seriestype = :scatter, 
-    label = :none, group = venue.venue, 
-    series_annotations = text.(venue.Name, :bottom, pointsize=8),
-    xlabel = "log (Number of Times Best Bid)",
-    ylabel = "Average Bid Size")
-	hline!([mean(venue.avg_size_bid)], label=:none, color=:black)
-	vline!([mean(log.(venue.n_best_bid))], label=:none, color=:black)
-end
-
-# ╔═╡ 5ef1d64f-7854-4dd5-aa4b-d34c2aafdb89
-begin
-	plot(log.(venue.n_best_ask), venue.avg_time_best_ask, seriestype = :scatter, 
-    label = :none, group = venue.venue, 
-    series_annotations = text.(venue.Name, :bottom, pointsize=8),
-    xlabel = "log (Number of Times Best Ask)",
-    ylabel = "Average Time Best Ask (seconds)")
-	hline!([mean(venue.avg_time_best_ask)], label=:none, color=:black)
-	vline!([mean(log.(venue.n_best_ask))], label=:none, color=:black)
-end
-
-# ╔═╡ 581546d5-3e82-4a73-8b3a-b7cc4cd3633d
-md"""
-- There appear to be two clusters of exchanges and those to the right would score higher in terms of our metrics.  
-  - The first plot suggests that the difference between IEX and Members Exchange is about 0.5 in terms of the average bid size. 
-"""
-
-# ╔═╡ e589c45b-4e77-4630-8cf4-88c7cf666dc1
-md"""
-# The Lee-Ready Algorithm
-"""
-
-# ╔═╡ b814e8cd-31a7-4d9a-8c61-6f757141fc51
-md"""
-- Let's consider again the trades we have plotted at the beginning.
-"""
-
-# ╔═╡ 0dcbae87-d41a-4926-ac88-462b1c6fb1f4
-plotTrades
-
-# ╔═╡ fbe5916a-5788-44a1-b822-233dec173825
-md"""
-- The trades data from Alpaca Markets have no information on whether the trade is a buy or a sell. Can we infer the sign of the trade?
-- Looking at the graph, it looks as if most trades are at the ask price. This suggestst that these are likely buys. Similarly, the trades at the bid are likely sells. 
-"""
-
-# ╔═╡ 05838fce-a50e-4b0a-bde1-42bbdfa9daea
-md"""
-- One commonly-used method of assigning the trade direction (buy or sell) to trades is the [Lee-Ready Algorithm](https://www.jstor.org/stable/2328845). 
-- Basically, this algorithm  looks at where the trade occurs relative to the quoted mid-price at the time of the trade. 
-  - If the trade is above the mid-price then it is likely that the trade was a buy and vice versa, if it was below it was likely a sell.
-"""
-
-# ╔═╡ 28244c87-0ad7-4717-af40-b01bf632e3db
-md"""
-- To use the `Lee-Ready` algorithm we need to join the trades with the closest prices.
-"""
-
-# ╔═╡ 7bff09b3-a8eb-4c96-adc1-be5a89b6babb
-begin
-	aaplTrades3 = copy(aaplTrades2)
+	lags = eachindex(ac)
+	posInds = findall(ac .> 0)
 	
-	tradeTimes = aaplTrades3.TimeStamp_nano
-	quoteTimes = aapl2.TimeStamp_nano
-	
-	quoteInds = searchsortedlast.([quoteTimes], tradeTimes)
-	#See: https://docs.julialang.org/en/v1/base/sort/#Base.Sort.searchsortedlast
-	
-	aaplTrades3[!, "ap"] = aapl2.ap[quoteInds]
-	aaplTrades3[!, "bp"] = aapl2.bp[quoteInds]
-	
-	transform!(aaplTrades3, [:ap, :bp] => ((a,b)-> (a .+ b) ./ 2) => :Mid)
+	acPlot = plot(lags, ac, seriestype=:scatter, label=:none, xlabel="Lag", ylabel="Correlation")
+	acLogPlot = plot(log.(lags[posInds]), log.(ac[posInds]), seriestype=:scatter, label=:none, xlabel = "log(Lag)", ylabel="log(Correlation)")
+	plot(acPlot, acLogPlot)
 end
 
-# ╔═╡ 078763d8-8263-41fe-a5da-4e825357148c
-aaplTrades3[1:4, ["t", "TimeStamp_nano", "p", "ap", "bp", "Mid"]]
+# ╔═╡ 431ab113-2f60-4c1f-8997-73805833bac9
+begin
+	using GLM
+	modelFrame = DataFrame(LogAC = log.(ac[posInds]), LogLag = log.(lags[posInds]))
 
-# ╔═╡ 677a8ed3-eb0f-4d08-9379-41df5c9a0bd5
+	m = lm(@formula(LogAC ~ LogLag), modelFrame)
+end
+
+# ╔═╡ 9f469b4e-4687-4632-a4a1-32a571cc4bda
 md"""
-- Next, we check the sign of the difference between the traded price and the mid-price to classify it as a buy or sell.
+- We model the relationship as $\tau^\gamma$, where $\au$ is the lag. We also remove some of the outliers to stop them influencing the result.
 """
 
-# ╔═╡ 8296b9a4-38bf-4381-b10f-9c32cf8b540e
-function classify_trade(x)
-    if x == 0
-        return "Unknown"
-    elseif x == 1
-        return "Buy"
-    else
-        return "Sell"
-    end
-end
+# ╔═╡ 0bebe9bd-3314-4697-a95c-cde9d80d7966
+plot!(acLogPlot, log.(0:30), coef(m)[1] .+ coef(m)[2] .* log.(0:30), label="Power Law", xlabel = "log(Lag)", ylabel="log(Correlation)")
 
-# ╔═╡ ba17bd98-556c-4033-b8f9-3978f8aedd9e
-begin
-	aaplTrades4 = transform(aaplTrades3, [:p, :Mid] => ((p,m)->sign.(p .- m)) => :Sign)
-	transform!(aaplTrades4, :Sign => (x->classify_trade.(x)) => :Side)
-end
-
-# ╔═╡ f988520b-a61e-44ac-8b59-8840ca035389
-begin
-	plot(aapl2.TimeStamp, aapl2.ap, label = "Ask Price", seriestype=:steppre, xticks = (ticks, tick_labels))
-	plot!(aapl2.TimeStamp, aapl2.bp, label = "Bid Price", seriestype=:steppre)
-	plot!(aaplTrades4.TimeStamp, aaplTrades4.p, seriestype=:scatter, groups=aaplTrades4.Side)
-end
-
-# ╔═╡ 77de41e2-4433-44dc-87c5-255b905edd29
+# ╔═╡ 10120e92-bf32-4ddd-bffd-7f9a840381ab
 md"""
-- The results suggest that the Lee-Ready algorithm performs fairly well on average, but we also notice that not all the trades, are classified---some are unknown. In particular, the algorithm seems to struggle around periods where the market starts moving and the mid is volatile.
+- We see the log model fits well and we arrive at a γ value of around -0.78 which seems sensible and comparable to their value of -0.57 for some stocks.
+"""
+
+# ╔═╡ 90a153cb-5482-47cf-9315-3e8b25c32350
+md"""
+# Trade Size Distribution
+"""
+
+# ╔═╡ c9755bcf-97b7-4176-a91e-70ccf0671ed6
+md"""
+- We calculate the empirical distribution and plot that on both a linear and log scale. 
+"""
+
+# ╔═╡ 242de54b-d628-4798-86fe-bfced022a8c2
+begin
+	sizes = aggTrades.TotalSize
+	uSizes = unique(aggTrades.TotalSize)
+	
+	empF = ecdf(sizes)
+	
+	tradesSizePlot = plot((uSizes), (1 .- empF(uSizes)), seriestype=:scatter, label="P(V > x)", xlabel="Trade Size", ylabel="Probability")
+	tradesSizeLogPlot = plot(log.(uSizes), log.(1 .- empF(uSizes)), seriestype=:scatter, label="P(V > x)", xlabel = "log(Trade Size)", ylabel="log(Probability)")
+	
+	plot(tradesSizePlot, tradesSizeLogPlot)
+end
+
+# ╔═╡ 7384e361-1b07-4645-b9de-74989a837ac6
+md"""
+- The log-log plot indicates that there is some power law behaviour in the tail of the distribution. Estimating this power lower can be achieved in a number of ways, and we use the Hill estimator to calculate the tail parameter. In short, this a method for estimating the tail of a distribution when there are heavy tails. For our purposes, we take this equation as how we will come up with an α value.
+"""
+
+# ╔═╡ 5d4a0ddd-9eb9-4459-8eea-e9451a503fe7
+function hill_estimator(sizes, k)
+    sizes_sort = sort(sizes)
+    N = length(sizes_sort)
+    res = log.(sizes_sort[(N-k+1):N] / sizes_sort[N-k])
+    k*(1/sum(res))
+end
+
+# ╔═╡ ab83b86d-6774-4c50-ba6d-7f8b934787b6
+md"""
+- For this estimator we need to chose a threshold k and take all the values above that to calculate the parameter
+"""
+
+# ╔═╡ 36f3d960-9ea8-4cb1-8efb-a6ab3941cde7
+begin
+	alphak = [hill_estimator(sizes, k) for k in 1:(length(sizes)-1)]
+	plot(1:(length(sizes)-1), alphak, seriestype= :scatter, xlabel="k", ylabel="Alpha", label=:none)
+end
+
+# ╔═╡ 7c2d1dc4-31b3-449c-b4a3-92b096e7f72a
+last(alphak, 5)
+
+# ╔═╡ 9cbed260-c673-4e46-93e0-644e5dced80a
+md"""
+- It looks like the value is converging to a value of around 0.2. Clearly, this results is not conclusive since our dataset is too small.
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
-AlpacaMarkets = "02dc6022-739e-4478-acf8-ef45d2bc67b8"
+CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
 Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
+CoinbasePro = "3632ec16-99db-4259-aa88-30b9105699f8"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DataFramesMeta = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+GLM = "38e38edf-8417-5370-95a0-9cbb8c7f171a"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-TimesDates = "bdfc003b-8df8-5c39-adcd-3a9087f5df4a"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
-AlpacaMarkets = "~0.1.0"
+CategoricalArrays = "~0.10.4"
 Chain = "~0.4.10"
-DataFrames = "~1.3.2"
+CoinbasePro = "~0.1.3"
+DataFrames = "~1.2.2"
 DataFramesMeta = "~0.10.0"
-Plots = "~1.27.4"
-PlutoUI = "~0.7.38"
-TimesDates = "~0.3.1"
+GLM = "~1.6.1"
+Plots = "~1.27.0"
+StatsBase = "~0.33.16"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-[[AbstractPlutoDingetjes]]
-deps = ["Pkg"]
-git-tree-sha1 = "8eaf9f1b4921132a4cff3f36a1d9ba923b14a481"
-uuid = "6e696c72-6542-2067-7265-42206c756150"
-version = "1.1.4"
-
 [[Adapt]]
 deps = ["LinearAlgebra"]
 git-tree-sha1 = "af92965fb30777147966f58acb05da51c5616b5f"
 uuid = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 version = "3.3.3"
-
-[[AlpacaMarkets]]
-deps = ["DataFrames", "Dates", "HTTP", "JSON", "Test"]
-git-tree-sha1 = "5cfd2edf97bfe0478897cc87af40be4c389b8dc7"
-uuid = "02dc6022-739e-4478-acf8-ef45d2bc67b8"
-version = "0.1.0"
 
 [[ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -803,6 +705,18 @@ git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
 
+[[Calculus]]
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "f641eb0a4f00c343bbc32346e1217b86f3ce9dad"
+uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
+version = "0.5.1"
+
+[[CategoricalArrays]]
+deps = ["DataAPI", "Future", "Missings", "Printf", "Requires", "Statistics", "Unicode"]
+git-tree-sha1 = "5196120341b6dfe3ee5f33cf97392a05d6fe80d0"
+uuid = "324d7699-5711-5eae-9e2f-1d82baa6b597"
+version = "0.10.4"
+
 [[Chain]]
 git-tree-sha1 = "339237319ef4712e6e5df7758d0bccddf5c237d9"
 uuid = "8be319e6-bccf-4806-a6f7-6fae938471bc"
@@ -810,15 +724,21 @@ version = "0.4.10"
 
 [[ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "9950387274246d08af38f6eef8cb5480862a435f"
+git-tree-sha1 = "c9a6160317d1abe9c44b3beb367fd448117679ca"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.14.0"
+version = "1.13.0"
 
 [[ChangesOfVariables]]
 deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
 git-tree-sha1 = "bf98fa45a0a4cee295de98d4c1462be26345b9a1"
 uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
 version = "0.1.2"
+
+[[CoinbasePro]]
+deps = ["DataFrames", "Dates", "HTTP", "JSON", "TimesDates"]
+git-tree-sha1 = "fe630d2db2602fe63ce38916fa019c556c6f6e11"
+uuid = "3632ec16-99db-4259-aa88-30b9105699f8"
+version = "0.1.3"
 
 [[ColorSchemes]]
 deps = ["ColorTypes", "Colors", "FixedPointNumbers", "Random"]
@@ -850,9 +770,9 @@ uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 
 [[CompoundPeriods]]
 deps = ["Dates"]
-git-tree-sha1 = "5879c1c39fea46fb9eb5b8c9323f08f9fb5c4de5"
+git-tree-sha1 = "8466629faf92fbe90840d146f19c6162db666b6c"
 uuid = "a216cea6-0a8c-5945-ab87-5ade47210022"
-version = "0.5.1"
+version = "0.4.3"
 
 [[Contour]]
 deps = ["StaticArrays"]
@@ -872,9 +792,9 @@ version = "1.9.0"
 
 [[DataFrames]]
 deps = ["Compat", "DataAPI", "Future", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "Markdown", "Missings", "PooledArrays", "PrettyTables", "Printf", "REPL", "Reexport", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
-git-tree-sha1 = "ae02104e835f219b8930c7664b8012c93475c340"
+git-tree-sha1 = "d785f42445b63fc86caa08bb9a9351008be9b765"
 uuid = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-version = "1.3.2"
+version = "1.2.2"
 
 [[DataFramesMeta]]
 deps = ["Chain", "DataFrames", "MacroTools", "OrderedCollections", "Reexport"]
@@ -901,9 +821,21 @@ uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 deps = ["Mmap"]
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
+[[DensityInterface]]
+deps = ["InverseFunctions", "Test"]
+git-tree-sha1 = "80c3e8639e3353e5d2912fb3a1916b8455e2494b"
+uuid = "b429d917-457f-4dbc-8f4c-0cc954292b1d"
+version = "0.4.0"
+
 [[Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
+
+[[Distributions]]
+deps = ["ChainRulesCore", "DensityInterface", "FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SparseArrays", "SpecialFunctions", "Statistics", "StatsBase", "StatsFuns", "Test"]
+git-tree-sha1 = "9d3c0c762d4666db9187f363a76b47f7346e673b"
+uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
+version = "0.25.49"
 
 [[DocStringExtensions]]
 deps = ["LibGit2"]
@@ -915,6 +847,12 @@ version = "0.8.6"
 deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
+[[DualNumbers]]
+deps = ["Calculus", "NaNMath", "SpecialFunctions"]
+git-tree-sha1 = "90b158083179a6ccbce2c7eb1446d5bf9d7ae571"
+uuid = "fa6b7ba4-c1ee-5f82-b5fc-ecf0adba8f74"
+version = "0.6.7"
+
 [[EarCut_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "3f3a2501fa7236e9b911e0f7a588c657e822bb6d"
@@ -923,9 +861,9 @@ version = "2.2.3+0"
 
 [[Expat_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "bad72f730e9e91c08d9427d5e8db95478a3c323d"
+git-tree-sha1 = "ae13fcbc7ab8f16b0856729b050ef0c446aa3492"
 uuid = "2e619515-83b5-522b-bb60-26c02a35a201"
-version = "2.4.8+0"
+version = "2.4.4+0"
 
 [[ExprTools]]
 git-tree-sha1 = "56559bbef6ca5ea0c0818fa5c90320398a6fbf8d"
@@ -943,6 +881,12 @@ deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers",
 git-tree-sha1 = "d8a578692e3077ac998b50c0217dfd67f21d1e5f"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
 version = "4.4.0+0"
+
+[[FillArrays]]
+deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
+git-tree-sha1 = "0dbc5b9683245f905993b51d2814202d75b34f1a"
+uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
+version = "0.13.1"
 
 [[FixedPointNumbers]]
 deps = ["Statistics"]
@@ -984,17 +928,23 @@ git-tree-sha1 = "51d2dfe8e590fbd74e7a842cf6d13d8a2f45dc01"
 uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
 version = "3.3.6+0"
 
+[[GLM]]
+deps = ["Distributions", "LinearAlgebra", "Printf", "Reexport", "SparseArrays", "SpecialFunctions", "Statistics", "StatsBase", "StatsFuns", "StatsModels"]
+git-tree-sha1 = "fb764dacfa30f948d52a6a4269ae293a479bbc62"
+uuid = "38e38edf-8417-5370-95a0-9cbb8c7f171a"
+version = "1.6.1"
+
 [[GR]]
 deps = ["Base64", "DelimitedFiles", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Printf", "Random", "RelocatableFolders", "Serialization", "Sockets", "Test", "UUIDs"]
-git-tree-sha1 = "af237c08bda486b74318c8070adb96efa6952530"
+git-tree-sha1 = "9f836fb62492f4b0f0d3b06f55983f2704ed0883"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
-version = "0.64.2"
+version = "0.64.0"
 
 [[GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Pkg", "Qt5Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "cd6efcf9dc746b06709df14e462f0a3fe0786b1e"
+git-tree-sha1 = "a6c850d77ad5118ad3be4bd188919ce97fffac47"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.64.2+0"
+version = "0.64.0+0"
 
 [[GeometryBasics]]
 deps = ["EarCut_jll", "IterTools", "LinearAlgebra", "StaticArrays", "StructArrays", "Tables"]
@@ -1037,22 +987,11 @@ git-tree-sha1 = "129acf094d168394e80ee1dc4bc06ec835e510a3"
 uuid = "2e76f6c2-a576-52d4-95c1-20adfe4de566"
 version = "2.8.1+1"
 
-[[Hyperscript]]
-deps = ["Test"]
-git-tree-sha1 = "8d511d5b81240fc8e6802386302675bdf47737b9"
-uuid = "47d2ed2b-36de-50cf-bf87-49c2cf4b8b91"
-version = "0.0.4"
-
-[[HypertextLiteral]]
-git-tree-sha1 = "2b078b5a615c6c0396c77810d92ee8c6f470d238"
-uuid = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
-version = "0.9.3"
-
-[[IOCapture]]
-deps = ["Logging", "Random"]
-git-tree-sha1 = "f7be53659ab06ddc986428d3a9dcc95f6fa6705a"
-uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
-version = "0.2.2"
+[[HypergeometricFunctions]]
+deps = ["DualNumbers", "LinearAlgebra", "SpecialFunctions", "Test"]
+git-tree-sha1 = "65e4589030ef3c44d3b90bdc5aac462b4bb05567"
+uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
+version = "0.3.8"
 
 [[IniFile]]
 git-tree-sha1 = "f550e6e32074c939295eb5ea6de31849ac2c9625"
@@ -1138,9 +1077,9 @@ version = "1.3.0"
 
 [[Latexify]]
 deps = ["Formatting", "InteractiveUtils", "LaTeXStrings", "MacroTools", "Markdown", "Printf", "Requires"]
-git-tree-sha1 = "6f14549f7760d84b2db7a9b10b88cd3cc3025730"
+git-tree-sha1 = "4f00cc36fede3c04b8acf9b2e2763decfdcecfa6"
 uuid = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
-version = "0.15.14"
+version = "0.15.13"
 
 [[LazyArtifacts]]
 deps = ["Artifacts", "Pkg"]
@@ -1219,9 +1158,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[LogExpFunctions]]
 deps = ["ChainRulesCore", "ChangesOfVariables", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "58f25e56b706f95125dcb796f39e1fb01d913a71"
+git-tree-sha1 = "56ad13e26b7093472eba53b418eba15ad830d6b5"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.10"
+version = "0.3.9"
 
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -1283,11 +1222,21 @@ git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
 version = "1.3.5+1"
 
+[[OpenLibm_jll]]
+deps = ["Artifacts", "Libdl"]
+uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
+
 [[OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "ab05aa4cc89736e95915b01e7279e61b1bfe33b8"
+git-tree-sha1 = "648107615c15d4e09f7eca16307bc821c1f718d8"
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
-version = "1.1.14+0"
+version = "1.1.13+0"
+
+[[OpenSpecFun_jll]]
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "13652491f6856acfd2db29360e1bbcd4565d04f1"
+uuid = "efe28fd5-8261-553b-a9e1-b2916fc3738e"
+version = "0.5.5+0"
 
 [[Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1305,6 +1254,12 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "b2a7af664e098055a7529ad1a900ded962bca488"
 uuid = "2f80f16e-611a-54ab-bc61-aa92de5b98fc"
 version = "8.44.0+0"
+
+[[PDMats]]
+deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
+git-tree-sha1 = "e8185b83b9fc56eb6456200e873ce598ebc7f262"
+uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
+version = "0.11.7"
 
 [[Parsers]]
 deps = ["Dates"]
@@ -1330,21 +1285,15 @@ version = "2.0.1"
 
 [[PlotUtils]]
 deps = ["ColorSchemes", "Colors", "Dates", "Printf", "Random", "Reexport", "Statistics"]
-git-tree-sha1 = "bb16469fd5224100e422f0b027d26c5a25de1200"
+git-tree-sha1 = "6f1b25e8ea06279b5689263cc538f51331d7ca17"
 uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
-version = "1.2.0"
+version = "1.1.3"
 
 [[Plots]]
 deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "GeometryBasics", "JSON", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
-git-tree-sha1 = "edec0846433f1c1941032385588fd57380b62b59"
+git-tree-sha1 = "9213b4c18b57b7020ee20f33a4ba49eb7bef85e0"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.27.4"
-
-[[PlutoUI]]
-deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
-git-tree-sha1 = "670e559e5c8e191ded66fa9ea89c97f10376bb4c"
-uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.38"
+version = "1.27.0"
 
 [[PooledArrays]]
 deps = ["DataAPI", "Future"]
@@ -1374,6 +1323,12 @@ git-tree-sha1 = "ad368663a5e20dbb8d6dc2fddeefe4dae0781ae8"
 uuid = "ea2cea3b-5b76-57ae-a6ef-0a8af62496e1"
 version = "5.15.3+0"
 
+[[QuadGK]]
+deps = ["DataStructures", "LinearAlgebra"]
+git-tree-sha1 = "78aadffb3efd2155af139781b8a8df1ef279ea39"
+uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
+version = "2.4.2"
+
 [[REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
@@ -1389,9 +1344,9 @@ version = "1.2.1"
 
 [[RecipesPipeline]]
 deps = ["Dates", "NaNMath", "PlotUtils", "RecipesBase"]
-git-tree-sha1 = "dc1e451e15d90347a7decc4221842a022b011714"
+git-tree-sha1 = "995a812c6f7edea7527bb570f0ac39d0fb15663c"
 uuid = "01d81517-befc-4cb6-b9ec-a95719d0359c"
-version = "0.5.2"
+version = "0.5.1"
 
 [[Reexport]]
 git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
@@ -1410,6 +1365,18 @@ git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.0"
 
+[[Rmath]]
+deps = ["Random", "Rmath_jll"]
+git-tree-sha1 = "bf3188feca147ce108c76ad82c2792c57abe7b1f"
+uuid = "79098fc4-a85e-5d69-aa6a-4863f24498fa"
+version = "0.7.0"
+
+[[Rmath_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "68db32dff12bb6127bac73c209881191bf0efbb7"
+uuid = "f50d1b31-88e8-58de-be2c-1cc44531875f"
+version = "0.3.0+0"
+
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 
@@ -1425,6 +1392,11 @@ uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 [[SharedArrays]]
 deps = ["Distributed", "Mmap", "Random", "Serialization"]
 uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
+
+[[ShiftedArrays]]
+git-tree-sha1 = "22395afdcf37d6709a5a0766cc4a5ca52cb85ea0"
+uuid = "1277b4bf-5013-50f5-be3d-901d8477a67a"
+version = "1.0.0"
 
 [[Showoff]]
 deps = ["Dates", "Grisu"]
@@ -1445,11 +1417,17 @@ version = "1.0.1"
 deps = ["LinearAlgebra", "Random"]
 uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
+[[SpecialFunctions]]
+deps = ["ChainRulesCore", "IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
+git-tree-sha1 = "5ba658aeecaaf96923dce0da9e703bd1fe7666f9"
+uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
+version = "2.1.4"
+
 [[StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "4f6ec5d99a28e1a749559ef7dd518663c5eca3d5"
+git-tree-sha1 = "74fb527333e72ada2dd9ef77d98e4991fb185f04"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.4.3"
+version = "1.4.1"
 
 [[Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
@@ -1467,11 +1445,27 @@ git-tree-sha1 = "8977b17906b0a1cc74ab2e3a05faa16cf08a8291"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.33.16"
 
+[[StatsFuns]]
+deps = ["ChainRulesCore", "HypergeometricFunctions", "InverseFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]
+git-tree-sha1 = "25405d7016a47cf2bd6cd91e66f4de437fd54a07"
+uuid = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
+version = "0.9.16"
+
+[[StatsModels]]
+deps = ["DataAPI", "DataStructures", "LinearAlgebra", "Printf", "REPL", "ShiftedArrays", "SparseArrays", "StatsBase", "StatsFuns", "Tables"]
+git-tree-sha1 = "03c99c7ef267c8526953cafe3c4239656693b8ab"
+uuid = "3eaba693-59b7-5ba5-a881-562e759f1c8d"
+version = "0.6.29"
+
 [[StructArrays]]
 deps = ["Adapt", "DataAPI", "StaticArrays", "Tables"]
 git-tree-sha1 = "57617b34fa34f91d536eb265df67c2d4519b8b98"
 uuid = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 version = "0.6.5"
+
+[[SuiteSparse]]
+deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
+uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[TOML]]
 deps = ["Dates"]
@@ -1505,9 +1499,9 @@ version = "1.7.2"
 
 [[TimesDates]]
 deps = ["CompoundPeriods", "Dates", "TimeZones"]
-git-tree-sha1 = "4ca99fd8145f6ae574b6f98e1233148e7b91ac30"
+git-tree-sha1 = "b56fad6f36724a4261db450baa69074037846289"
 uuid = "bdfc003b-8df8-5c39-adcd-3a9087f5df4a"
-version = "0.3.1"
+version = "0.2.6"
 
 [[URIs]]
 git-tree-sha1 = "97bbe755a53fe859669cd907f2d96aee8d2c1355"
@@ -1744,69 +1738,71 @@ version = "0.9.1+5"
 """
 
 # ╔═╡ Cell order:
-# ╟─6199926c-0c4a-4991-b4c3-ebed35217375
+# ╠═6199926c-0c4a-4991-b4c3-ebed35217375
 # ╟─b0b9984b-45f5-49a2-a5ce-86281745d623
 # ╟─886b6ade-b8df-494c-be5f-13aae328b848
 # ╟─26a704bf-6b13-45f2-9211-023fbf2e3cb6
 # ╟─1897543d-5c47-41ee-9f13-a099df5d9ed1
-# ╟─89d72808-d09e-421a-ae7b-5491e8fae0ee
-# ╟─dff6f3d9-f4fc-4964-a075-c1c11a953667
-# ╟─931659d2-cae1-43d3-87d9-b67edb7c16d0
-# ╟─c8cba87a-6ead-4f6a-b29b-bc3bcc3e75f0
-# ╟─50fb3be3-1674-47a3-9102-0c6fb24241de
-# ╟─81f0904b-3da6-4981-971b-b5e11e301eaa
-# ╠═6c003a32-ddb4-462b-bc73-3bbf633f184f
-# ╠═34545087-b68d-4271-9771-4686b770c619
-# ╟─4a235440-1810-4b18-85f9-377f9f5f6876
-# ╟─80b29628-2214-49ab-8eb7-31e99677fb1b
-# ╠═8560c709-61bd-4d7b-a7cd-78c9861b54cc
-# ╟─96ec6830-4c58-48b5-8538-236dc2a3c599
-# ╟─022c457f-83c1-4059-8730-6f788b1ec479
-# ╟─1dadf403-6dff-48d7-bb24-eae5c1147d7d
-# ╟─0fbd9fc7-2e7b-4559-a34b-17528e507ebe
-# ╟─a099bcf5-76df-468b-82df-cf29a914be9c
-# ╟─6978ce4e-0880-4d37-b894-caa63c5ff91f
-# ╠═bb9d0cfe-7f25-464e-bcd6-09d732c36eac
-# ╟─e861bcff-9e3f-453a-989f-1fbd342bccf8
-# ╠═3a4c94b5-6fd3-4253-839b-e898ab9025be
-# ╟─3bf77a4e-5019-4ad6-9e05-60d2dff701e6
-# ╠═435f564e-c550-4a54-bb7d-86ed3d3017bc
-# ╟─04c1af80-11cd-4a97-8d8c-5e35fd233d24
-# ╟─77339769-19c5-4299-bacc-72719804b1e5
-# ╠═e398ea5c-575e-4aa5-ad3b-2dd3cc0c1164
-# ╟─b16c32a6-cf18-4854-bd7d-020e324b4ff1
-# ╟─b9229901-5355-4479-836f-90310ce17a28
-# ╟─8c47c245-27e3-4e9b-88bf-10a9b807c451
-# ╟─8f7c8ce2-ce16-45fa-8244-3422b1abd03b
-# ╠═03fcdb25-0b2d-4022-8945-f7a66df81419
-# ╟─3760c655-d8a9-4893-a17a-0978ee1a4f40
-# ╠═a345db06-db99-4262-9b18-b4f4ce229515
-# ╟─b861419a-6e7a-4708-91d1-f160015241c5
-# ╟─612c2a18-5038-4b79-b768-fa93ad073cac
-# ╟─17fc303a-0b4a-4c03-9f6e-c8919e993557
-# ╠═f9a3339a-4858-4fde-9967-427ea6fc933c
-# ╟─ddbf5a8f-083c-4796-9f92-150e050d963d
-# ╠═837cf9b4-92ba-4539-802d-e3e37e83182d
-# ╠═7242e288-5eb3-42ab-8a7b-9b7cfdaa361e
-# ╟─9fba2de3-878b-4bcc-95b0-66aa868b925e
-# ╠═16689d26-739c-4581-b210-01998ace0d06
-# ╠═6f145c34-a0e9-47ec-99ac-f7cf0d11b4d2
-# ╟─191ddc32-d1f1-44c0-a1d8-2db523997791
-# ╠═0cb113ad-75f0-433d-85f2-e242a18e24fd
-# ╠═5ef1d64f-7854-4dd5-aa4b-d34c2aafdb89
-# ╟─581546d5-3e82-4a73-8b3a-b7cc4cd3633d
-# ╟─e589c45b-4e77-4630-8cf4-88c7cf666dc1
-# ╟─b814e8cd-31a7-4d9a-8c61-6f757141fc51
-# ╠═0dcbae87-d41a-4926-ac88-462b1c6fb1f4
-# ╟─fbe5916a-5788-44a1-b822-233dec173825
-# ╟─05838fce-a50e-4b0a-bde1-42bbdfa9daea
-# ╟─28244c87-0ad7-4717-af40-b01bf632e3db
-# ╠═7bff09b3-a8eb-4c96-adc1-be5a89b6babb
-# ╠═078763d8-8263-41fe-a5da-4e825357148c
-# ╟─677a8ed3-eb0f-4d08-9379-41df5c9a0bd5
-# ╠═8296b9a4-38bf-4381-b10f-9c32cf8b540e
-# ╠═ba17bd98-556c-4033-b8f9-3978f8aedd9e
-# ╠═f988520b-a61e-44ac-8b59-8840ca035389
-# ╟─77de41e2-4433-44dc-87c5-255b905edd29
+# ╠═cc9ed5ee-ef24-457a-806d-8bed26617b13
+# ╠═4a235440-1810-4b18-85f9-377f9f5f6876
+# ╠═825c7258-ade5-48ad-83c9-acc362101715
+# ╠═16386405-896d-4cea-a733-41e298da1258
+# ╠═912ee012-981c-4003-abca-5aa0b3e7f673
+# ╠═451ecc21-b276-4009-ac12-561dd858e507
+# ╠═a4b4cb2a-03b4-4498-9978-d786a2663718
+# ╠═62eeb08c-9c02-47e0-9e44-8dda89fe7f3c
+# ╠═8d5c0e6b-ae4a-4f77-a0ff-8de784934136
+# ╠═d71efea4-1a1e-43b2-ba62-84411b8688b1
+# ╠═ec0eb792-f467-43ac-8f31-91d542b08e67
+# ╠═ab3fef5d-14d7-4528-ad4b-a395f844e0b9
+# ╠═653dc5ac-245a-4bcd-bfaa-69567275a388
+# ╠═a08832c4-58e8-48fd-a4a1-205399b7a1fb
+# ╠═d3cde55d-0e81-4637-a705-31255148e7b2
+# ╠═8d6cbbed-e8bd-4b43-859d-d86e1a70e7ff
+# ╠═2ed85d07-b706-4ba9-83c2-3e3e0249c4a5
+# ╠═417a13a8-0594-43fe-97d8-b49b7288992e
+# ╠═1bdd1856-8f8b-490b-a6f6-224538fa7356
+# ╠═8e1246c0-3bf3-4bd0-b7e2-a87dc818831e
+# ╠═f6d356b2-4b9a-4552-9d4a-7840ff1c253c
+# ╠═ddffd1c1-75b0-463f-89bb-a1ddfb337f7e
+# ╠═9c95c0b9-63b1-46c1-9457-3561c665b127
+# ╠═2940c863-1067-493d-8a96-e00aa7bd5d08
+# ╠═64728fae-6674-4877-a19e-26767b96d7c4
+# ╠═9165b298-c580-420f-b2e5-8190ccb9ce6f
+# ╠═0287028d-b219-4c01-b712-e7dc0db214d7
+# ╠═0f655a55-7da4-4f99-80e4-d0460c8d083d
+# ╠═49b20294-14ce-408f-91e6-773fc7d15816
+# ╠═2af218ec-0514-431a-a79b-736a83ada996
+# ╠═b9c2b715-f99c-4d2b-8d42-10c1e68e1f75
+# ╠═fc510d58-17b4-4067-bd6b-967a966bc35b
+# ╠═45fd2d0e-2e10-43c6-9964-125648dba4ff
+# ╠═724bf604-9c31-4307-a6a6-9d4e4038aa7d
+# ╠═37d58842-b064-42ce-a39e-d1c75a4781a3
+# ╠═11ce1c61-1ac8-4156-8f01-edbc98b8a88d
+# ╠═a719d880-0847-4925-81e3-b9dc77407a6c
+# ╠═903dfdf7-ec30-4c22-a8da-2cbc8adb359d
+# ╠═8918ea92-5792-4f4d-b640-e827410cf004
+# ╠═561bdf9a-77d3-426d-a788-264f9e6ba520
+# ╠═9b460614-9c7b-4224-a40f-470b9bd195e8
+# ╠═122ff387-ee13-4bf8-b323-279d9620d1f6
+# ╠═f8f91e89-2637-40bc-baec-9651ace19609
+# ╠═b4f9926f-1828-43c2-9946-b4d44c57c819
+# ╠═c311670b-4127-4426-a179-e314db3e3078
+# ╠═80d45c3e-6c44-426e-88bf-85760d1a1ffb
+# ╠═adad8237-7b4d-404c-9976-83fa6cc67fc8
+# ╠═2859fbaf-e284-4156-ba27-b4981c96041f
+# ╠═9f469b4e-4687-4632-a4a1-32a571cc4bda
+# ╠═431ab113-2f60-4c1f-8997-73805833bac9
+# ╠═0bebe9bd-3314-4697-a95c-cde9d80d7966
+# ╠═10120e92-bf32-4ddd-bffd-7f9a840381ab
+# ╠═90a153cb-5482-47cf-9315-3e8b25c32350
+# ╠═c9755bcf-97b7-4176-a91e-70ccf0671ed6
+# ╠═242de54b-d628-4798-86fe-bfced022a8c2
+# ╠═7384e361-1b07-4645-b9de-74989a837ac6
+# ╠═5d4a0ddd-9eb9-4459-8eea-e9451a503fe7
+# ╠═ab83b86d-6774-4c50-ba6d-7f8b934787b6
+# ╠═36f3d960-9ea8-4cb1-8efb-a6ab3941cde7
+# ╠═7c2d1dc4-31b3-449c-b4a3-92b096e7f72a
+# ╠═9cbed260-c673-4e46-93e0-644e5dced80a
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
