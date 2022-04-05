@@ -605,10 +605,32 @@ md"""
 """
 
 # ╔═╡ a53c4108-7ee7-4547-afee-dfaacf87d944
+function GetRx(Px_t,Px_tminus, div)
+	divAmt = 0.0
+	if !ismissing(div)
+		divAmt = div
+	end
 
+	if any(ismissing.([Px_t, Px_tminus]))
+		return missing
+	else
+		return (Px_t + divAmt - Px_tminus)/Px_tminus
+	end
+end
 
 # ╔═╡ 3d053364-5a63-41b1-b654-9d99e00cc6c3
+function GetLogRx(Px_t,Px_tminus, div)
+	divAmt = 0.0
+	if !ismissing(div)
+		divAmt = div
+	end
 
+	if any(ismissing.([Px_t, Px_tminus]))
+		return missing
+	else
+		return log((Px_t+divAmt)) - log(Px_tminus)
+	end
+end
 
 # ╔═╡ db15e7a8-6912-49ae-81b4-c22abc40aac5
 md"""
@@ -616,7 +638,37 @@ md"""
 """
 
 # ╔═╡ 5deea522-f60b-4242-8c9f-26ee7c243677
+df = @chain CRSP begin
 
+	#Filter
+	dropmissing(:TICKER)
+	filter(:TICKER => (x-> x∈StockTicker),_)
+	transform(:date => ByRow(x->Date(string(x),dateformat"yyyymmdd")) => :date)
+	select!(:date, :TICKER, :PERMCO, :PERMNO, :PRC, :DIVAMT)
+	
+	#Delete duplicates
+	groupby([:date, :TICKER])
+	combine(_) do sdf
+		if nrow(sdf) == 2
+			DataFrame(sdf[2,:])
+		else
+			sdf
+		end
+	end
+
+	#Get returns
+	sort([:TICKER,:date])
+	groupby([:TICKER])
+	transform(:PRC => (x->lag(x)) => :PRC_L)
+
+	transform( [:PRC, :PRC_L, :DIVAMT] => ByRow( (Px_t, Px_tminus, div)->GetRx(Px_t, Px_tminus, div) ) => :Rx)
+	transform( [:PRC, :PRC_L, :DIVAMT] => ByRow( (Px_t, Px_tminus, div)->GetLogRx(Px_t, Px_tminus, div)) => :LogRx)
+	dropmissing(:Rx)
+
+	#order columns
+	select(:date, :TICKER, :PERMCO, :PERMNO, :PRC, :PRC_L, :DIVAMT, :Rx, :LogRx)
+
+end
 
 # ╔═╡ b26bf12b-f377-4228-9ac6-9af67eaf6880
 md"""
@@ -625,7 +677,10 @@ md"""
 
 # ╔═╡ 3f2eb8f8-b30f-487d-a915-bcfa6ebd0954
 #https://dataframes.juliadata.org/stable/lib/functions/#DataFrames.unstack
-
+Stocks = @chain df begin
+	select(:date,:TICKER,:Rx)
+	unstack(:date,:TICKER,:Rx)
+end
 
 # ╔═╡ b4a689de-eb5a-42a0-b7f1-274bb81884f4
 md"""
@@ -633,10 +688,13 @@ md"""
 """
 
 # ╔═╡ 201bdaf1-bcb4-4e9e-8b38-fba457527ba6
-
+μ_Stocks = let
+	df = combine(Stocks, StockTicker .=> (x->mean(x)), renamecols=false)
+	Array(df[1,:])
+end
 
 # ╔═╡ 1af038cd-1f76-4473-9abb-ca25efd5ef5b
-
+Σ_Stocks = cov( Matrix( Stocks[:,Not(:date)] ) )
 
 # ╔═╡ b10c5e71-2cd7-46ff-9a49-c749312becc9
 md"""
@@ -645,7 +703,20 @@ md"""
 
 # ╔═╡ 9583fcde-ddc0-4463-b9e1-7c8f69921f17
 begin
-	
+	Rf_Stocks = @chain RF begin
+		filter(:Date => (x-> (year(x)>=2000 && year(x)<=2020)),_)
+		combine(:RF => mean, renamecols=false)
+		_.RF[1]
+	end
+		
+	with_terminal() do
+		printred("riskfree rate:")
+		printmat(Rf_Stocks,rowNames="RF")
+		printred("expected returns:")
+		printmat(μ_Stocks,rowNames=StockTicker)
+		printred("covariance matrix:")
+		printmat(Σ_Stocks,colNames=StockTicker,rowNames=StockTicker)
+	end
 end
 
 # ╔═╡ 63e089e7-19da-4b22-b4f8-93c7dcf3fffd
@@ -655,7 +726,13 @@ md"""
 
 # ╔═╡ 41b4f432-2218-427b-b9b0-c882e3e4c0f0
 begin
-	
+	μ_MVStocks = collect(0.0010:0.0001:0.03)
+	σ_MVStocks = Array{Float64}(undef, length(μ_MVStocks))
+	for (i,mu) in enumerate(μ_MVStocks)
+		σ_MVStocks[i] = MVCalc(mu, μ_Stocks, Σ_Stocks)[1]
+	end
+
+	p_MVStocks = plot(σ_MVStocks, μ_MVStocks, color=:blue, xlim=(0,0.15), ylim=(0,0.03), xlabel=L"\sigma", ylabel=L"\mu", label="MV Frontier", legend=:topleft)
 end
 
 # ╔═╡ 0d2c744c-cfbc-4ee7-b50f-56fa5f2faef6
