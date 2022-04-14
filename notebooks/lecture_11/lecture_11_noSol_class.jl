@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.18.2
 
 using Markdown
 using InteractiveUtils
@@ -401,7 +401,12 @@ This can be compared with the (actual) average returns.
 
 # ╔═╡ 7799e685-8e3d-4120-8edf-e31eab89515c
 begin
-	
+	ERi = Rf .+ β*(μT - Rf)
+
+	with_terminal() do
+		printred("μ and ER as suggested as CAPM: ")
+		printmat([μ ERi], rowNames=assetNames, colNames=["actual","from CAPM"] )
+	end
 end
 
 # ╔═╡ 6c427188-a09b-4d4e-b93b-daa500e22b45
@@ -411,7 +416,13 @@ Let's plot this.
 
 # ╔═╡ 4a1bdfcb-c5dc-448a-afbd-024f4fd70b82
 begin
-	
+	p1 = scatter(β, ERi*100,
+		xlim=(0,2),
+		ylim=(0,15),
+		legend=false,
+		title = L"\beta \mathrm{\ vs \ ER}",
+		xlabel = L"\beta",
+		ylabel = L"ER, %")
 end
 
 # ╔═╡ 853970c0-fea6-4fe0-b76f-2b3a8e878e2c
@@ -439,7 +450,8 @@ md"""
 
 # ╔═╡ 0c383eff-dd4e-422f-8e44-c5aed1c4bc86
 begin
-	
+	FF = CSV.File("FFmFactorsPs.csv") |> DataFrame
+	transform!(FF, :date => ByRow( x->  lastdayofmonth(Date(string(x),"yyyymm"))) => :date)
 end
 
 # ╔═╡ 785bdaee-6ea3-41b9-aedd-15691d84bea9
@@ -448,7 +460,7 @@ md"""
 """
 
 # ╔═╡ d7cc7678-4a25-4bcc-9745-6063d7411985
-
+describe(FF, :eltype, :mean, :std, :min, :median, :max, (x-> length(collect(skipmissing(x))) )=>:nobs, :nmissing)
 
 # ╔═╡ 9551ce0e-eeb8-460b-9f3c-4667d3494875
 md"""
@@ -457,7 +469,8 @@ md"""
 
 # ╔═╡ 2b33bbbc-d75a-4632-976b-f33d58bde38f
 begin
-	
+	FFPortf = CSV.File("FF25Ps.csv") |> DataFrame
+	transform!(FFPortf, :date => ByRow( x-> lastdayofmonth(Date(string(x),"yyyymm")) ) => :date )
 end
 
 # ╔═╡ ebd5fe81-c590-401f-9711-86b0abf7625b
@@ -474,11 +487,11 @@ Select test portfolios: 1=small to 5=high
 """
 
 # ╔═╡ f823c834-3fe9-4a7f-a5ae-7fe9724f1700
-
+TestPortfolios = ["SMALL LoBM","ME2 BM2","ME3 BM3","ME4 BM4","BIG HiBM"]
 
 # ╔═╡ b627de77-ad3f-4c2a-b48d-12a0389937b9
 begin
-	
+	Testportfolios = FFPortf[:, names(FFPortf, (x-> x∈ TestPortfolios || x=="date") ) ]	
 end
 
 # ╔═╡ 087daadf-f8be-4e00-9e68-341b40a385dc
@@ -488,7 +501,8 @@ md"""
 
 # ╔═╡ 9ec800c1-5f3c-43fd-81e3-25fa492454f5
 begin
-	
+	FFTestportfolios = leftjoin(FF, Testportfolios, on=:date)
+	filter!(:date => (x-> x>=Dates.Date(1970,01) && x<= Dates.Date(2021,12)), FFTestportfolios)
 end
 
 # ╔═╡ 88af2312-42e9-4f86-8e03-77bba82785b8
@@ -498,12 +512,22 @@ md"""
 
 # ╔═╡ be19f8e2-dd77-4990-a5db-9161ba57139e
 begin
-	
+	Rme = FFTestportfolios[:, "Mkt-RF"]  #market excess return
+	RSMB = FFTestportfolios[:, "SMB"]    #small minus big firms
+	RHML = FFTestportfolios[:, "HML"]     #high minus low book-to-market ratio
+	rf = FFTestportfolios[:, "RF"]
 end
 
 # ╔═╡ 593bc8f4-ef30-40b9-8029-de755659acad
 begin
+	Re = Matrix(FFTestportfolios[:,Not(["date", "Mkt-RF", "SMB", "HML", "RF", "Mom", "ST_Rev", "LT_Rev"])]) .- rf
+
+	(T, nAssets) = size(Re)
 	
+	with_terminal() do
+		println("Number of Observations: ", T)
+		println("Number of Testassets: ", nAssets)
+	end
 end
 
 # ╔═╡ 00c090d8-9582-4675-82c3-af46b03ac548
@@ -571,6 +595,26 @@ end
 
 # ╔═╡ a609ab99-1373-4b88-880e-33944dfa12a1
 begin
+	x = [ones(T) Rme]
+
+	(α, b, tstat) = ( fill(NaN,nAssets), fill(NaN, nAssets), fill(NaN,nAssets) ) 
+
+	for i=1:nAssets
+		
+		(b_i, _, _, Covb,) = OlsGMFn(Re[:,i], x)
+		α[i] = b_i[1]
+		b[i] = b_i[2]
+		tstat[i] = (b_i[1]-0)/sqrt(Covb[1,1]) 
+		
+	end
+
+	with_terminal() do
+		printred("OLS intercepts and t-stats: ")
+		colNames = [string("asset ", i) for i=1:nAssets]
+	 	rowNames = ["β","α","t-stat"]
+		printmat([b'; α'; tstat']; colNames, rowNames)
+		
+	end
 	
 end
 
@@ -1149,7 +1193,7 @@ uuid = "38a345b3-de98-5d2b-a5d3-14cd9215e700"
 version = "2.36.0+0"
 
 [[LinearAlgebra]]
-deps = ["Libdl"]
+deps = ["Libdl", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[LinearRegressionKit]]
@@ -1229,6 +1273,10 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
 version = "1.3.5+1"
+
+[[OpenBLAS_jll]]
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
+uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
 
 [[OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -1348,7 +1396,7 @@ deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 
 [[Random]]
-deps = ["Serialization"]
+deps = ["SHA", "Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [[RecipesBase]]
@@ -1747,6 +1795,10 @@ deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "HarfBuzz_jll"
 git-tree-sha1 = "5982a94fcba20f02f42ace44b9894ee2b140fe47"
 uuid = "0ac62f75-1d6f-5e53-bd7c-93b484bb37c0"
 version = "0.15.1+0"
+
+[[libblastrampoline_jll]]
+deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
+uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
 
 [[libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
