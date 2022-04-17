@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.19.0
 
 using Markdown
 using InteractiveUtils
@@ -264,8 +264,8 @@ begin
 	#------------------------------------------------------------------------------
 	
 		
-	#using Logging
-	#global_logger(NullLogger())
+	using Logging
+	global_logger(NullLogger())
 		
 	display("")
 end
@@ -275,7 +275,7 @@ TableOfContents( indent=true, depth=1, aside=true)
 
 # ╔═╡ a4982262-23b1-11ec-245e-f7de7d8e3cbd
 md"""
-# ## FINC 672: Efficient Markets
+## FINC 672: Efficient Markets
 
 - In this notebook, we test the predictability of asset returns (autocorrelations, autoregressions, out-of-sample R2, Mariano-Diebold test) and implement a simple trading strategy.
 """
@@ -577,7 +577,7 @@ md"""
 # ╔═╡ 5e158b1e-d04e-4537-a704-f25fced079c1
 md"""
 - The Mariano-Diebold and Clark-West tests both compare the prediction errors of two models ($e$ benchmark; $\epsilon$ your model). 
-  - Notice that MD test is not well suited for nested model (your model is an augmented version of the baseline model). Use the Clark-West in that case.
+  - Notice that the MD test is not well suited for nested model (your model is an augmented version of the baseline model). Use the Clark-West in that case.
 """
 
 # ╔═╡ 8d0cddc6-3232-4f05-943f-0de78500eb68
@@ -706,6 +706,7 @@ Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearRegressionKit = "e91d531d-6e51-44a8-96b7-a10d5d51daa3"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
@@ -1906,7 +1907,7 @@ version = "0.9.1+5"
 # ╠═26681735-61e6-4633-b4a5-012e330fd336
 # ╟─17b06cb8-effe-4cc7-a665-454ff3dc7eee
 # ╟─656443ae-82f1-434b-88b2-250cc6313ce9
-# ╟─a4982262-23b1-11ec-245e-f7de7d8e3cbd
+# ╠═a4982262-23b1-11ec-245e-f7de7d8e3cbd
 # ╟─a4854850-0b6b-4b27-8967-49b4c156f949
 # ╠═b01db26c-6c7f-4780-9780-1d2d8fde5daf
 # ╟─4d56e19c-2051-49ee-9e41-c7ae0c6c1c5f
