@@ -4,13 +4,14 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ fed4473e-8e0c-41cc-acfc-8cd4f4f4d06a
-using CSV, DataFrames, Dates, Plots, LaTeXStrings, PlutoUI, Printf, Statistics, LinearRegressionKit, StatsModels
-
-# ╔═╡ c43df4a3-a1d8-433e-9a1c-f7c0984be879
+# ╔═╡ 666dffaf-263a-4c5d-89ab-20141ebacb0f
 begin
-  gr(size=(480,320))
-		
+	using CSV, DataFrames, Dates, Plots, LaTeXStrings, LinearAlgebra, PlutoUI, Printf, Statistics, LinearRegressionKit, StatsModels
+end
+
+# ╔═╡ 33247abf-60a3-432e-96f9-8ecf21b20b38
+begin
+
 # The following code is by Paul Soederlind
 # https://sites.google.com/site/paulsoderlindecon/home
 	
@@ -261,398 +262,375 @@ end
 #------------------------------------------------------------------------------
 
 	
-#using Logging
-#global_logger(NullLogger())
+using Logging
+global_logger(NullLogger())
 	
 display("")
+end
+
+# ╔═╡ f5c0a92c-9fe3-4204-904e-e2584c84a58a
+TableOfContents( indent=true, depth=1, aside=true)
+
+# ╔═╡ da5396e0-2380-11ec-26df-8f781634b7e2
+md"""
+## FINC 672: Single- and Multi-Factor Models
+
+In this notebook, we estimate (single and multi-) index models and test how good these models are at capturing the covariances of different assets.
+"""
+
+# ╔═╡ 409b653a-b007-4933-9581-2a6e9e3ba950
+md"""
+- First, let's define our own OLS function.
+"""
+
+# ╔═╡ 0e6a4c52-82be-4f43-9a5c-8b19a2cf3b2a
+begin
+	md"""
+	    OlsGMFn(Y,X)
 	
-end
-
-# ╔═╡ 5fc44a1a-2c5c-4cdf-b2da-4cbc17c8f8a3
-TableOfContents(aside=true, depth=1)
-
-# ╔═╡ 5141ad80-2374-11ec-2455-c7ff63842559
-md"""
-## FINC 672: The Capital Asset Pricing Model (CAPM)
-"""
-
-# ╔═╡ 86379ab2-018c-4038-9d09-a12658f473d5
-md"""
-# The Theoretical Predictions of CAPM
-
-In this lecture, we will study the theoretical predictions of CAPM by taking the following steps:
-
-1. define a set of investable assets
-2. find the tangency portfolio
-3. calculate the betas of each asset against the tangency portfolio
-4. check whether the average returns are in accordance with CAPM.
-
-Let's start with three assets.
-"""
-
-# ╔═╡ 72c219a7-1c04-4678-988c-8f17674d9d75
-md"""
-# Characteristics of Three Assets: 
-Means and Covariances
-"""
-
-# ╔═╡ 652dc6ae-6f9d-4ebd-9251-00821a8ee09d
-begin
-	μ = [0.115, 0.095, 0.06]    #expected returns
-	Σ = [166  34  58;           #covariance matrix
-		  34  64   4;
-		  58   4 100]/100^2
-	Rf = 0.03
-
-	assetNames = ["A","B","C"]
-
-	with_terminal() do
-		printred("expected returns:")
-		printmat(μ,rowNames=assetNames)
-		printred("covariance matrix:")
-		printmat(Σ,colNames=assetNames,rowNames=assetNames)
+	LS of Y on X; for one dependent variable, Gauss-Markov assumptions
+	
+	# Usage
+	(b,u,Yhat,V,R2) = OlsGMFn(Y,X)
+	
+	# Input
+	- `Y::Vector`:    Tx1, the dependent variable
+	- `X::Matrix`:    Txk matrix of regressors (including deterministic ones)
+	
+	# Output
+	- `b::Vector`:    kx1, regression coefficients
+	- `u::Vector`:    Tx1, residuals Y - yhat
+	- `Yhat::Vector`: Tx1, fitted values X*b
+	- `V::Matrix`:    kxk matrix, covariance matrix of b
+	- `R2::Number`:   scalar, R2 value
+	
+	"""
+	
+	function OlsGMFn(Y,X)
+	
+	    T    = size(Y,1)
+	
+	    b    = X\Y
+	    Yhat = X*b
+	    u    = Y - Yhat
+	
+	    σ2   = var(u)
+	    V    = inv(X'X)*σ2
+	    R2   = 1 - σ2/var(Y)
+	
+	    return b, u, Yhat, V, R2
+	
+		display("")
 	end
 end
 
-# ╔═╡ 74e6c915-5dca-4c84-a890-0b829ba6cd92
+# ╔═╡ 7c7c3516-5d23-489a-a568-0476ed5fce27
 md"""
-# The Tangency Portfolio
-
-We will use the same function that we used in lecture 10 to calculate the tangency portfolio.
+# Multi-Factor Models
 """
 
-# ╔═╡ 3fca5d0e-c342-4520-867c-917116495ac2
+# ╔═╡ 910e68e2-4f64-41f6-adc9-e619363d5c62
+md"""
+To begin, let's review the basics of *single index* (or single factor) models (see reading `lecture_12_reading` available on Canvas).
+
+Recall that in a single index model, we typically use the market portfolio as the single factor and estimate betas with respect to the market by linear regression (OLS).
+
+$$R_{it} = \alpha_i + \beta_i R_{mt} + \varepsilon_{it}$$
+
+Recall the well-known property that the single index model implies that the covariance of assets $i$ and $j$ is
+
+$$\sigma_{ij} = \beta_i \beta_j \text{Var}(R_{mt}) + \text{Cov}(\varepsilon_{it},\varepsilon_{jt}),$$ 
+
+where 
+
+$$\text{Cov}(\varepsilon_{it},\varepsilon_{jt}) = 0 \ \text{ if } \ i \neq j$$
+
+Note that this implies 
+$$\text{Var}(R_i) = \beta_i^2 \, \text{Var}(R_{mt}) + \text{Var}(\varepsilon_{it})$$. 
+
+"""
+
+# ╔═╡ 12fcada4-7326-4067-8d9d-6d4c974c09ee
+md"""
+To illustrate this, consider the case of two assets.
+"""
+
+# ╔═╡ e34c3d17-0eac-40f4-b777-45c643c67896
 begin
-"""
-    MVTangencyP(μ,Σ,Rf)
-
-Calculate the tangency portfolio
-"""
-function MVTangencyP(μ,Σ,Rf)           #calculates the tangency portfolio
-    n    = length(μ)
-    μe   = μ .- Rf                    #expected excess returns
-    Σ_1  = inv(Σ)
-    w    = Σ_1 *μe/(ones(n)'Σ_1*μe)
-    muT  = w'μ + (1-sum(w))*Rf
-    StdT = sqrt(w'Σ*w)
-    return w,muT,StdT                  #portolio weights, mean and std
-end
-
-end
-
-# ╔═╡ 2eb2f178-85b5-49e6-aedd-0ccaa19d2fdc
-begin
-	(wT, μT, σT) = MVTangencyP(μ,Σ,Rf) 
+	β = [0.9 1.1]
+	VarRes = ([10 5]/100).^2
+	VarRm = 0.15^2
 
 	with_terminal() do
-		printred("Tangency portfolio weights")
-		printmat(wT, rowNames=assetNames)
-	end
-end
-
-# ╔═╡ 15636226-d021-47de-bc86-83fbd034ad00
-md"""
-# (Theoretical) β of the Assets
-
-Recall from lecture 10 that the tangency portfolio is a portfolio of the investable assets ($R_T=w_T'R$). 
-It is therefore straightforward to calculate the covariance (and betas) of $R_T$ with each of the assets.
-
-Specifically:
-
-$$\textrm{Cov}(R_i,R_T) = w_i'\Sigma w_T$$ 
-and
-
-$$\beta_i = \textrm{Cov}(R_i,R_T)/\textrm{Var}(R_T).$$
-
-"""
-
-# ╔═╡ 87acf96f-490b-4299-a1cd-454e545a4c5d
-begin
-	n = length(μ)
-	β = fill(NaN,n)
-
-	for i=1:n
-
-		wi = zeros(n)
-		wi[i] = 1
-		CoviT = wi'Σ*wT
-		β[i] = CoviT/σT^2
-		
-	end
-
-	with_terminal() do
-		printred("β of the $n assets")
-		printmat(β,rowNames=assetNames)
+		printred("β:")
+		printmat(β)
+		printred("VarRm*100^2")
+		printmat(VarRm*100^2)
+		printred("Var(residuals)*100^2")
+		printmat(VarRes*100^2)
 	end
 	
 end
 
-# ╔═╡ a542c249-6c97-42e5-97d4-adda80981e7e
+# ╔═╡ 5bda6696-a362-4da0-9851-8f71bbb71037
 md"""
-# Trying CAPM on the Three Assets
+- Next, let's calculate the covariance matrix in the two-asset case.
+We need to set up a function to do this. The function should be general enough to handle multiple factors (indices).
+- Specifically, the function should return:
 
-Recall that the CAPMS says
+$$\text{Cov}(R_i,R_j) = \beta_i' \, Ω \, \beta_j,$$
 
-$$\textrm{E}R_{i}  = R_f + \beta_{i}(\mu_{T}-R_f)$$
-
-This can be compared with the (actual) average returns.
-
+- where $Ω$ is the _covariance matrix of the indices_ and $\beta_i$ is the vector of regression coefficients when regressing $R_i$ on a constant and the indices (and $\beta_j$ is for asset j).
+  - Note $\beta=[\beta_1 \, \beta_2 \, \ldots \beta_n]$ is a $K \times n$ matrix, where $K$ is the number of factors ($K=1$ for the single index model) and $n$ is the number of assets.
 """
 
-# ╔═╡ 7799e685-8e3d-4120-8edf-e31eab89515c
+# ╔═╡ 54b5a4e6-c58b-449c-ae5b-668c62217b91
+function CovFromIndexModel(b,VarRes,Ω)
+	
+	n = length(VarRes)
+	CovR = fill(NaN,(n,n))
+	for i=1:n, j=1:n
+		if i==j
+			CovR[i,i] = b[:,i]'Ω*b[:,i] + VarRes[i]
+		else
+			CovR[i,j] = b[:,i]'Ω*b[:,j]
+		end
+	end
+	return CovR
+end
+
+# ╔═╡ e978e215-82ff-4308-a7f6-31e292dfdbb4
+md"""Let's apply this function to our two-asset example."""
+
+# ╔═╡ 66f3ca45-097a-48ae-95a5-a935c9f04d7e
 begin
-	ERi = Rf .+ β*(μT - Rf)
+	CovR = CovFromIndexModel(β, VarRes, VarRm)
 
 	with_terminal() do
-		printred("μ and ER as suggested as CAPM: ")
-		printmat([μ ERi], rowNames=assetNames, colNames=["actual","from CAPM"] )
+		printred("Covariance matrix*100^2 calculated from betas")
+		printmat(CovR*100^2)
 	end
 end
 
-# ╔═╡ 6c427188-a09b-4d4e-b93b-daa500e22b45
+# ╔═╡ 00503caf-1e7d-42cd-bb65-fc12fe7eb7ad
 md"""
-Let's plot this.
+# Estimating Single-Factor Models
 """
 
-# ╔═╡ 4a1bdfcb-c5dc-448a-afbd-024f4fd70b82
+# ╔═╡ deae317e-15bf-4679-acf7-af7aa68e79e0
+md"""
+- Next, we will estimate a multifactor model empirically.
+- To begin, let's load the data. We are going to use the Fama French 3-Factor dataset.
+  - Recall that this data has the excess return on the market $R_{me}$, 
+  - the return on Small-minus-Big firms (or SMB) $R_{SMB}$,  
+  - the return on High-minus-Low Market Cap (or HML) $R_{HML}$.
+
+- We are going to apply the single index model on 5 of the (25) FF portfolios.
+  - Recall that you can find the data on Kenneth French's website [here](http://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html).
+  - It is available on Canvas as well (see `FFmFactorsPs.csv` and `FF25Ps.csv`).
+
+- The Fama/French 3 Factors data are from Jan-1979 to Aug-2021 and the Fama/French 25 Portolios sorted by Size and Book-to-Market are also from Jan-1979 to Aug-2021.
+
+"""
+
+# ╔═╡ 1a9bf17e-69e1-4d6a-aaaf-8c73f648365d
 begin
-	p1 = scatter(β, ERi*100,
-		xlim=(0,2),
-		ylim=(0,15),
-		legend=false,
-		title = L"\beta \mathrm{\ vs \ ER}",
-		xlabel = L"\beta",
-		ylabel = L"ER, %")
+	FF = CSV.File("lect12_FFmFactorsPs.csv") |> DataFrame
+	transform!(FF, :date => ByRow(x-> lastdayofmonth(Date(string(x),"yyyymm"))) ,renamecols=false)
 end
 
-# ╔═╡ 853970c0-fea6-4fe0-b76f-2b3a8e878e2c
-md"""
-# An Empirical Test of CAPM
-
-Let's test the CAPM empirically using real data.
-First, we load the data. Second, we run linear regressions and test whether the intercept is zero (the CAPM prediction) or not.
-
-The data we are using is given to you for convenience in the file `FF25Ps.csv`.
-The data are from Kenneth French's website. Click [here](http://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html).
-It is available on Canvas as well (see FFmFactorsPs.csv and FF25Ps.csv).
-"""
-
-# ╔═╡ 191e450b-ad7c-4d4a-b66b-5ca879747dec
-md"""
-- The first dataset is the the Fama/French 3 Factors from Jan-1979 to Aug-2021.
-- The second dataset is the Fama/French 25 Portolios sorted by Size and Book-to-Market from Jan-1979 to Aug-2021.
-"""
-
-# ╔═╡ a0c2d59c-7d42-420c-a9dc-7ef11dcb3eff
-md"""
-#### Loading Data
-"""
-
-# ╔═╡ 0c383eff-dd4e-422f-8e44-c5aed1c4bc86
-begin
-	FF = CSV.File("FFmFactorsPs.csv") |> DataFrame
-	transform!(FF, :date => ByRow( x->  lastdayofmonth(Date(string(x),"yyyymm"))) => :date)
-end
-
-# ╔═╡ 785bdaee-6ea3-41b9-aedd-15691d84bea9
+# ╔═╡ 12001896-95a7-49da-9718-78be0fd93e1a
 md"""
 - Let's get some information on the dataset.
 """
 
-# ╔═╡ d7cc7678-4a25-4bcc-9745-6063d7411985
-describe(FF, :eltype, :mean, :std, :min, :median, :max, (x-> length(collect(skipmissing(x))) )=>:nobs, :nmissing)
+# ╔═╡ c6296fd7-cd52-435b-be7a-70e979303952
+describe(FF, :eltype, :mean, :std, :min, :median, :max, (x-> length(collect(skipmissing(x))) )=>:nobs, :nmissing )
 
-# ╔═╡ 9551ce0e-eeb8-460b-9f3c-4667d3494875
+# ╔═╡ fd3b23c4-1d75-4d31-bba3-c5219a452a23
 md"""
 - Next, we read in the data for the Fama-French portfolios.
 """
 
-# ╔═╡ 2b33bbbc-d75a-4632-976b-f33d58bde38f
+# ╔═╡ e71be925-69a5-4506-bf93-7251d1d49af3
 begin
-	FFPortf = CSV.File("FF25Ps.csv") |> DataFrame
-	transform!(FFPortf, :date => ByRow( x-> lastdayofmonth(Date(string(x),"yyyymm")) ) => :date )
+	FFPort = CSV.File("lect12_FF25Ps.csv") |> DataFrame
+	transform!(FFPort, :date => ByRow(x-> lastdayofmonth(Date(string(x),"yyyymm"))) , renamecols=false)
 end
 
-# ╔═╡ ebd5fe81-c590-401f-9711-86b0abf7625b
-md"""
-Select test portfolios: 1=small to 5=high
+# ╔═╡ 38eabf70-19c8-4e76-a4e2-63d383ff5584
+describe(FFPort, :eltype, :mean, :std, :min, :median, :max, (x-> length(collect(skipmissing(x))))=>:nobs, :nmissing)
 
-| Test portfolio	| Size	| BM	| Name |
-|-------------------|-------|-------|------|
-|1	| 1	| 1	| SMALL LoBM
-|2	| 2	| 1	| ME2 BM2
-|3	| 3	| 2	| ME3 BM3
-|4	| 4	| 3	| ME4 BM4
-|5	| 5	| 4	| BIG HiBM
+# ╔═╡ 2233e356-0bc6-4cce-824b-17ad3649f98f
+md"""
+- Select test portfolios: 1=small to 5=high
+
+| Test portfolio | Size      | BM     | Name       |
+| ---------------|-----------|--------|------------|
+| 1              | 1         | 1      | SMALL LoBM |
+| 2              | 2         | 2      | ME2 BM2    |
+| 3              | 3         | 3      | ME3 BM3    |
+| 4              | 4         | 4      | ME4 BM4    |
+| 5              | 5         | 5      | BIG HiBM   |
 """
 
-# ╔═╡ f823c834-3fe9-4a7f-a5ae-7fe9724f1700
+# ╔═╡ 7d5dbdc7-40af-420b-ba61-9317a723f490
 TestPortfolios = ["SMALL LoBM","ME2 BM2","ME3 BM3","ME4 BM4","BIG HiBM"]
 
-# ╔═╡ b627de77-ad3f-4c2a-b48d-12a0389937b9
+# ╔═╡ ec6e5392-5a69-467f-a04f-7a3c5d883855
 begin
-	Testportfolios = FFPortf[:, names(FFPortf, (x-> x∈ TestPortfolios || x=="date") ) ]	
+	Testportfolios = FFPort[:, names(FFPort, (x-> x∈TestPortfolios || x=="date"))]
 end
 
-# ╔═╡ 087daadf-f8be-4e00-9e68-341b40a385dc
+# ╔═╡ 0cbffa0b-c5ef-4f10-b7ce-8746c1277410
 md"""
 - Next, we merge the Fama French Factors and the portfolios, and use the period from 1970 through year-end 2020 to estimate the model.
 """
 
-# ╔═╡ 9ec800c1-5f3c-43fd-81e3-25fa492454f5
+# ╔═╡ cf70091e-c558-48d7-ae7a-c96aa434f600
 begin
 	FFTestportfolios = leftjoin(FF, Testportfolios, on=:date)
-	filter!(:date => (x-> x>=Dates.Date(1970,01) && x<= Dates.Date(2021,12)), FFTestportfolios)
 end
 
-# ╔═╡ 88af2312-42e9-4f86-8e03-77bba82785b8
+# ╔═╡ c3c4f780-6ccb-44da-b2e4-df8309e00017
 md"""
 - Let's create vectors for the excess return on the market portfolio, the SMB and HML factors, as well as the riskfree rate.
 """
 
-# ╔═╡ be19f8e2-dd77-4990-a5db-9161ba57139e
+# ╔═╡ f9cb95d1-b3f2-4b6f-8f23-4541271e6188
 begin
-	Rme = FFTestportfolios[:, "Mkt-RF"]  #market excess return
-	RSMB = FFTestportfolios[:, "SMB"]    #small minus big firms
-	RHML = FFTestportfolios[:, "HML"]     #high minus low book-to-market ratio
-	rf = FFTestportfolios[:, "RF"]
+	Rme = FFTestportfolios[:, "Mkt-RF"]
+	RSMB = FFTestportfolios[:,"SMB"]
+	RHML = FFTestportfolios[:,"HML"]
+	rf = FFTestportfolios[:,"RF"]
+	display("")
 end
 
-# ╔═╡ 593bc8f4-ef30-40b9-8029-de755659acad
-begin
-	Re = Matrix(FFTestportfolios[:,Not(["date", "Mkt-RF", "SMB", "HML", "RF", "Mom", "ST_Rev", "LT_Rev"])]) .- rf
+# ╔═╡ aa44f721-b6f7-47a8-8515-4afe02e2ba79
+md"""
+- Let's set up a matrix of excess returns.
+"""
 
-	(T, nAssets) = size(Re)
-	
+# ╔═╡ e5e4c52e-e86d-4714-b8e4-37b3332b7630
+begin
+	Re = Matrix(FFTestportfolios[:,Not(["date","Mkt-RF","SMB","HML","RF","Mom","ST_Rev","LT_Rev"])]) .- rf
+
+	(T,nAssets) = size(Re)
+
 	with_terminal() do
-		println("Number of Observations: ", T)
+		println("Number of observations: ", T)
 		println("Number of Testassets: ", nAssets)
 	end
+	
 end
 
-# ╔═╡ 00c090d8-9582-4675-82c3-af46b03ac548
+# ╔═╡ 1f92fd84-2b9c-4c7a-9228-ca97e78bb0fd
 md"""
-### OLS Estimation and Testing α = 0
-"""
-
-# ╔═╡ e278ca23-90c5-4279-9c9b-2eb6d18ebde9
-md"""
-We now use the market return as a proxy for the tangency portfolio - and test if the model holds.
-
-Recall: estimate $$(\alpha_{i},b_{i})$$ in the CAPM regression
-
-$$R_{it}^{e}  =\alpha_{i}+b_{i}R_{mt}^{e}+\varepsilon_{it}$$
-
-Test if:
-
-$$\alpha_{i}=0$$.
-"""
-
-# ╔═╡ c0e7c6b8-1c54-43c2-b963-af3212855e46
-md"""
-- We can use Julia's GLM package to run linear regressions, but we will create our own function. Recall the discussion from `lecture_11_Reading_02` (page 36).
-"""
-
-# ╔═╡ fdbc9826-148e-4390-a1cd-6c8b6fe742d5
-#------------------------------------------------------------------------------
-"""
-    OlsGMFn(Y,X)
-
-LS of Y on X; for one dependent variable, Gauss-Markov assumptions
-
-**Usage**
-(b,u,Yhat,V,R2) = OlsGMFn(Y,X)
-
-**Input**
-- `Y::Vector`:    Tx1, the dependent variable
-- `X::Matrix`:    Txk matrix of regressors (including deterministic ones)
-
-**Output**
-- `b::Vector`:    kx1, regression coefficients
-- `u::Vector`:    Tx1, residuals Y - yhat
-- `Yhat::Vector`: Tx1, fitted values X*b
-- `V::Matrix`:    kxk matrix, covariance matrix of b
-- `R2::Number`:   scalar, R2 value
+Next, we estimate the $\beta$ coefficients and the variance of the excess return on the market index to calculate the covariance matrix.
 
 """
-function OlsGMFn(Y,X)
 
-    T    = size(Y,1)
-
-    b    = X\Y
-    Yhat = X*b
-    u    = Y - Yhat
-
-    σ2   = var(u)
-    V    = inv(X'X)*σ2
-    R2   = 1 - σ2/var(Y)
-
-    return b, u, Yhat, V, R2
-
-end
-#------------------------------------------------------------------------------
-
-
-# ╔═╡ a609ab99-1373-4b88-880e-33944dfa12a1
+# ╔═╡ 58f3bc9b-3170-4fe2-96dc-5744928632fe
 begin
-	x = [ones(T) Rme]
-
-	(α, b, tstat) = ( fill(NaN,nAssets), fill(NaN, nAssets), fill(NaN,nAssets) ) 
-
-	for i=1:nAssets
-		
-		(b_i, _, _, Covb,) = OlsGMFn(Re[:,i], x)
-		α[i] = b_i[1]
-		b[i] = b_i[2]
-		tstat[i] = (b_i[1]-0)/sqrt(Covb[1,1]) 
-		
-	end
-
-	with_terminal() do
-		printred("OLS intercepts and t-stats: ")
-		colNames = [string("asset ", i) for i=1:nAssets]
-	 	rowNames = ["β","α","t-stat"]
-		printmat([b'; α'; tstat']; colNames, rowNames)
-		
-	end
-	
+	 
 end
 
-# ╔═╡ 985ab89d-9493-411b-a72c-95082360f6b7
+# ╔═╡ 90aaedbe-c5a9-449c-b39d-a12c91a239ef
 md"""
-- Let's compare our estimates from our own function to those from a Julia library.
-- We will use the `LinearRegressionKit` package which is a simplified version of the more complex `GLM` package, designed for linear regressions. [Link](https://github.com/ericqu/LinearRegressionKit.jl).
+## Estimating the Covariance Matrix via OLS
 """
 
-# ╔═╡ 92ecb31b-6b08-4a45-9f24-583e5a98a44d
-let
-	(α,b,tstat) = (fill(NaN,nAssets), fill(NaN,nAssets), fill(NaN,nAssets))
-
-	for i=1:nAssets
-
-		df = DataFrame(REx=Re[:,i], RExM=Rme)
-		dropmissing!(df)
-
-		lm = regress( @formula(REx ~ 1 + RExM), df)
-
-		α[i] = lm.coefs[1]
-		b[i] = lm.coefs[2]
-		tstat[i] = lm.t_values[1]
-	end
-
-	with_terminal() do
-		printred("OLS intercepts with t-stats")
-		colNames = [string("asset",i) for i=1:nAssets]
-		rowNames = ["β","α", "t-stat"]
-		printmat([b';α'; tstat']; colNames, rowNames)
-
-	end
+# ╔═╡ 24074ef5-05a2-417f-aef7-c302f10df622
+begin
 	
 end
 
-# ╔═╡ dc3d1214-f3b2-43db-b851-60746cc18925
+# ╔═╡ 719e71a8-3e9c-4a6e-ab22-d845c794e7c5
 md"""
-- What do you conclude about the CAPM based on the estimates for the $\alpha$ coefficients?
+# Estimating Multi-Factor Models
+"""
+
+# ╔═╡ 846f5b87-498f-409f-aba2-23ae73a82754
+md"""
+A multi-factor (or multi-index) model is based on
+
+$$R_{it} =a_{i}+b_{i}^{\prime}I_{t}+\varepsilon_{it},$$
+
+where $b_{i}$ is a $K\times 1$ vector of slope coefficients (one coefficient for each of $K$ factors).
+
+If $\Omega$ is the covariance matrix of the indices $I_t$ (dimension $K$-by-$K$), then the covariance of assets $i$ and $j$ is
+
+$$\sigma_{ij}=b_{i}^{\prime} \, \Omega \, b_{j}  + \text{Cov}(\varepsilon_{it},\varepsilon_{jt}),$$ 
+
+where 
+
+$$\text{Cov}(\varepsilon_{it},\varepsilon_{jt}) = 0 \ \text{ if } \ i \neq j.$$
+
+"""
+
+# ╔═╡ 9f73a214-86fd-4170-8a28-d6d18d8b86b0
+md"""
+- We will use $K=3$ and select the market portfolio and the SMB and HML factors.
+- To begin, we run the regression using the excess return on the market, SMB, and HML.
+"""
+
+# ╔═╡ 7c451a44-bd00-4c07-9144-65db560b1805
+begin
+	
+end
+
+# ╔═╡ 6e5e4247-68ca-42fa-b9af-73b5047d846d
+md"""
+- Next, we estimate the covariance matrix of the factors.
+- Then, we compute i) the covariance matrix of the test assets as implied by the multi-factor model, and ii) the empirical covariance matrix of the test assets.
+"""
+
+# ╔═╡ d868a950-7377-4100-9f20-bfbbb580f032
+begin
+
+end
+
+# ╔═╡ 07c85a61-127a-47b0-93da-1738afd4a1d9
+md"""
+__Is the multi-factor model better than the single-index model?__
+"""
+
+# ╔═╡ 3608bef8-5d79-4cb4-a335-1d0eb1b6cb07
+
+
+# ╔═╡ 4e7c9dc5-1496-4120-bd86-679feddbee9a
+md"""
+# Single-Factor Model vs. 3-Factor Model
+"""
+
+# ╔═╡ 5f15bddf-b5f6-4915-ac03-0068cb9a1a2c
+md"""
+Next, let's empirically test the 3 Factor model we have been using.
+Specifically, we will run the regression
+
+$$R_{it}^{e}  =\alpha_{i}+b_{i}'f_{t} + \varepsilon_{it}$$
+
+and test if $\alpha_{i}=0$.
+"""
+
+# ╔═╡ ee72b7af-b44b-46a4-8947-00cd243d70db
+begin
+	
+end
+
+# ╔═╡ e3ce1584-3144-4c90-9ace-a9d715ca3d18
+md"""
+- Compare the three-factor estimates to those from the one-factor market model.
+"""
+
+# ╔═╡ 9850be82-90fd-484a-b2f9-45e16c04581c
+let
+	
+end
+
+# ╔═╡ a0055aa3-f662-4d38-8635-708139fc75ef
+md"""
+- What do the results tell us?
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -662,7 +640,9 @@ CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearRegressionKit = "e91d531d-6e51-44a8-96b7-a10d5d51daa3"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
@@ -674,8 +654,8 @@ CSV = "~0.10.3"
 DataFrames = "~1.2.2"
 LaTeXStrings = "~1.3.0"
 LinearRegressionKit = "~0.7.4"
-Plots = "~1.26.0"
-PlutoUI = "~0.7.36"
+Plots = "~1.27.0"
+PlutoUI = "~0.7.37"
 StatsModels = "~0.6.29"
 """
 
@@ -712,9 +692,9 @@ version = "1.0.8+0"
 
 [[CSV]]
 deps = ["CodecZlib", "Dates", "FilePathsBase", "InlineStrings", "Mmap", "Parsers", "PooledArrays", "SentinelArrays", "Tables", "Unicode", "WeakRefStrings"]
-git-tree-sha1 = "9310d9495c1eb2e4fa1955dd478660e2ecab1fbb"
+git-tree-sha1 = "873fb188a4b9d76549b81465b1f75c82aaf59238"
 uuid = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
-version = "0.10.3"
+version = "0.10.4"
 
 [[Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
@@ -722,23 +702,17 @@ git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
 
-[[Calculus]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "f641eb0a4f00c343bbc32346e1217b86f3ce9dad"
-uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
-version = "0.5.1"
-
 [[CategoricalArrays]]
 deps = ["DataAPI", "Future", "Missings", "Printf", "Requires", "Statistics", "Unicode"]
-git-tree-sha1 = "3b60064cb48efe986179359e08ffb568a6d510a2"
+git-tree-sha1 = "109664d3a6f2202b1225478335ea8fea3cd8706b"
 uuid = "324d7699-5711-5eae-9e2f-1d82baa6b597"
-version = "0.10.3"
+version = "0.10.5"
 
 [[ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "c9a6160317d1abe9c44b3beb367fd448117679ca"
+git-tree-sha1 = "9950387274246d08af38f6eef8cb5480862a435f"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.13.0"
+version = "1.14.0"
 
 [[ChangesOfVariables]]
 deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
@@ -782,9 +756,9 @@ version = "0.2.0"
 
 [[Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "SHA", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
-git-tree-sha1 = "96b0bc6c52df76506efc8a441c6cf1adcb1babc4"
+git-tree-sha1 = "b153278a25dd42c65abbf4e62344f9d22e59191b"
 uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
-version = "3.42.0"
+version = "3.43.0"
 
 [[CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -855,9 +829,9 @@ uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[Distributions]]
 deps = ["ChainRulesCore", "DensityInterface", "FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SparseArrays", "SpecialFunctions", "Statistics", "StatsBase", "StatsFuns", "Test"]
-git-tree-sha1 = "9d3c0c762d4666db9187f363a76b47f7346e673b"
+git-tree-sha1 = "5a4168170ede913a2cd679e53c2123cb4b889795"
 uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.25.49"
+version = "0.25.53"
 
 [[DocStringExtensions]]
 deps = ["LibGit2"]
@@ -869,12 +843,6 @@ version = "0.8.6"
 deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
-[[DualNumbers]]
-deps = ["Calculus", "NaNMath", "SpecialFunctions"]
-git-tree-sha1 = "90b158083179a6ccbce2c7eb1446d5bf9d7ae571"
-uuid = "fa6b7ba4-c1ee-5f82-b5fc-ecf0adba8f74"
-version = "0.6.7"
-
 [[EarCut_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "3f3a2501fa7236e9b911e0f7a588c657e822bb6d"
@@ -883,9 +851,9 @@ version = "2.2.3+0"
 
 [[Expat_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "ae13fcbc7ab8f16b0856729b050ef0c446aa3492"
+git-tree-sha1 = "bad72f730e9e91c08d9427d5e8db95478a3c323d"
 uuid = "2e619515-83b5-522b-bb60-26c02a35a201"
-version = "2.4.4+0"
+version = "2.4.8+0"
 
 [[FFMPEG]]
 deps = ["FFMPEG_jll"]
@@ -913,15 +881,15 @@ version = "0.8.3"
 
 [[FilePathsBase]]
 deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
-git-tree-sha1 = "04d13bfa8ef11720c24e4d840c0033d145537df7"
+git-tree-sha1 = "129b104185df66e408edd6625d480b7f9e9823a0"
 uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
-version = "0.9.17"
+version = "0.9.18"
 
 [[FillArrays]]
 deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
-git-tree-sha1 = "4c7d3757f3ecbcb9055870351078552b7d1dbd2d"
+git-tree-sha1 = "246621d23d1f43e3b9c368bf3b72b2331a27c286"
 uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "0.13.0"
+version = "0.13.2"
 
 [[FixedPointNumbers]]
 deps = ["Statistics"]
@@ -971,15 +939,15 @@ version = "3.3.6+0"
 
 [[GR]]
 deps = ["Base64", "DelimitedFiles", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Printf", "Random", "RelocatableFolders", "Serialization", "Sockets", "Test", "UUIDs"]
-git-tree-sha1 = "9f836fb62492f4b0f0d3b06f55983f2704ed0883"
+git-tree-sha1 = "af237c08bda486b74318c8070adb96efa6952530"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
-version = "0.64.0"
+version = "0.64.2"
 
 [[GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Pkg", "Qt5Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "a6c850d77ad5118ad3be4bd188919ce97fffac47"
+git-tree-sha1 = "cd6efcf9dc746b06709df14e462f0a3fe0786b1e"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.64.0+0"
+version = "0.64.2+0"
 
 [[GeometryBasics]]
 deps = ["EarCut_jll", "IterTools", "LinearAlgebra", "StaticArrays", "StructArrays", "Tables"]
@@ -1022,12 +990,6 @@ git-tree-sha1 = "129acf094d168394e80ee1dc4bc06ec835e510a3"
 uuid = "2e76f6c2-a576-52d4-95c1-20adfe4de566"
 version = "2.8.1+1"
 
-[[HypergeometricFunctions]]
-deps = ["DualNumbers", "LinearAlgebra", "SpecialFunctions", "Test"]
-git-tree-sha1 = "65e4589030ef3c44d3b90bdc5aac462b4bb05567"
-uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
-version = "0.3.8"
-
 [[Hyperscript]]
 deps = ["Test"]
 git-tree-sha1 = "8d511d5b81240fc8e6802386302675bdf47737b9"
@@ -1041,9 +1003,9 @@ version = "0.9.3"
 
 [[HypothesisTests]]
 deps = ["Combinatorics", "Distributions", "LinearAlgebra", "Random", "Rmath", "Roots", "Statistics", "StatsBase"]
-git-tree-sha1 = "0350e82af1a120772dbe21527f9b2c3c9cca8cf0"
+git-tree-sha1 = "689b4a7bfdc37cae37d9362228b2abdb0b573056"
 uuid = "09f84164-cd44-5f33-b23f-e6b0d136a0d5"
-version = "0.10.7"
+version = "0.10.9"
 
 [[IOCapture]]
 deps = ["Logging", "Random"]
@@ -1068,9 +1030,9 @@ uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
 [[InverseFunctions]]
 deps = ["Test"]
-git-tree-sha1 = "a7254c0acd8e62f1ac75ad24d5db43f5f19f3c65"
+git-tree-sha1 = "91b5dcf362c5add98049e6c29ee756910b03051d"
 uuid = "3587e190-3f89-42d0-90ee-14403ec27112"
-version = "0.1.2"
+version = "0.1.3"
 
 [[InvertedIndices]]
 git-tree-sha1 = "bee5f1ef5bf65df56bdd2e40447590b272a5471f"
@@ -1141,9 +1103,9 @@ version = "1.3.0"
 
 [[Latexify]]
 deps = ["Formatting", "InteractiveUtils", "LaTeXStrings", "MacroTools", "Markdown", "Printf", "Requires"]
-git-tree-sha1 = "a6552bfeab40de157a297d84e03ade4b8177677f"
+git-tree-sha1 = "6f14549f7760d84b2db7a9b10b88cd3cc3025730"
 uuid = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
-version = "0.15.12"
+version = "0.15.14"
 
 [[LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -1224,9 +1186,9 @@ version = "0.7.4"
 
 [[LogExpFunctions]]
 deps = ["ChainRulesCore", "ChangesOfVariables", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "3f7cb7157ef860c637f3f4929c8ed5d9716933c6"
+git-tree-sha1 = "a970d55c2ad8084ca317a4658ba6ce99b7523571"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.7"
+version = "0.3.12"
 
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -1300,9 +1262,9 @@ uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
 
 [[OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "648107615c15d4e09f7eca16307bc821c1f718d8"
+git-tree-sha1 = "ab05aa4cc89736e95915b01e7279e61b1bfe33b8"
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
-version = "1.1.13+0"
+version = "1.1.14+0"
 
 [[OpenSpecFun_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
@@ -1329,15 +1291,15 @@ version = "8.44.0+0"
 
 [[PDMats]]
 deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
-git-tree-sha1 = "7e2166042d1698b6072352c74cfd1fca2a968253"
+git-tree-sha1 = "e8185b83b9fc56eb6456200e873ce598ebc7f262"
 uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
-version = "0.11.6"
+version = "0.11.7"
 
 [[Parsers]]
 deps = ["Dates"]
-git-tree-sha1 = "85b5da0fa43588c75bb1ff986493443f821c70b7"
+git-tree-sha1 = "621f4f3b4977325b9128d5fae7a8b4829a0c2222"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "2.2.3"
+version = "2.2.4"
 
 [[Pixman_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1350,40 +1312,40 @@ deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markd
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 
 [[PlotThemes]]
-deps = ["PlotUtils", "Requires", "Statistics"]
-git-tree-sha1 = "a3a964ce9dc7898193536002a6dd892b1b5a6f1d"
+deps = ["PlotUtils", "Statistics"]
+git-tree-sha1 = "8162b2f8547bc23876edd0c5181b27702ae58dce"
 uuid = "ccf2f8ad-2431-5c83-bf29-c5338b663b6a"
-version = "2.0.1"
+version = "3.0.0"
 
 [[PlotUtils]]
 deps = ["ColorSchemes", "Colors", "Dates", "Printf", "Random", "Reexport", "Statistics"]
-git-tree-sha1 = "6f1b25e8ea06279b5689263cc538f51331d7ca17"
+git-tree-sha1 = "bb16469fd5224100e422f0b027d26c5a25de1200"
 uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
-version = "1.1.3"
+version = "1.2.0"
 
 [[Plots]]
-deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "GeometryBasics", "JSON", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "PlotThemes", "PlotUtils", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
-git-tree-sha1 = "23d109aad5d225e945c813c6ebef79104beda955"
+deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "GeometryBasics", "JSON", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
+git-tree-sha1 = "88ee01b02fba3c771ac4dce0dfc4ecf0cb6fb772"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.26.0"
+version = "1.27.5"
 
 [[PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
-git-tree-sha1 = "2c87c85e397b7ffed5ffec054f532d4edd05d901"
+git-tree-sha1 = "670e559e5c8e191ded66fa9ea89c97f10376bb4c"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.36"
+version = "0.7.38"
 
 [[PooledArrays]]
 deps = ["DataAPI", "Future"]
-git-tree-sha1 = "db3a23166af8aebf4db5ef87ac5b00d36eb771e2"
+git-tree-sha1 = "28ef6c7ce353f0b35d0df0d5930e0d072c1f5b9b"
 uuid = "2dfb63ee-cc39-5dd5-95bd-886bf059d720"
-version = "1.4.0"
+version = "1.4.1"
 
 [[Preferences]]
 deps = ["TOML"]
-git-tree-sha1 = "de893592a221142f3db370f48290e3a2ef39998f"
+git-tree-sha1 = "d3538e7f8a790dc8903519090857ef8e1283eecd"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
-version = "1.2.4"
+version = "1.2.5"
 
 [[PrettyTables]]
 deps = ["Crayons", "Formatting", "Markdown", "Reexport", "Tables"]
@@ -1422,9 +1384,9 @@ version = "1.2.1"
 
 [[RecipesPipeline]]
 deps = ["Dates", "NaNMath", "PlotUtils", "RecipesBase"]
-git-tree-sha1 = "995a812c6f7edea7527bb570f0ac39d0fb15663c"
+git-tree-sha1 = "dc1e451e15d90347a7decc4221842a022b011714"
 uuid = "01d81517-befc-4cb6-b9ec-a95719d0359c"
-version = "0.5.1"
+version = "0.5.2"
 
 [[Reexport]]
 git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
@@ -1457,9 +1419,9 @@ version = "0.3.0+0"
 
 [[Roots]]
 deps = ["CommonSolve", "Printf", "Setfield"]
-git-tree-sha1 = "0abe7fc220977da88ad86d339335a4517944fea2"
+git-tree-sha1 = "e382260f6482c27b5062eba923e36fde2f5ab0b9"
 uuid = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
-version = "1.3.14"
+version = "2.0.0"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -1521,9 +1483,9 @@ version = "2.1.4"
 
 [[StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "74fb527333e72ada2dd9ef77d98e4991fb185f04"
+git-tree-sha1 = "4f6ec5d99a28e1a749559ef7dd518663c5eca3d5"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.4.1"
+version = "1.4.3"
 
 [[Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
@@ -1531,9 +1493,9 @@ uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [[StatsAPI]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "c3d8ba7f3fa0625b062b82853a7d5229cb728b6b"
+git-tree-sha1 = "8d7530a38dbd2c397be7ddd01a424e4f411dcc41"
 uuid = "82ae8749-77ed-4fe6-ae5f-f523153014b0"
-version = "1.2.1"
+version = "1.2.2"
 
 [[StatsBase]]
 deps = ["DataAPI", "DataStructures", "LinearAlgebra", "LogExpFunctions", "Missings", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "StatsAPI"]
@@ -1542,10 +1504,10 @@ uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.33.16"
 
 [[StatsFuns]]
-deps = ["ChainRulesCore", "HypergeometricFunctions", "InverseFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]
-git-tree-sha1 = "25405d7016a47cf2bd6cd91e66f4de437fd54a07"
+deps = ["ChainRulesCore", "InverseFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]
+git-tree-sha1 = "5950925ff997ed6fb3e985dcce8eb1ba42a0bbe7"
 uuid = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
-version = "0.9.16"
+version = "0.9.18"
 
 [[StatsModels]]
 deps = ["DataAPI", "DataStructures", "LinearAlgebra", "Printf", "REPL", "ShiftedArrays", "SparseArrays", "StatsBase", "StatsFuns", "Tables"]
@@ -1858,45 +1820,54 @@ version = "0.9.1+5"
 """
 
 # ╔═╡ Cell order:
-# ╠═fed4473e-8e0c-41cc-acfc-8cd4f4f4d06a
-# ╟─c43df4a3-a1d8-433e-9a1c-f7c0984be879
-# ╟─5fc44a1a-2c5c-4cdf-b2da-4cbc17c8f8a3
-# ╟─5141ad80-2374-11ec-2455-c7ff63842559
-# ╟─86379ab2-018c-4038-9d09-a12658f473d5
-# ╟─72c219a7-1c04-4678-988c-8f17674d9d75
-# ╠═652dc6ae-6f9d-4ebd-9251-00821a8ee09d
-# ╟─74e6c915-5dca-4c84-a890-0b829ba6cd92
-# ╠═3fca5d0e-c342-4520-867c-917116495ac2
-# ╠═2eb2f178-85b5-49e6-aedd-0ccaa19d2fdc
-# ╟─15636226-d021-47de-bc86-83fbd034ad00
-# ╠═87acf96f-490b-4299-a1cd-454e545a4c5d
-# ╟─a542c249-6c97-42e5-97d4-adda80981e7e
-# ╠═7799e685-8e3d-4120-8edf-e31eab89515c
-# ╟─6c427188-a09b-4d4e-b93b-daa500e22b45
-# ╠═4a1bdfcb-c5dc-448a-afbd-024f4fd70b82
-# ╟─853970c0-fea6-4fe0-b76f-2b3a8e878e2c
-# ╟─191e450b-ad7c-4d4a-b66b-5ca879747dec
-# ╟─a0c2d59c-7d42-420c-a9dc-7ef11dcb3eff
-# ╠═0c383eff-dd4e-422f-8e44-c5aed1c4bc86
-# ╟─785bdaee-6ea3-41b9-aedd-15691d84bea9
-# ╠═d7cc7678-4a25-4bcc-9745-6063d7411985
-# ╟─9551ce0e-eeb8-460b-9f3c-4667d3494875
-# ╠═2b33bbbc-d75a-4632-976b-f33d58bde38f
-# ╟─ebd5fe81-c590-401f-9711-86b0abf7625b
-# ╠═f823c834-3fe9-4a7f-a5ae-7fe9724f1700
-# ╠═b627de77-ad3f-4c2a-b48d-12a0389937b9
-# ╟─087daadf-f8be-4e00-9e68-341b40a385dc
-# ╠═9ec800c1-5f3c-43fd-81e3-25fa492454f5
-# ╟─88af2312-42e9-4f86-8e03-77bba82785b8
-# ╠═be19f8e2-dd77-4990-a5db-9161ba57139e
-# ╠═593bc8f4-ef30-40b9-8029-de755659acad
-# ╟─00c090d8-9582-4675-82c3-af46b03ac548
-# ╟─e278ca23-90c5-4279-9c9b-2eb6d18ebde9
-# ╟─c0e7c6b8-1c54-43c2-b963-af3212855e46
-# ╠═fdbc9826-148e-4390-a1cd-6c8b6fe742d5
-# ╠═a609ab99-1373-4b88-880e-33944dfa12a1
-# ╟─985ab89d-9493-411b-a72c-95082360f6b7
-# ╠═92ecb31b-6b08-4a45-9f24-583e5a98a44d
-# ╟─dc3d1214-f3b2-43db-b851-60746cc18925
+# ╠═666dffaf-263a-4c5d-89ab-20141ebacb0f
+# ╟─33247abf-60a3-432e-96f9-8ecf21b20b38
+# ╟─f5c0a92c-9fe3-4204-904e-e2584c84a58a
+# ╟─da5396e0-2380-11ec-26df-8f781634b7e2
+# ╟─409b653a-b007-4933-9581-2a6e9e3ba950
+# ╠═0e6a4c52-82be-4f43-9a5c-8b19a2cf3b2a
+# ╟─7c7c3516-5d23-489a-a568-0476ed5fce27
+# ╟─910e68e2-4f64-41f6-adc9-e619363d5c62
+# ╟─12fcada4-7326-4067-8d9d-6d4c974c09ee
+# ╠═e34c3d17-0eac-40f4-b777-45c643c67896
+# ╟─5bda6696-a362-4da0-9851-8f71bbb71037
+# ╠═54b5a4e6-c58b-449c-ae5b-668c62217b91
+# ╟─e978e215-82ff-4308-a7f6-31e292dfdbb4
+# ╠═66f3ca45-097a-48ae-95a5-a935c9f04d7e
+# ╟─00503caf-1e7d-42cd-bb65-fc12fe7eb7ad
+# ╟─deae317e-15bf-4679-acf7-af7aa68e79e0
+# ╠═1a9bf17e-69e1-4d6a-aaaf-8c73f648365d
+# ╟─12001896-95a7-49da-9718-78be0fd93e1a
+# ╠═c6296fd7-cd52-435b-be7a-70e979303952
+# ╟─fd3b23c4-1d75-4d31-bba3-c5219a452a23
+# ╠═e71be925-69a5-4506-bf93-7251d1d49af3
+# ╠═38eabf70-19c8-4e76-a4e2-63d383ff5584
+# ╟─2233e356-0bc6-4cce-824b-17ad3649f98f
+# ╠═7d5dbdc7-40af-420b-ba61-9317a723f490
+# ╠═ec6e5392-5a69-467f-a04f-7a3c5d883855
+# ╟─0cbffa0b-c5ef-4f10-b7ce-8746c1277410
+# ╠═cf70091e-c558-48d7-ae7a-c96aa434f600
+# ╟─c3c4f780-6ccb-44da-b2e4-df8309e00017
+# ╠═f9cb95d1-b3f2-4b6f-8f23-4541271e6188
+# ╟─aa44f721-b6f7-47a8-8515-4afe02e2ba79
+# ╠═e5e4c52e-e86d-4714-b8e4-37b3332b7630
+# ╟─1f92fd84-2b9c-4c7a-9228-ca97e78bb0fd
+# ╠═58f3bc9b-3170-4fe2-96dc-5744928632fe
+# ╟─90aaedbe-c5a9-449c-b39d-a12c91a239ef
+# ╠═24074ef5-05a2-417f-aef7-c302f10df622
+# ╟─719e71a8-3e9c-4a6e-ab22-d845c794e7c5
+# ╟─846f5b87-498f-409f-aba2-23ae73a82754
+# ╟─9f73a214-86fd-4170-8a28-d6d18d8b86b0
+# ╠═7c451a44-bd00-4c07-9144-65db560b1805
+# ╟─6e5e4247-68ca-42fa-b9af-73b5047d846d
+# ╠═d868a950-7377-4100-9f20-bfbbb580f032
+# ╟─07c85a61-127a-47b0-93da-1738afd4a1d9
+# ╠═3608bef8-5d79-4cb4-a335-1d0eb1b6cb07
+# ╟─4e7c9dc5-1496-4120-bd86-679feddbee9a
+# ╟─5f15bddf-b5f6-4915-ac03-0068cb9a1a2c
+# ╠═ee72b7af-b44b-46a4-8947-00cd243d70db
+# ╟─e3ce1584-3144-4c90-9ace-a9d715ca3d18
+# ╠═9850be82-90fd-484a-b2f9-45e16c04581c
+# ╟─a0055aa3-f662-4d38-8635-708139fc75ef
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
