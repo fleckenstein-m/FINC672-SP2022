@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.0
+# v0.18.1
 
 using Markdown
 using InteractiveUtils
@@ -532,7 +532,24 @@ Next, we estimate the $\beta$ coefficients and the variance of the excess return
 
 # ╔═╡ 58f3bc9b-3170-4fe2-96dc-5744928632fe
 begin
-	 
+	 X = [ones(T) Rme]
+	 (βₑ, VarResₑ) = (fill(NaN,1,nAssets), fill(NaN,nAssets))
+
+	for i=1:nAssets
+
+		(b_i, ϵ_i, _) = OlsGMFn(Re[:,i], X) #OLS
+		βₑ[i] = b_i[2]
+		VarResₑ[i] = var(ϵ_i)
+		
+	end
+
+	with_terminal() do
+		colNames = TestPortfolios
+		printred("β for $nAssets assets, from OLS or Re on constant Rme:")
+		println("\n")
+		printmat(βₑ, colNames= colNames, rowNames=["β on Rme"])
+	end
+	
 end
 
 # ╔═╡ 90aaedbe-c5a9-449c-b39d-a12c91a239ef
@@ -542,7 +559,19 @@ md"""
 
 # ╔═╡ 24074ef5-05a2-417f-aef7-c302f10df622
 begin
-	
+	VarRmₑ = var(Rme)
+	CovRₑ = CovFromIndexModel(βₑ, VarResₑ, VarRmₑ)
+
+	with_terminal() do
+		printred("Covariance matrix calculated from betas")
+		printmat(CovRₑ)
+		
+		printred("Covariance matrix calculated from data:")
+		printmat(cov(Re))
+
+		printred("Difference between the two")
+		printmat(CovRₑ-cov(Re))
+	end
 end
 
 # ╔═╡ 719e71a8-3e9c-4a6e-ab22-d845c794e7c5
@@ -576,6 +605,27 @@ md"""
 
 # ╔═╡ 7c451a44-bd00-4c07-9144-65db560b1805
 begin
+	X₃ = [ones(T) Rme RSMB RHML]
+
+	K₃ = size(X₃,2) - 1
+	
+	(b₃, VarRes₃) = ( fill(NaN, (K₃,nAssets)) , fill(NaN, nAssets)) 
+
+	for i=1:nAssets
+
+		(b_i, ϵ_i, _) = OlsGMFn( Re[:,i] , X₃ )  #OLS
+		b₃[:,i] = b_i[2:end]
+		VarRes₃[i] = var(ϵ_i)
+		
+	end
+
+	with_terminal() do
+
+		colNames = TestPortfolios
+		printred("OLS slope coefficients:")
+		printmat(b₃, colNames=colNames, rowNames=["β on Rme","β on SMB","β on HML"] )
+		
+	end
 	
 end
 
@@ -587,7 +637,25 @@ md"""
 
 # ╔═╡ d868a950-7377-4100-9f20-bfbbb580f032
 begin
+	Ω = cov(X₃[:,2:end])
 
+	CovR₃_Model = CovFromIndexModel(b₃, VarRes₃, Ω)
+	CovR₃_Empirical = cov(Re)
+
+	with_terminal() do
+
+		printred("Covariance matrix calculated from betas:")
+		printmat(CovR₃_Model)
+
+		printred("Covariance matrix calculated from data:")
+		printmat(CovR₃_Empirical)
+
+		printred("Difference between the two")
+		printmat(CovR₃_Model-CovR₃_Empirical)
+
+	end
+
+	
 end
 
 # ╔═╡ 07c85a61-127a-47b0-93da-1738afd4a1d9
@@ -596,7 +664,13 @@ __Is the multi-factor model better than the single-index model?__
 """
 
 # ╔═╡ 3608bef8-5d79-4cb4-a335-1d0eb1b6cb07
-
+with_terminal() do
+	printred("1 Factor -- Difference Model/Empirical Covariances")
+	printmat(CovRₑ-cov(Re))
+	
+	printred("3 Factor -- Difference Model/Empirical Covariances")
+	printmat(CovR₃_Model-CovR₃_Empirical)
+end
 
 # ╔═╡ 4e7c9dc5-1496-4120-bd86-679feddbee9a
 md"""
@@ -615,6 +689,20 @@ and test if $\alpha_{i}=0$.
 
 # ╔═╡ ee72b7af-b44b-46a4-8947-00cd243d70db
 begin
+
+	(α, tstat) = ( fill(NaN,nAssets), fill(NaN,nAssets) )
+
+	# for i=1:nAssets
+	# 	(b_i, _, _, Covb, _) = OlsGMFn( Re[:,i], X₃ )
+	# 	α[i] = b_i[1]
+	# 	tstat[i] = (b_[i]-0)/sqrt(Covb[1,1]) #testing if b_i[1]=alpha == 0 ?
+	# end
+
+	# with_terminal() do
+	# 	printred("Regression of Re on a constant and 3 facvtors:\n")
+	# 	colNames = [string("asset",i) for i=1:nAssets]
+	# 	printmat([α'; tstat']; colNames, rowNames=["α","tstat"])
+	# end
 	
 end
 

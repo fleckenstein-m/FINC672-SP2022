@@ -1287,9 +1287,9 @@ uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [[Qt5Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "xkbcommon_jll"]
-git-tree-sha1 = "ad368663a5e20dbb8d6dc2fddeefe4dae0781ae8"
+git-tree-sha1 = "c6c0f690d0cc7caddb74cef7aa847b824a16b256"
 uuid = "ea2cea3b-5b76-57ae-a6ef-0a8af62496e1"
-version = "5.15.3+0"
+version = "5.15.3+1"
 
 [[QuadGK]]
 deps = ["DataStructures", "LinearAlgebra"]
@@ -1751,7 +1751,7 @@ version = "0.9.1+5"
 # ╠═26681735-61e6-4633-b4a5-012e330fd336
 # ╟─17b06cb8-effe-4cc7-a665-454ff3dc7eee
 # ╟─656443ae-82f1-434b-88b2-250cc6313ce9
-# ╠═a4982262-23b1-11ec-245e-f7de7d8e3cbd
+# ╟─a4982262-23b1-11ec-245e-f7de7d8e3cbd
 # ╟─a4854850-0b6b-4b27-8967-49b4c156f949
 # ╠═b01db26c-6c7f-4780-9780-1d2d8fde5daf
 # ╟─4d56e19c-2051-49ee-9e41-c7ae0c6c1c5f
