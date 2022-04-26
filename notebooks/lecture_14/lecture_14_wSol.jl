@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.2
+# v0.19.0
 
 using Markdown
 using InteractiveUtils
@@ -10,9 +10,6 @@ using CSV, DataFrames, Dates, Plots, LaTeXStrings, LinearAlgebra, LinearRegressi
 	
 	gr(size=(480,320))
 end
-
-# ╔═╡ 653d8f23-3a60-4778-897d-c092106ce20d
-using Convex, SCS
 
 # ╔═╡ 3820a86d-fefa-43ca-a308-40d9ff2b3599
 begin
@@ -268,12 +265,15 @@ begin
 	#------------------------------------------------------------------------------
 	
 		
-	#using Logging
-	#global_logger(NullLogger())
+	using Logging
+	global_logger(NullLogger())
 		
 	display("")
 	
 end
+
+# ╔═╡ 653d8f23-3a60-4778-897d-c092106ce20d
+using Convex, SCS
 
 # ╔═╡ 72cce814-aa8f-4ac8-98c1-f556ce43ed6d
 TableOfContents( indent=true, depth=1, aside=true)
@@ -697,6 +697,7 @@ Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearRegressionKit = "e91d531d-6e51-44a8-96b7-a10d5d51daa3"
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
@@ -1287,7 +1288,7 @@ uuid = "38a345b3-de98-5d2b-a5d3-14cd9215e700"
 version = "2.36.0+0"
 
 [[LinearAlgebra]]
-deps = ["Libdl", "libblastrampoline_jll"]
+deps = ["Libdl"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[LinearRegressionKit]]
@@ -1385,10 +1386,6 @@ deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pk
 git-tree-sha1 = "ba4a8f683303c9082e84afba96f25af3c7fb2436"
 uuid = "656ef2d0-ae68-5445-9ca0-591084a874a2"
 version = "0.3.12+1"
-
-[[OpenBLAS_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
-uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
 
 [[OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -1497,9 +1494,9 @@ uuid = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
 
 [[Qt5Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "xkbcommon_jll"]
-git-tree-sha1 = "ad368663a5e20dbb8d6dc2fddeefe4dae0781ae8"
+git-tree-sha1 = "c6c0f690d0cc7caddb74cef7aa847b824a16b256"
 uuid = "ea2cea3b-5b76-57ae-a6ef-0a8af62496e1"
-version = "5.15.3+0"
+version = "5.15.3+1"
 
 [[QuadGK]]
 deps = ["DataStructures", "LinearAlgebra"]
@@ -1512,7 +1509,7 @@ deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 
 [[Random]]
-deps = ["SHA", "Serialization"]
+deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [[RecipesBase]]
@@ -1929,10 +1926,6 @@ deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "HarfBuzz_jll"
 git-tree-sha1 = "5982a94fcba20f02f42ace44b9894ee2b140fe47"
 uuid = "0ac62f75-1d6f-5e53-bd7c-93b484bb37c0"
 version = "0.15.1+0"
-
-[[libblastrampoline_jll]]
-deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
-uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
 
 [[libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
