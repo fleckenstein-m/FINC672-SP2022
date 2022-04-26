@@ -414,7 +414,7 @@ md"""
 let
 	df = DataFrame()
 	for lag=1:5	
-		df_l = combine(FF, names(FF,Between("SMALL LoBM","BIG HiBM")) .=> (x->(autocor(x,[1]), sqrt(T)*autocor(x,[lag]))), renamecols = false)
+		df_l = combine(FF, names(FF,Between("SMALL LoBM","BIG HiBM")) .=> (x->(autocor(x,[lag]), sqrt(T)*autocor(x,[lag]))), renamecols = false)
 		df = vcat(df,df_l)
 	end
 	df.Autocorr = "Lag_" .* string.(collect(1:5))
@@ -1443,9 +1443,9 @@ uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [[Qt5Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "xkbcommon_jll"]
-git-tree-sha1 = "ad368663a5e20dbb8d6dc2fddeefe4dae0781ae8"
+git-tree-sha1 = "c6c0f690d0cc7caddb74cef7aa847b824a16b256"
 uuid = "ea2cea3b-5b76-57ae-a6ef-0a8af62496e1"
-version = "5.15.3+0"
+version = "5.15.3+1"
 
 [[QuadGK]]
 deps = ["DataStructures", "LinearAlgebra"]
