@@ -271,7 +271,7 @@ begin
 end
 
 # ╔═╡ 656443ae-82f1-434b-88b2-250cc6313ce9
-TableOfContents( indent=true, depth=1, aside=true)
+#TableOfContents( indent=true, depth=1, aside=true)
 
 # ╔═╡ a4982262-23b1-11ec-245e-f7de7d8e3cbd
 md"""
@@ -336,7 +336,7 @@ The data set `MomentumSR.csv` contains daily data for the equity market return, 
 
 # ╔═╡ 5aaa48ba-6f09-4571-8dae-bf25833f7fea
 begin
-	
+	FF = CSV.File("lecture_13_MomentumSR.csv",dateformat="mm/dd/yyyy") |> DataFrame
 end
 
 # ╔═╡ 55002aeb-c568-4b79-85e8-0b818cf3d7cf
@@ -345,7 +345,7 @@ md"""
 """
 
 # ╔═╡ 141e5d73-6006-46cc-8a8f-e1de1cefcfee
-
+describe(FF, :eltype, :mean, :std, :min, :median, :max, (x-> length(collect(skipmissing(x))) )=> :nobs, :nmissing)
 
 # ╔═╡ 335d006b-2fb7-4b08-8eaf-93a3c4878eba
 md"""
@@ -353,7 +353,7 @@ md"""
 """
 
 # ╔═╡ 6d1305a7-e26c-4c4e-b587-353c7585d1ed
-
+first(FF, 6)
 
 # ╔═╡ e0e40dba-4468-43ce-98db-4bccf6dca1cb
 md"""
@@ -361,11 +361,20 @@ md"""
 """
 
 # ╔═╡ 67b3e419-0ae2-4823-83b7-7c1ee3a71a08
-
+last(FF, 6)
 
 # ╔═╡ 17ce2dbf-4ace-4928-ba87-372765c14065
 begin
-	
+	dN = FF.date
+
+	(Rm, Rf, R25) = (FF.Rm, FF.Rf, Matrix(FF[:,Between("SMALL LoBM", "BIG HiBM")]))
+
+	(T, n) = size(R25)
+
+	with_terminal() do
+		println("size of dN, Rm, Rf, R25")
+		println(size(dN), "\n", size(Rm), "\n", size(Rf), "\n", size(R25))
+	end
 end
 
 # ╔═╡ c7c1cb00-fa37-4456-b0fb-c86462313085
@@ -382,6 +391,16 @@ In large samples, $\sqrt{T}\hat{\rho}_{s}\sim N(0,1)$ if the true value is $\rho
 
 # ╔═╡ ebcd3e26-9680-40ac-88fd-40079668b7f1
 begin
+	R = R25[:, end] #returns of large value firms
+	printred("The autocorrelations are estimated only for one of the 25 portfolios")
+
+	plags = 1:5
+	ρ = autocor(R,plags)
+
+	with_terminal() do
+		printred("autocorrelation and their t-stats:\n")
+		printmat([ρ sqrt(T)*ρ], colNames=["ρ","t-stat"], rowNames=plags)
+	end
 	
 end
 
@@ -392,6 +411,15 @@ md"""
 
 # ╔═╡ 70e40483-6dec-4dc3-ad08-2abbbd7b4af0
 let
+	df = DataFrame()
+
+	for lag=1:5
+		df_l = combine(FF, names(FF,Between("SMALL LoBM","BIG HiBM")) .=> 
+			(x-> (autocor(x,[lag]), sqrt(T)*autocor(x,[lag]))), renamecols=false)
+		df = vcat(df, df_l)
+	end
+	df.Autocorr = "Lag_" .* string.(collect(1:5))
+	permutedims(df, :Autocorr)
 	
 end
 
@@ -416,6 +444,17 @@ _{t},$$
 
 # ╔═╡ 0e3033e0-bc68-4c00-acbc-819daca88726
 let
+	x = [ones(T-1) R[1:end-1]]
+
+	(b, _, _, Covb,) = OlsGMFn(R[:2:end], x)
+
+	Stdb = sqrt.(diag(Covb))
+	tstat = b./Stdb
+
+	with_terminal() do
+		printred("Results from an AR(1) for large value firms")
+		printmat([b tstat], colNames = ["coef", "tstat"], rowNames=["constant","slope"])
+	end
 	
 end
 
@@ -427,6 +466,24 @@ md"""
 # ╔═╡ f4d35e6f-e78b-4e2b-a934-c58ad9a5ce89
 let
 
+	df = DataFrame()
+
+	for col in names(FF, Between("SMALL LoBM","BIG HiBM"))
+
+		x = [ones(T-1) Array(FF[1:end-1, col])]
+
+		(b,_,_,Covb,) = OlsGMFn(Array(FF[2:end,col]), x)
+		Stdb = sqrt.(diag(Covb))
+		tstat = b./Stdb
+
+		df_tmp = DataFrame(Portfolio=col, SlopeCoefficient=b[2], tStat=tstat[2])
+
+		df = vcat(df, df_tmp)
+		
+	end
+
+	df
+	
 end
 
 # ╔═╡ 30c5bda2-a232-4edd-acab-4704ed2f801b
@@ -436,13 +493,43 @@ md"""
 
 # ╔═╡ 144feff0-d281-4b24-b2e0-1db2eada7b72
 let
-	
+	Q = R[1:end-1] .< 0 #dummy: 1 if R(t-1) < 0
+
+	x = [ones(T-1) Q.*R[1:end-1] (1.0.-Q).*R[1:end-1]]
+
+	(b,_,_,Covb) = OlsGMFn(R[2:end], x)
+	Stdb = sqrt.(diag(Covb))
+	tstat = b./Stdb
+
+	with_terminal() do
+		printred("Results from AR(1) with dummies:")
+		printmat([b tstat], colNames=["coef","t-stat"], rowNames=["constant", "slope (down)", "slope (up)"])
+	end
 
 end
 
 # ╔═╡ 73694e9f-d903-407b-a832-9f6550f3b38e
 let
+	df = DataFrame()
 
+	for col in names(FF, Between("SMALL LoBM","BIG HiBM"))
+
+		Q = Array(FF[1:end-1, col]) .< 0 #dummy: 1 if R(t_1)<0
+
+		x = [ones(T-1) Q.*Array(FF[1:end-1,col]) (1.0.-Q).*Array(FF[1:end-1, col])]
+
+		(b, _, _, Covb,) = OlsGMFn(Array(FF[2:end,col]),x)
+		Stdb = sqrt.(diag(Covb))
+		tstat = b./Stdb
+
+		df_tmp = DataFrame(Portfolio=col, Slopecoefficient_Down=b[2], tStat_Down=tstat[2], Slopecoefficient_Up=b[3], tStat_Up=tstat[3])
+
+		df = vcat(df,df_tmp)
+
+	end
+	
+	df
+	
 end
 
 # ╔═╡ ec81f382-30a9-459c-b490-807cf2032ba5
@@ -458,7 +545,32 @@ $$R^2_{\textrm{OOS}} = 1- \frac{\textrm{MSE(forecasting model)}}{\textrm{MSE(ben
 # ╔═╡ 577e7ca8-4071-46fa-be4a-9a0f9d2a5474
 begin
 
+		Q = R[1:end-1] .< 0
+		
+		y   = R[2:end]      #it simplifies to have separate symbol for the LHS variable
+		dNb = dN[2:end]     #corresponding dates, used for plotting 
+		Tb  = length(y)     #length of the effective sample
+		
+		x   = [ones(Tb) Q.*R[1:end-1] (1.0.-Q).*R[1:end-1]]     #predictors
+		(ϵ,e) = (zeros(Tb),zeros(Tb))
 	
+		for t = 100:Tb
+		    local b
+		    b,        = OlsGMFn(y[1:t-1],x[1:t-1,:]) #estimate on sample 1:t-1
+		    ϵ[t]      = y[t] - x[t,:]'b         #forecast error, model
+		    e[t]      = y[t] - mean(y[1:t-1])   #forecast error, historical average
+		end
+		(ϵ,e,dNb) = (ϵ[100:end],e[100:end],dNb[100:end])
+		
+		MSE_Model = mean(ϵ.^2)    #MSE for out-of-sample forecasts
+		MSE_Bench = mean(e.^2)
+		R2oos     = 1 - MSE_Model/MSE_Bench
+	
+		with_terminal() do
+			printred("Performance of out-of-sample forecasting:\n")
+			xut = [MSE_Model;MSE_Bench;R2oos]
+			printmat(xut,rowNames=["MSE of AR(1)","MSE of hist avg","R2_oos"])
+		end
 
 end
 
@@ -1287,9 +1399,9 @@ uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [[Qt5Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "xkbcommon_jll"]
-git-tree-sha1 = "ad368663a5e20dbb8d6dc2fddeefe4dae0781ae8"
+git-tree-sha1 = "c6c0f690d0cc7caddb74cef7aa847b824a16b256"
 uuid = "ea2cea3b-5b76-57ae-a6ef-0a8af62496e1"
-version = "5.15.3+0"
+version = "5.15.3+1"
 
 [[QuadGK]]
 deps = ["DataStructures", "LinearAlgebra"]
@@ -1750,8 +1862,8 @@ version = "0.9.1+5"
 # ╔═╡ Cell order:
 # ╠═26681735-61e6-4633-b4a5-012e330fd336
 # ╟─17b06cb8-effe-4cc7-a665-454ff3dc7eee
-# ╟─656443ae-82f1-434b-88b2-250cc6313ce9
-# ╠═a4982262-23b1-11ec-245e-f7de7d8e3cbd
+# ╠═656443ae-82f1-434b-88b2-250cc6313ce9
+# ╟─a4982262-23b1-11ec-245e-f7de7d8e3cbd
 # ╟─a4854850-0b6b-4b27-8967-49b4c156f949
 # ╠═b01db26c-6c7f-4780-9780-1d2d8fde5daf
 # ╟─4d56e19c-2051-49ee-9e41-c7ae0c6c1c5f
