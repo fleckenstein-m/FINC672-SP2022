@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.0
+# v0.18.1
 
 using Markdown
 using InteractiveUtils
@@ -576,7 +576,18 @@ end
 
 # ╔═╡ a4dcf17c-16e6-4964-900f-7c965c47f2be
 let
+	xTicksLoc = [Date(1980); Date(1990); Date(2000); Date(2010)]
+	xTicksLab = Dates.format.(xTicksLoc, "Y")
 
+	plot( dNb, [ cumsum(ϵ.^2) cumsum(e.^2) ],
+		linecolor = [:blue :red],
+		linestyle = [:solid :dash],
+		label = ["AR(1) model" "historical mean"],
+		legend = :topleft,
+		xticks = (xTicksLoc, xTicksLab),
+		title = "Cumulated squared forecast errors"
+	)
+	
 end
 
 # ╔═╡ c453a1cb-7d85-44fe-b01b-d87752de94d0
@@ -616,6 +627,22 @@ md"""
 
 # ╔═╡ 4aa76119-ffae-42aa-b22f-b2b70168ebb8
 begin
+	Rx = copy(R25)
+
+	Rp = fill(NaN,T)
+
+	for t=2:T
+
+		s = sortperm( Rx[t-1,:] ) #s[1] is the index of the worst assets
+		w = zeros(n) #recall that n is the number of portfolios
+		w[s[1:5]] .= -1/5
+		w[s[end-4:end]] .+ 1/5
+		Rp[t] = w'Rx[t,:]
+
+	end
+
+	Rp = Rp[2:end]
+	DataFrame(MomRx = Rp)
 	
 end
 
@@ -628,6 +655,22 @@ md"""
 
 # ╔═╡ dab38b9a-b473-4bde-8b9f-eeb2279ab52b
 begin
+
+	μ = mean(Rp) #strategy
+	σ = std(Rp)
+
+	Rme = Rm - Rf #market
+	μm = mean(Rme[2:end])
+	σm = std(Rme[2:end])
+
+	with_terminal() do
+
+		printred("Annualized results:\n")
+		result = [μ*250; σ*sqrt(250) ; μ/σ*sqrt(250)] #strategy
+		resultm = [μm*250; σm*sqrt(250); μm/σm*sqrt(250) ] #market
+		printmat([result resultm], colNames = ["Strategy", "Market"], rowNames = ["mean","std","SR"]) 
+		
+	end
 	
 end
 
@@ -640,7 +683,12 @@ md"""
 
 # ╔═╡ 6b9d060f-e821-4088-9e26-bed186066a30
 begin
+	Rp_b = Rp + Rf[2:end]
+
+	Ip = cumprod(1 .+ Rp_b/100)  #cumulate to return index
+	Im = cumprod(1 .+ Rm[2:end]/100) #market
 	
+	display("")
 end
 
 # ╔═╡ a7b75ad7-7d8a-4ac7-b7ed-291ab2aba891
@@ -650,6 +698,18 @@ Let's plot the results of the trading strategy.
 
 # ╔═╡ f87dc4a0-a538-46bd-b067-51863fe88c03
 begin
+
+	xTicksLoc = [Date(1980); Date(1990); Date(2000); Date(2010)]
+	xTicksLab = Dates.format.(xTicksLoc,"Y")
+
+	plot( dN[2:end], log.([Ip Im]),
+		linecolor = [:blue :red],
+		linstyle = [:solid :dash],
+		label = ["Strategy" "Market"],
+		legend = :topleft,
+		xticks = (xTicksLoc, xTicksLab),
+		title = "log return indices"
+	)
 	
 end
 
