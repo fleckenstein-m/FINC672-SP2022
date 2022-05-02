@@ -4,16 +4,19 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 8b90477d-5887-49bd-bcf3-d2d7276885af
+# ╔═╡ 6199926c-0c4a-4991-b4c3-ebed35217375
 begin
-using CSV, DataFrames, Dates, Plots, LaTeXStrings, LinearAlgebra, LinearRegressionKit, PlutoUI, Printf,  StatsBase, Statistics, StatsModels
-	
-	gr(size=(480,320))
+	using PlutoUI, Printf 
+	using Dates, DataFrames, DataFramesMeta, Chain
+	using Statistics
+	using Plots
+	using TimesDates
 end
 
-# ╔═╡ 3820a86d-fefa-43ca-a308-40d9ff2b3599
+# ╔═╡ b0b9984b-45f5-49a2-a5ce-86281745d623
 begin
 
+	
 		
 	# The following code is by Paul Soederlind
 	# https://sites.google.com/site/paulsoderlindecon/home
@@ -272,344 +275,395 @@ begin
 	
 end
 
-# ╔═╡ 72cce814-aa8f-4ac8-98c1-f556ce43ed6d
-TableOfContents( indent=true, depth=1, aside=true)
+# ╔═╡ 6c003a32-ddb4-462b-bc73-3bbf633f184f
+using AlpacaMarkets
 
-# ╔═╡ 960b2ed0-2394-11ec-17c0-5bdaeef72b5d
+# ╔═╡ 886b6ade-b8df-494c-be5f-13aae328b848
 md"""
-# FINC 672: Performance Evaluation
-
-- In this notebook, we summarize conventional performance measures for an investment fund. 
-- Then, we perform a "style analysis" to find out how a fund has changed its portfolio weights over time.
-
+## FINC 672: Tick-by-Tick Stock Quotes and Trades
 """
 
-# ╔═╡ e7029f0e-832a-4b62-a4f4-09002dbd7159
+# ╔═╡ 26a704bf-6b13-45f2-9211-023fbf2e3cb6
 md"""
-We are going to use the following dataset in the performance analysis.
-1. S&P 500
-2. S&P MidCap 400
-3. S&P Small Cap 600
-4. World Developed - Ex. U.S.
-5. Emerging Markets
-6. US Corporate Bonds
-7. U.S. Treasury Bills	
-8. US Treasury	Bonds/Notes
-9. Putnam Asset Allocation: Growth A
-10. Vanguard Wellington Mutual Fund
-
-This dataset is provided to you in the file `lecture_14_PerfEval.csv` (available on Canvas).
+_Thanks to [Dean Markwick](https://dm13450.github.io/about/) for making the AlpacMarkets Julia API publicly available._
 """
 
-# ╔═╡ ba9c36aa-e791-4411-85f6-5c230d19b017
+# ╔═╡ 1897543d-5c47-41ee-9f13-a099df5d9ed1
 md"""
-## The Idea behind Performance Evaluation
+- In this notebook, we will learn to work with real-time stock data. Specifically, we will use data from (Alpaca)[https://alpaca.markets/] on stock trades and quotes.
+- We will connect to IEX using [AlpacaMarkets.jl](https://github.com/dm13450/AlpacaMarkets.jl) API in Julia.
+- First, you need to register a free account [here](https://alpaca.markets/).
+- After your registration is complete, you need to get your `API KEY` and `Secret KEY`."""
 
-- Traditional performance analysis tries to answer the following question: “should we include an asset in our portfolio, assuming that future returns will have the same distribution as in a historical sample.” 
-
-- Since returns are random variables (although with different means, variances, etc.) and investors are risk averse, this means that performance analysis will typically not rank the fund with the highest return (in a historical sample) first.
-
-- Although that high return certainly was good for the old investors, it is more interesting to understand what kind of distribution of future returns this investment strategy might entail. In short, the high return will be compared with the risk of the strategy.
-
-- Most performance measures are based on mean-variance (MV) analysis, but the full MV portfolio choice problem is not solved. Instead, the performance measures can be seen as different approximations of the MV problem, where the issue is whether we should invest in fund `p` or in fund `q`. (We don’t allow a mix of them.) 
-
-- There are several popular performance measures, corresponding to different situations: is this an investment of your entire wealth, or just a small increment? 
-  - However, all these measures are (increasing) functions of Jensen’s alpha, the intercept in the CAPM regression.
-
-
+# ╔═╡ 89d72808-d09e-421a-ae7b-5491e8fae0ee
+md"""
+- Step 1: Go to Alpaca website https://alpaca.markets/ and login.
+- Step 2: Once you login, Go to paper account.
+- Step 3: Your API Key and API Secret will be located on the right side of the screen. Click on View.
 """
 
-# ╔═╡ 833249db-8526-4fa1-b136-c48850d7e37f
+# ╔═╡ dff6f3d9-f4fc-4964-a075-c1c11a953667
+LocalResource("./AlpacaAPIKeys.png")
+
+# ╔═╡ 931659d2-cae1-43d3-87d9-b67edb7c16d0
 md"""
-## Data
+- Step 4: Click on “Generate New Key”.
 """
 
-# ╔═╡ c67dda3c-8044-436e-b668-e5c7c8feddaf
-PerfDat = CSV.File("lecture_14_PerfEval.csv") |> DataFrame
+# ╔═╡ c8cba87a-6ead-4f6a-b29b-bc3bcc3e75f0
+LocalResource("./AlpacaAPIKeys_02.png")
 
-# ╔═╡ 4efcb4b6-9000-4db6-b951-37c9c9c9676d
+# ╔═╡ 50fb3be3-1674-47a3-9102-0c6fb24241de
 md"""
-- Let's get some information on the dataset.
+- Step 5: Once you generate API Key, an API Key ID and Secret Key will be generated. Please store both of these as they are confidential. DO NOT share API keys and secrets with other people.
+  - __API Secret will be generated only once when you generate the key. In case you forget API Secret, both key ID and Secret will have to be regenerated.__
 """
 
-# ╔═╡ 3d51f5f0-752d-407e-80e3-7e44849dd76b
-describe(PerfDat, :eltype, :mean, :std, :min, :median, :max, ( x-> length(collect(skipmissing(x))) )=>:nobs, :nmissing )
-
-# ╔═╡ a2946345-b457-4e02-a3eb-7646a7083058
+# ╔═╡ 81f0904b-3da6-4981-971b-b5e11e301eaa
 md"""
-- Let's take a look at the first six rows.
+- Next, we load `AlpacaMarkets.jl` and authenticate us as users.
 """
 
-# ╔═╡ c02ae1b0-ba3f-4c94-83d8-425af6cf8ed9
-first(PerfDat,6)
+# ╔═╡ 34545087-b68d-4271-9771-4686b770c619
+#KEY, SECRET
 
-# ╔═╡ c8c2e3c2-d2dc-448e-9d32-8ba29697a1f3
+# ╔═╡ 4a235440-1810-4b18-85f9-377f9f5f6876
 md"""
-- Let's take a look at the last six rows.
+# Stock Quote Data
 """
 
-# ╔═╡ 0580541d-29f0-4731-9ea9-f36494f70516
-last(PerfDat,6)
-
-# ╔═╡ 561f5088-7a2a-47f4-bfbf-6977ae6a27a5
+# ╔═╡ 80b29628-2214-49ab-8eb7-31e99677fb1b
 md"""
-- Let's work with matrices going forward.
+- Let's get _1 second_ of streaming historical quotes on Apple stock (APPL).
 """
 
-# ╔═╡ fb093381-1109-450b-898e-1a0f87bd54d4
-begin
-	x = Matrix(PerfDat)
-
-	IndNames = names(PerfDat)[2:9]
-	FundNames = names(PerfDat)[10:11]
-
-	dN = PerfDat[:,1]
-
-	(Rb, RFunds, Rf) = ( convert.(Float64, x[:,2:9]), convert.(Float64, x[:,10:11]),
-				convert.(Float64,x[:,12]))
-	
-	display("")
-	
-end
-
-# ╔═╡ 5595417a-6333-4acd-b14b-27865d4f8736
-md"""
-# Sharpe Ratio and M2
-"""
-
-# ╔═╡ a9e20df4-96aa-4798-a5ef-204671de44af
-md"""
-- Suppose we want to know if fund `p` is better than fund `q` to place all our savings in. (We don’t allow a mix of them.) 
-- The answer is that `p` is better if it has a higher Sharpe ratio—defined as
-
-$$SR_p = \mu_{p}^{e}/\sigma_p$$
-
- - where $\mu_{p}^{e}$ is the excess return of fund `p` and $/\sigma_p$ is fund `p`s standard deviation of returns.
-
-"""
-
-# ╔═╡ 2732613f-2546-4fb4-93ee-1805a43e7521
-md"""
-
-- The reason is that MV behaviour (MV preferences or normally distributed returns) implies that we should maximize the Sharpe ratio (selecting the tangency portfolio). 
-
-- Intuitively, for a given volatility, we then get the highest expected return.
-
-- A version of the Sharpe ratio, called $M^2$ is
-
-$$M_p^2 = \mu_{p^{\star}}^e - \mu_{m}^e $$
-
-where $\mu_{p^{\star}}^e$ is the expected return on a mix of portfolio $p$ and the riskfree asset such that the volatility is the same as for the market return.
-
-$$R_{p^{\star}} = a R_p + (1-a) R_f$$
-
-with $a=\sigma_m/\sigma_p.$
-
-- This gives the mean and standard deviation of portfolio $p^{\star}$
-
-$$\mu_{p^{\star}}^e = a \mu_{p}^e = \mu_{p}^e \sigma_m \ \sigma_p$$
-
-$$\sigma_{p^{\star}} = a \sigma_p= \sigma_m$$
-
-- Thus, $R_p$ indeed has the same volatility as the market.
-
-"""
-
-# ╔═╡ 9280b21d-d44e-49e5-a0c0-f31dbf90f51a
-md""" 
--  $M^2$ has the advantage of being easily interpreted because it is just a comparison of two returns. It shows how much better (or worse) this asset is compared to the capital market line (which is the location of efficient portfolios provided the market is MV efficient). """
-
-# ╔═╡ 59e2e16a-d5ee-4fb0-ae02-94c05b07b306
-md"""
-Let's now calculate $SR$ and $M^2$ empirically using our data.
-"""
-
-# ╔═╡ 8ee5dcd0-0ae6-4d7e-9270-38f36c9260d4
+# ╔═╡ 8560c709-61bd-4d7b-a7cd-78c9861b54cc
 begin
 
-	Re = RFunds .- Rf   #excess return of the two funds
-	Rme = Rb[:,1] .- Rf #excess return of the market (S&P)
-
-	μᵉp = mean(Re, dims=1)
-	σp  = std(Re, dims=1)
-
-	μᵉm = mean(Rme)
-	σm  = std(Rme)
-
-	SRp = (μᵉp./σp) * sqrt(52)
-	SRm = (μᵉm./σm) * sqrt(52)
-
-	M2p = (SRp.-SRm)*σm*sqrt(52)*100
-	M2m = 0
-
-	xut = hcat( [μᵉm; μᵉp']*52*100, [SRm; SRp'], [M2m; M2p'] )
-
-	with_terminal() do
-		printmat(xut, colNames=["ERe","SR","M2"], rowNames=["Market"; FundNames])
-	end
-	
 end
 
-# ╔═╡ 658f89c1-5452-491d-bed4-e0b189c7f457
+# ╔═╡ 96ec6830-4c58-48b5-8538-236dc2a3c599
 md"""
-# Appraisal Ratio
+- In the `ax` and `bx` columns (ask exchange and bid exchange) we can see what venue was offering that price at a given time.
+- In the `ap` and `bp` columns we see the ask and bid quotes, respectively.
 """
 
-# ╔═╡ 9e7b7ef3-856d-4fca-907b-845666463e42
+# ╔═╡ 022c457f-83c1-4059-8730-6f788b1ec479
 md"""
-- If the question is “should we add fund `p` or fund `q` to our holding of the market portfolio?,” then the appraisal ratio can be used to provide an answer. 
-
-- The appraisal ratio of fund `p` is
-
-$$AR_p = \alpha_p / Std(\epsilon_{pt}$$
-
-where $\alpha_p$ is the intercept and $Std(\epsilon_{pt})$ is the volatility of the residual of a CAPM regression. (The residual is often called the tracking error.) 
-
-- A higher appraisal ratio is better. The intuition is as follows. 
- - If you think of $b_p R_{mt}^e$, as the benchmark return, then $AR_p$ is the average extra return per unit of extra volatility (standard deviation). 
- - For instance, a ratio of 1.7 could be interpreted as a 1.7 USD profit per each dollar at risk.
-
+| Exchange Code 	|          Name of Exchange         	|
+|:-------------:	|:---------------------------------:	|
+| A             	| NYSE American (AMEX)              	|
+| B             	| NASDAQ OMX BX                     	|
+| C             	| National Stock Exchange           	|
+| D             	| FINRA ADF                         	|
+| E             	| Market Independent                	|
+| H             	| MIAX                              	|
+| I             	| International Securities Exchange 	|
+| J             	| Cboe EDGA                         	|
+| K             	| Cboe EDGX                         	|
+| L             	| Long Term Stock Exchange          	|
+| M             	| Chicago Stock Exchange            	|
+| N             	| New York Stock Exchange           	|
+| P             	| NYSE Arca                         	|
+| Q             	| NASDAQ OMX                        	|
+| S             	| NASDAQ Small Cap                  	|
+| T             	| NASDAQ Int                        	|
+| U             	| Members Exchange                  	|
+| V             	| IEX                               	|
+| W             	| CBOE                              	|
+| X             	| NASDAQ OMX PSX                    	|
+| Y             	| Cboe BYX                          	|
+| Z             	| Cboe BZX                          	|
 """
 
-# ╔═╡ ba46a9a7-b469-401f-a3b4-10ab4a6f47cb
+# ╔═╡ 1dadf403-6dff-48d7-bb24-eae5c1147d7d
 md"""
-Let's calculate the Appraisal Ratios in our data.
+- Each feed/exchange uses its own set of codes to identify trade and quote conditions, so the same condition may have a different code depending on the originator of the data.
+  - More information at [Link](https://alpaca.markets/docs/market-data/).
 """
 
-# ╔═╡ 6024747f-e21a-40d7-8cd1-1681ca12718e
+# ╔═╡ 0fbd9fc7-2e7b-4559-a34b-17528e507ebe
+md"""
+- __Quote conditions__
+"""
+
+# ╔═╡ a099bcf5-76df-468b-82df-cf29a914be9c
+md"""
+| Code |              Value             |
+|:----:|:------------------------------:|
+| A    | Manual Ask Automated Bid       |
+| B    | Manual Bid Automated Ask       |
+| F    | Fast Trading                   |
+| H    | Manual Bid And Ask             |
+| I    | Order Imbalance                |
+| L    | Closed Quote                   |
+| N    | Non Firm Quote                 |
+| O    | Opening Quote Automated        |
+| R    | Regular Two Sided Open         |
+| U    | Manual Bid And Ask Non Firm    |
+| Y    | No Offer No Bid One Sided Open |
+| X    | Order Influx                   |
+| Z    | No Open No Resume              |
+"""
+
+# ╔═╡ 6978ce4e-0880-4d37-b894-caa63c5ff91f
+md"""
+- To work with this data, we need to convert the timestamp into a Julia DateTime object.
+- First, we define two functions to extract the date and time components from the `t` column which has entries like `2022-01-27T15:00:00.007566848Z`.
+"""
+
+# ╔═╡ bb9d0cfe-7f25-464e-bcd6-09d732c36eac
 begin
 
 	
 end
 
-# ╔═╡ 1424b025-89be-4adc-9c0f-38abca54bb2a
+# ╔═╡ e861bcff-9e3f-453a-989f-1fbd342bccf8
 md"""
-# Treynor's Ratio and T2
+- The timestaps are up to nanosecond precision. However, Julia’s default DateTime type only allows up millisecond precision. To work with nanosecond data, we use the [TimeDate.jl](https://github.com/JeffreySarnoff/TimesDates.jl) package.
 """
 
-# ╔═╡ c42c62c4-db4d-44c3-81a6-0573f8d03258
+# ╔═╡ 3a4c94b5-6fd3-4253-839b-e898ab9025be
+
+
+# ╔═╡ 3bf77a4e-5019-4ad6-9e05-60d2dff701e6
 md"""
-- Suppose instead that the issue is whether we should add a small amount of fund `p` or fund `q` to an already well diversified portfolio (not the market portfolio). 
-- In this case, Treynor’s ratio might be useful 
-
-$$TR_p = \mu_{p}^e/\beta_p$$
-
-- A higher Treynor’s ratio is better.
-
-- The TR measure can be rephrased in terms of expected returns---and could then be called the $T^2$ measure.  
- - Mix `p` and `q` with the riskfree rate to get the same $\beta$ for both portfolios (here 1 to make it comparable with the market), the one with the highest Treynor’s ratio has the highest expected return ($T^2$ measure).
-
-- The $T^2$ measure is defined as
-
-$$T_p^2=\mu_{p^{\star}}^e - \mu_m^e = \mu_p^e/\beta_p - \mu_m^e.$$
-
+- Let's now plot the bid and ask prices.
 """
 
-# ╔═╡ 6fd86104-021a-4ec7-acdb-4ac4c771f03e
-md"""
-Let's now calculate Treynor's Ratio and $T^2$ in the data.
-"""
-
-# ╔═╡ 40109f1e-f391-485e-80d1-5b60bd1ede63
-begin
-	
-end
-
-# ╔═╡ 0f0a5bcf-f0ca-4cd8-9722-ce8282780a3a
-md"""
-# Style Analysis
-"""
-
-# ╔═╡ 5f3ab6a9-d093-4fcc-9370-79bc76a94b0c
-md"""
-- Style analysis is a way to use econometric tools to find out the portfolio composition from a series of the returns, at least in broad terms.
-- The basic idea is to identify a number (5 to 10 perhaps) return indices that are expected to account for the brunt of the portfolio's returns, and then run a regression to find the portfolio “weights.” 
-- It is essentially a multi-factor regression without any intercept and where the coefficients are constrained to sum to unity and to be positive.
-
-  - The regression is $R^{e}_{pt} = b_1 X_1 + \ldots + b_K X_K + \epsilon_{pt}$, where $b_j \geq 0$ for all $j$, and $\sum_{i=1}^K b_i = 1$.
-  - The coefficients are typically estimated by minimizing the sum of squared residuals. This is a nonlinear estimation problem, but there are very efficient methods for it (since it is a quadratic problem).
-  - We will use the optimization packages [Convex.jl](https://jump.dev/Convex.jl/stable/) for the interface and [SCS.jl](https://github.com/jump-dev/SCS.jl) for the optimization algorithm.
-
-- A pseudo-$R^2$ (the squared correlation of the fitted and actual values) is sometimes used to gauge how well the regression captures the returns of the portfolio. 
-- The residuals can be thought of as the effect of stock selection, or possibly changing portfolio weights more generally. 
-  - One way to get a handle of the latter is to run the regression on a moving data sample. 
-  - The time-varying weights are often compared with the returns on the indices to see if the weights were moved in the right direction.
-
-"""
-
-# ╔═╡ d86594f9-b563-42d9-812c-7dc663b9b8c3
-md"""
-- Note on the implementation. 
-- The regression is 
-$$Y = b_1 X_1 + \ldots + b_K X_K + u,$$ where $b_j \geq 0$ for all $j$, and $\sum_{i=1}^K b_i = 1$.
-- We write the sum of squared residuals as
-$$(Y- X\,b)' (Y - X\,b) = YY' - 2Y'Xb + b'X'Xb.$$
-  - Only the two last terms matter for the choice of $b$.
-"""
-
-# ╔═╡ 4a60f8df-a871-4f96-9c1c-499a36310985
-md"""
-- Let's write a function to implement the style analysis regression.
-"""
-
-# ╔═╡ 653d8f23-3a60-4778-897d-c092106ce20d
-
-
-# ╔═╡ 28c593e8-0ce6-4db6-a8bb-f64ec8307391
+# ╔═╡ 435f564e-c550-4a54-bb7d-86ed3d3017bc
 begin
 
 end
 
-# ╔═╡ 49a66213-b8b7-4789-b967-7bdfb859de9d
+# ╔═╡ 04c1af80-11cd-4a97-8d8c-5e35fd233d24
 md"""
-- Next, we run the style regression.
-- The next cell makes a "style analysis regression" based on the entire sample. 
-- The dependent variable is the first mutual fund (_Putnam Asset Allocation: Growth A_) and the regressors include all indices.
+# Stock Trade Data
 """
 
-# ╔═╡ b22fb358-658a-44be-a99b-b5301c2dcadf
-let
-	
+# ╔═╡ 77339769-19c5-4299-bacc-72719804b1e5
+md"""
+- Let's look at the same one-second period, but use trades instead of quotes.
+"""
+
+# ╔═╡ e398ea5c-575e-4aa5-ad3b-2dd3cc0c1164
+
+
+
+# ╔═╡ b16c32a6-cf18-4854-bd7d-020e324b4ff1
+md"""
+- Column `c` shows the condition code which describes the type of trade. For the first two trades we see:
+  - @ : Is a regular trade
+  - I: is an odd lot trade
+- The `x` column dictates where the trade happened, so the venue that executed the trade. 
+- The `z` column tells us what tape the trade was recorded on. 
+  - There are three possible tapes, A, B, and C.
+"""
+
+# ╔═╡ b9229901-5355-4479-836f-90310ce17a28
+md"""
+- __Trade conditions__
+"""
+
+# ╔═╡ 8c47c245-27e3-4e9b-88bf-10a9b807c451
+md"""
+| Code |             Value            | Code |                       Value                       |
+|:----:|:----------------------------:|:----:|:-------------------------------------------------:|
+| @    | Regular Sale                 | R    | Seller                                            |
+| A    | Acquisition                  | S    | Split Trade                                       |
+| B    | Bunched Trade                | T    | Form T                                            |
+| C    | Cash Sale                    | U    | Extended trading hours (Sold Out of Sequence)     |
+| D    | Distribution                 | V    | Contingent Trade                                  |
+| E    | Placeholder                  | W    | Average Price Trade                               |
+| F    | Intermarket Sweep            | X    | Cross Trade                                       |
+| G    | Bunched Sold Trade           | Y    | Yellow Flag Regular Trade                         |
+| H    | Price Variation Trade        | Z    | Sold (out of sequence)                            |
+| I    | Odd Lot Trade                | 1    | Stopped Stock (Regular Trade)                     |
+| K    | Rule 155 Trade (AMEX)        | 4    | Derivatively priced                               |
+| L    | Sold Last                    | 5    | Re-Opening Prints                                 |
+| M    | Market Center Official Close | 6    | Closing Prints                                    |
+| N    | Next Day                     | 7    | Qualified Contingent Trade (QCT)                  |
+| O    | Opening Prints               | 8    | Placeholder For 611 Exempt                        |
+| P    | Prior Reference Price        | 9    | Corrected Consolidated Close (per listing market) |
+| Q    | Market Center Official Open  |      |                                                   |
+"""
+
+# ╔═╡ 8f7c8ce2-ce16-45fa-8244-3422b1abd03b
+md"""
+- Again, we convert the timestamp and plot it against the prices. In doing so, We also select only the unique trade ids (`i`) so that each trade is represented once.
+"""
+
+# ╔═╡ 03fcdb25-0b2d-4022-8945-f7a66df81419
+
+
+# ╔═╡ 3760c655-d8a9-4893-a17a-0978ee1a4f40
+md"""
+- Let's creat the plot next.
+"""
+
+# ╔═╡ a345db06-db99-4262-9b18-b4f4ce229515
+begin
+
+end
+
+# ╔═╡ b861419a-6e7a-4708-91d1-f160015241c5
+md"""
+- The trades line up with the prices at the same time and we can see the series of trades that appears to move the price higher between 500 and 750 milliseconds past 15:00.
+- Note that all this occured in the second between 15:00:00 and 15:00:01.
+  - 344 price updates
+  - 384 trades
+"""
+
+# ╔═╡ 612c2a18-5038-4b79-b768-fa93ad073cac
+md"""
+# Equity Venue Analysis
+"""
+
+# ╔═╡ 17fc303a-0b4a-4c03-9f6e-c8919e993557
+md"""
+- Let's look at where stocks are traded and evaluate stock trading venues by
+  - How long did they have the best price?
+  - How much volume did they have at this best price?
+- To do this, let's use Apple quotes over a window of one hour.
+"""
+
+# ╔═╡ f9a3339a-4858-4fde-9967-427ea6fc933c
+
+
+# ╔═╡ ddbf5a8f-083c-4796-9f92-150e050d963d
+md"""
+- We will use the TimeDate package to create an object with the correct resolution up to the nanosecond as reported by Alpaca Markets. Then, we calculate how long that price was the best bid or offer using the `diff` function.
+"""
+
+# ╔═╡ 837cf9b4-92ba-4539-802d-e3e37e83182d
+
+
+# ╔═╡ 7242e288-5eb3-42ab-8a7b-9b7cfdaa361e
+begin
+
+end
+
+# ╔═╡ 9fba2de3-878b-4bcc-95b0-66aa868b925e
+md"""
+- Next, for each venue, as well as for bid and ask prices, we group by exchange and calculate the following:
+  - Number of times it was the best bid and best offer.
+  - The average number of shares available at the best bid/ask price.
+  - The length of time the quote the best bid or offer.
+- This gives us three different values to evaluate of each venue.
+"""
+
+# ╔═╡ 16689d26-739c-4581-b210-01998ace0d06
+begin
 	
 end
 
-# ╔═╡ e79edd61-e5ea-4da2-a28a-483d13e6da71
+# ╔═╡ 6f145c34-a0e9-47ec-99ac-f7cf0d11b4d2
+
+
+# ╔═╡ 191ddc32-d1f1-44c0-a1d8-2db523997791
 md"""
-- We also run the style analysis on a moving window and then we plot coefficients change over time.
+- We can visualize this using a quadrant plot.
 """
 
-# ╔═╡ 925fd389-4d7d-4fdd-b84c-c81c7f6408e4
-let
-
+# ╔═╡ 0cb113ad-75f0-433d-85f2-e242a18e24fd
+begin
 
 end
+
+# ╔═╡ 5ef1d64f-7854-4dd5-aa4b-d34c2aafdb89
+begin
+
+end
+
+# ╔═╡ 581546d5-3e82-4a73-8b3a-b7cc4cd3633d
+md"""
+- There appear to be two clusters of exchanges and those to the right would score higher in terms of our metrics.  
+  - The first plot suggests that the difference between IEX and Members Exchange is about 0.5 in terms of the average bid size. 
+"""
+
+# ╔═╡ e589c45b-4e77-4630-8cf4-88c7cf666dc1
+md"""
+# The Lee-Ready Algorithm
+"""
+
+# ╔═╡ b814e8cd-31a7-4d9a-8c61-6f757141fc51
+md"""
+- Let's consider again the trades we have plotted at the beginning.
+"""
+
+# ╔═╡ 0dcbae87-d41a-4926-ac88-462b1c6fb1f4
+
+
+# ╔═╡ fbe5916a-5788-44a1-b822-233dec173825
+md"""
+- The trades data from Alpaca Markets have no information on whether the trade is a buy or a sell. Can we infer the sign of the trade?
+- Looking at the graph, it looks as if most trades are at the ask price. This suggestst that these are likely buys. Similarly, the trades at the bid are likely sells. 
+"""
+
+# ╔═╡ 05838fce-a50e-4b0a-bde1-42bbdfa9daea
+md"""
+- One commonly-used method of assigning the trade direction (buy or sell) to trades is the [Lee-Ready Algorithm](https://www.jstor.org/stable/2328845). 
+- Basically, this algorithm  looks at where the trade occurs relative to the quoted mid-price at the time of the trade. 
+  - If the trade is above the mid-price then it is likely that the trade was a buy and vice versa, if it was below it was likely a sell.
+"""
+
+# ╔═╡ 28244c87-0ad7-4717-af40-b01bf632e3db
+md"""
+- To use the `Lee-Ready` algorithm we need to join the trades with the closest prices.
+"""
+
+# ╔═╡ 7bff09b3-a8eb-4c96-adc1-be5a89b6babb
+begin
+	
+end
+
+# ╔═╡ 078763d8-8263-41fe-a5da-4e825357148c
+
+
+# ╔═╡ 677a8ed3-eb0f-4d08-9379-41df5c9a0bd5
+md"""
+- Next, we check the sign of the difference between the traded price and the mid-price to classify it as a buy or sell.
+"""
+
+# ╔═╡ 8296b9a4-38bf-4381-b10f-9c32cf8b540e
+
+
+# ╔═╡ ba17bd98-556c-4033-b8f9-3978f8aedd9e
+begin
+
+end
+
+# ╔═╡ f988520b-a61e-44ac-8b59-8840ca035389
+
+
+# ╔═╡ 77de41e2-4433-44dc-87c5-255b905edd29
+md"""
+- The results suggest that the Lee-Ready algorithm performs fairly well on average, but we also notice that not all the trades, are classified---some are unknown. In particular, the algorithm seems to struggle around periods where the market starts moving and the mid is volatile.
+"""
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
-CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+AlpacaMarkets = "02dc6022-739e-4478-acf8-ef45d2bc67b8"
+Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DataFramesMeta = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
-LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
-LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-LinearRegressionKit = "e91d531d-6e51-44a8-96b7-a10d5d51daa3"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
-StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-StatsModels = "3eaba693-59b7-5ba5-a881-562e759f1c8d"
+TimesDates = "bdfc003b-8df8-5c39-adcd-3a9087f5df4a"
 
 [compat]
-CSV = "~0.10.3"
-DataFrames = "~1.2.2"
-LaTeXStrings = "~1.3.0"
-LinearRegressionKit = "~0.7.4"
-Plots = "~1.27.0"
-PlutoUI = "~0.7.37"
-StatsBase = "~0.33.16"
-StatsModels = "~0.6.29"
+AlpacaMarkets = "~0.1.0"
+Chain = "~0.4.10"
+DataFrames = "~1.3.2"
+DataFramesMeta = "~0.10.0"
+Plots = "~1.27.4"
+PlutoUI = "~0.7.38"
+TimesDates = "~0.3.1"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -628,6 +682,12 @@ git-tree-sha1 = "af92965fb30777147966f58acb05da51c5616b5f"
 uuid = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 version = "3.3.3"
 
+[[AlpacaMarkets]]
+deps = ["DataFrames", "Dates", "HTTP", "JSON", "Test"]
+git-tree-sha1 = "5cfd2edf97bfe0478897cc87af40be4c389b8dc7"
+uuid = "02dc6022-739e-4478-acf8-ef45d2bc67b8"
+version = "0.1.0"
+
 [[ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
 
@@ -643,47 +703,28 @@ git-tree-sha1 = "19a35467a82e236ff51bc17a3a44b69ef35185a2"
 uuid = "6e34b625-4abd-537c-b88f-471c36dfa7a0"
 version = "1.0.8+0"
 
-[[CSV]]
-deps = ["CodecZlib", "Dates", "FilePathsBase", "InlineStrings", "Mmap", "Parsers", "PooledArrays", "SentinelArrays", "Tables", "Unicode", "WeakRefStrings"]
-git-tree-sha1 = "9310d9495c1eb2e4fa1955dd478660e2ecab1fbb"
-uuid = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
-version = "0.10.3"
-
 [[Cairo_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
 git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
 
-[[Calculus]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "f641eb0a4f00c343bbc32346e1217b86f3ce9dad"
-uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
-version = "0.5.1"
-
-[[CategoricalArrays]]
-deps = ["DataAPI", "Future", "Missings", "Printf", "Requires", "Statistics", "Unicode"]
-git-tree-sha1 = "5196120341b6dfe3ee5f33cf97392a05d6fe80d0"
-uuid = "324d7699-5711-5eae-9e2f-1d82baa6b597"
-version = "0.10.4"
+[[Chain]]
+git-tree-sha1 = "339237319ef4712e6e5df7758d0bccddf5c237d9"
+uuid = "8be319e6-bccf-4806-a6f7-6fae938471bc"
+version = "0.4.10"
 
 [[ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "c9a6160317d1abe9c44b3beb367fd448117679ca"
+git-tree-sha1 = "9950387274246d08af38f6eef8cb5480862a435f"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.13.0"
+version = "1.14.0"
 
 [[ChangesOfVariables]]
 deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
 git-tree-sha1 = "bf98fa45a0a4cee295de98d4c1462be26345b9a1"
 uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
 version = "0.1.2"
-
-[[CodecZlib]]
-deps = ["TranscodingStreams", "Zlib_jll"]
-git-tree-sha1 = "ded953804d019afa9a3f98981d99b33e3db7b6da"
-uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
-version = "0.7.0"
 
 [[ColorSchemes]]
 deps = ["ColorTypes", "Colors", "FixedPointNumbers", "Random"]
@@ -703,16 +744,6 @@ git-tree-sha1 = "417b0ed7b8b838aa6ca0a87aadf1bb9eb111ce40"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
 version = "0.12.8"
 
-[[Combinatorics]]
-git-tree-sha1 = "08c8b6831dc00bfea825826be0bc8336fc369860"
-uuid = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
-version = "1.0.2"
-
-[[CommonSolve]]
-git-tree-sha1 = "68a0743f578349ada8bc911a5cbd5a2ef6ed6d1f"
-uuid = "38540f10-b2f7-11e9-35d8-d573e4eb0ff2"
-version = "0.2.0"
-
 [[Compat]]
 deps = ["Base64", "Dates", "DelimitedFiles", "Distributed", "InteractiveUtils", "LibGit2", "Libdl", "LinearAlgebra", "Markdown", "Mmap", "Pkg", "Printf", "REPL", "Random", "SHA", "Serialization", "SharedArrays", "Sockets", "SparseArrays", "Statistics", "Test", "UUIDs", "Unicode"]
 git-tree-sha1 = "96b0bc6c52df76506efc8a441c6cf1adcb1babc4"
@@ -723,11 +754,11 @@ version = "3.42.0"
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 
-[[ConstructionBase]]
-deps = ["LinearAlgebra"]
-git-tree-sha1 = "f74e9d5388b8620b4cee35d4c5a618dd4dc547f4"
-uuid = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
-version = "1.3.0"
+[[CompoundPeriods]]
+deps = ["Dates"]
+git-tree-sha1 = "5879c1c39fea46fb9eb5b8c9323f08f9fb5c4de5"
+uuid = "a216cea6-0a8c-5945-ab87-5ade47210022"
+version = "0.5.1"
 
 [[Contour]]
 deps = ["StaticArrays"]
@@ -747,9 +778,15 @@ version = "1.9.0"
 
 [[DataFrames]]
 deps = ["Compat", "DataAPI", "Future", "InvertedIndices", "IteratorInterfaceExtensions", "LinearAlgebra", "Markdown", "Missings", "PooledArrays", "PrettyTables", "Printf", "REPL", "Reexport", "SortingAlgorithms", "Statistics", "TableTraits", "Tables", "Unicode"]
-git-tree-sha1 = "d785f42445b63fc86caa08bb9a9351008be9b765"
+git-tree-sha1 = "ae02104e835f219b8930c7664b8012c93475c340"
 uuid = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-version = "1.2.2"
+version = "1.3.2"
+
+[[DataFramesMeta]]
+deps = ["Chain", "DataFrames", "MacroTools", "OrderedCollections", "Reexport"]
+git-tree-sha1 = "ab4768d2cc6ab000cd0cec78e8e1ea6b03c7c3e2"
+uuid = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
+version = "0.10.0"
 
 [[DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
@@ -762,12 +799,6 @@ git-tree-sha1 = "bfc1187b79289637fa0ef6d4436ebdfe6905cbd6"
 uuid = "e2d170a0-9d28-54be-80f0-106bbe20a464"
 version = "1.0.0"
 
-[[DataValues]]
-deps = ["DataValueInterfaces", "Dates"]
-git-tree-sha1 = "d88a19299eba280a6d062e135a43f00323ae70bf"
-uuid = "e7dc6d0d-1eca-5fa6-8ad6-5aecde8b7ea5"
-version = "0.4.13"
-
 [[Dates]]
 deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -776,21 +807,9 @@ uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 deps = ["Mmap"]
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
-[[DensityInterface]]
-deps = ["InverseFunctions", "Test"]
-git-tree-sha1 = "80c3e8639e3353e5d2912fb3a1916b8455e2494b"
-uuid = "b429d917-457f-4dbc-8f4c-0cc954292b1d"
-version = "0.4.0"
-
 [[Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
-
-[[Distributions]]
-deps = ["ChainRulesCore", "DensityInterface", "FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SparseArrays", "SpecialFunctions", "Statistics", "StatsBase", "StatsFuns", "Test"]
-git-tree-sha1 = "9d3c0c762d4666db9187f363a76b47f7346e673b"
-uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.25.49"
 
 [[DocStringExtensions]]
 deps = ["LibGit2"]
@@ -802,12 +821,6 @@ version = "0.8.6"
 deps = ["ArgTools", "LibCURL", "NetworkOptions"]
 uuid = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
 
-[[DualNumbers]]
-deps = ["Calculus", "NaNMath", "SpecialFunctions"]
-git-tree-sha1 = "90b158083179a6ccbce2c7eb1446d5bf9d7ae571"
-uuid = "fa6b7ba4-c1ee-5f82-b5fc-ecf0adba8f74"
-version = "0.6.7"
-
 [[EarCut_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "3f3a2501fa7236e9b911e0f7a588c657e822bb6d"
@@ -816,9 +829,14 @@ version = "2.2.3+0"
 
 [[Expat_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "ae13fcbc7ab8f16b0856729b050ef0c446aa3492"
+git-tree-sha1 = "bad72f730e9e91c08d9427d5e8db95478a3c323d"
 uuid = "2e619515-83b5-522b-bb60-26c02a35a201"
-version = "2.4.4+0"
+version = "2.4.8+0"
+
+[[ExprTools]]
+git-tree-sha1 = "56559bbef6ca5ea0c0818fa5c90320398a6fbf8d"
+uuid = "e2ba6199-217a-4e67-a87a-7c52f15ade04"
+version = "0.1.8"
 
 [[FFMPEG]]
 deps = ["FFMPEG_jll"]
@@ -831,30 +849,6 @@ deps = ["Artifacts", "Bzip2_jll", "FreeType2_jll", "FriBidi_jll", "JLLWrappers",
 git-tree-sha1 = "d8a578692e3077ac998b50c0217dfd67f21d1e5f"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
 version = "4.4.0+0"
-
-[[FileIO]]
-deps = ["Pkg", "Requires", "UUIDs"]
-git-tree-sha1 = "80ced645013a5dbdc52cf70329399c35ce007fae"
-uuid = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
-version = "1.13.0"
-
-[[FilePaths]]
-deps = ["FilePathsBase", "MacroTools", "Reexport", "Requires"]
-git-tree-sha1 = "919d9412dbf53a2e6fe74af62a73ceed0bce0629"
-uuid = "8fc22ac5-c921-52a6-82fd-178b2807b824"
-version = "0.8.3"
-
-[[FilePathsBase]]
-deps = ["Compat", "Dates", "Mmap", "Printf", "Test", "UUIDs"]
-git-tree-sha1 = "04d13bfa8ef11720c24e4d840c0033d145537df7"
-uuid = "48062228-2e41-5def-b9a4-89aafe57970f"
-version = "0.9.17"
-
-[[FillArrays]]
-deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
-git-tree-sha1 = "0dbc5b9683245f905993b51d2814202d75b34f1a"
-uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
-version = "0.13.1"
 
 [[FixedPointNumbers]]
 deps = ["Statistics"]
@@ -880,12 +874,6 @@ git-tree-sha1 = "87eb71354d8ec1a96d4a7636bd57a7347dde3ef9"
 uuid = "d7e528f0-a631-5988-bf34-fe36492bcfd7"
 version = "2.10.4+0"
 
-[[FreqTables]]
-deps = ["CategoricalArrays", "Missings", "NamedArrays", "Tables"]
-git-tree-sha1 = "488ad2dab30fd2727ee65451f790c81ed454666d"
-uuid = "da1fdf0e-e0ff-5433-a45f-9bb5ff651cb1"
-version = "0.4.5"
-
 [[FriBidi_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "aa31987c2ba8704e23c6c8ba8a4f769d5d7e4f91"
@@ -904,15 +892,15 @@ version = "3.3.6+0"
 
 [[GR]]
 deps = ["Base64", "DelimitedFiles", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Printf", "Random", "RelocatableFolders", "Serialization", "Sockets", "Test", "UUIDs"]
-git-tree-sha1 = "9f836fb62492f4b0f0d3b06f55983f2704ed0883"
+git-tree-sha1 = "af237c08bda486b74318c8070adb96efa6952530"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
-version = "0.64.0"
+version = "0.64.2"
 
 [[GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Pkg", "Qt5Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "a6c850d77ad5118ad3be4bd188919ce97fffac47"
+git-tree-sha1 = "cd6efcf9dc746b06709df14e462f0a3fe0786b1e"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.64.0+0"
+version = "0.64.2+0"
 
 [[GeometryBasics]]
 deps = ["EarCut_jll", "IterTools", "LinearAlgebra", "StaticArrays", "StructArrays", "Tables"]
@@ -955,12 +943,6 @@ git-tree-sha1 = "129acf094d168394e80ee1dc4bc06ec835e510a3"
 uuid = "2e76f6c2-a576-52d4-95c1-20adfe4de566"
 version = "2.8.1+1"
 
-[[HypergeometricFunctions]]
-deps = ["DualNumbers", "LinearAlgebra", "SpecialFunctions", "Test"]
-git-tree-sha1 = "65e4589030ef3c44d3b90bdc5aac462b4bb05567"
-uuid = "34004b35-14d8-5ef3-9330-4cdb6864b03a"
-version = "0.3.8"
-
 [[Hyperscript]]
 deps = ["Test"]
 git-tree-sha1 = "8d511d5b81240fc8e6802386302675bdf47737b9"
@@ -971,12 +953,6 @@ version = "0.0.4"
 git-tree-sha1 = "2b078b5a615c6c0396c77810d92ee8c6f470d238"
 uuid = "ac1192a8-f4b3-4bfe-ba22-af5b92cd3ab2"
 version = "0.9.3"
-
-[[HypothesisTests]]
-deps = ["Combinatorics", "Distributions", "LinearAlgebra", "Random", "Rmath", "Roots", "Statistics", "StatsBase"]
-git-tree-sha1 = "d49e34c0b93e4281391710f70ae648d76c377d35"
-uuid = "09f84164-cd44-5f33-b23f-e6b0d136a0d5"
-version = "0.10.8"
 
 [[IOCapture]]
 deps = ["Logging", "Random"]
@@ -1037,12 +1013,6 @@ git-tree-sha1 = "3c837543ddb02250ef42f4738347454f95079d4e"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 version = "0.21.3"
 
-[[JSONSchema]]
-deps = ["HTTP", "JSON", "URIs"]
-git-tree-sha1 = "2f49f7f86762a0fbbeef84912265a1ae61c4ef80"
-uuid = "7d188eb4-7ad8-530c-ae41-71a32a6d4692"
-version = "0.3.4"
-
 [[JpegTurbo_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "b53380851c6e6664204efb2e62cd24fa5c47e4ba"
@@ -1074,9 +1044,13 @@ version = "1.3.0"
 
 [[Latexify]]
 deps = ["Formatting", "InteractiveUtils", "LaTeXStrings", "MacroTools", "Markdown", "Printf", "Requires"]
-git-tree-sha1 = "4f00cc36fede3c04b8acf9b2e2763decfdcecfa6"
+git-tree-sha1 = "6f14549f7760d84b2db7a9b10b88cd3cc3025730"
 uuid = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
-version = "0.15.13"
+version = "0.15.14"
+
+[[LazyArtifacts]]
+deps = ["Artifacts", "Pkg"]
+uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
 
 [[LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -1149,17 +1123,11 @@ version = "2.36.0+0"
 deps = ["Libdl"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
-[[LinearRegressionKit]]
-deps = ["DataFrames", "Distributions", "FreqTables", "HypothesisTests", "LinearAlgebra", "NamedArrays", "Printf", "Random", "StatsBase", "StatsModels", "VegaLite"]
-git-tree-sha1 = "1550b95049b8b894aaba17b32b669258af6d61d1"
-uuid = "e91d531d-6e51-44a8-96b7-a10d5d51daa3"
-version = "0.7.4"
-
 [[LogExpFunctions]]
 deps = ["ChainRulesCore", "ChangesOfVariables", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "56ad13e26b7093472eba53b418eba15ad830d6b5"
+git-tree-sha1 = "58f25e56b706f95125dcb796f39e1fb01d913a71"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.9"
+version = "0.3.10"
 
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -1198,6 +1166,12 @@ version = "1.0.2"
 [[Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
+[[Mocking]]
+deps = ["Compat", "ExprTools"]
+git-tree-sha1 = "29714d0a7a8083bba8427a4fbfb00a540c681ce7"
+uuid = "78c3b35d-d492-501b-9361-3d52fe80e533"
+version = "0.7.3"
+
 [[MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 
@@ -1206,20 +1180,8 @@ git-tree-sha1 = "737a5957f387b17e74d4ad2f440eb330b39a62c5"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "1.0.0"
 
-[[NamedArrays]]
-deps = ["Combinatorics", "DataStructures", "DelimitedFiles", "InvertedIndices", "LinearAlgebra", "Random", "Requires", "SparseArrays", "Statistics"]
-git-tree-sha1 = "2fd5787125d1a93fbe30961bd841707b8a80d75b"
-uuid = "86f7a689-2022-50b4-a561-43c23ac3c673"
-version = "0.9.6"
-
 [[NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
-
-[[NodeJS]]
-deps = ["Pkg"]
-git-tree-sha1 = "905224bbdd4b555c69bb964514cfa387616f0d3a"
-uuid = "2bd173c7-0d6d-553b-b6af-13a54713934c"
-version = "1.3.0"
 
 [[Ogg_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1227,21 +1189,11 @@ git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
 version = "1.3.5+1"
 
-[[OpenLibm_jll]]
-deps = ["Artifacts", "Libdl"]
-uuid = "05823500-19ac-5b8b-9628-191a04bc5112"
-
 [[OpenSSL_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "648107615c15d4e09f7eca16307bc821c1f718d8"
+git-tree-sha1 = "ab05aa4cc89736e95915b01e7279e61b1bfe33b8"
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
-version = "1.1.13+0"
-
-[[OpenSpecFun_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "13652491f6856acfd2db29360e1bbcd4565d04f1"
-uuid = "efe28fd5-8261-553b-a9e1-b2916fc3738e"
-version = "0.5.5+0"
+version = "1.1.14+0"
 
 [[Opus_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1259,12 +1211,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "b2a7af664e098055a7529ad1a900ded962bca488"
 uuid = "2f80f16e-611a-54ab-bc61-aa92de5b98fc"
 version = "8.44.0+0"
-
-[[PDMats]]
-deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
-git-tree-sha1 = "e8185b83b9fc56eb6456200e873ce598ebc7f262"
-uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
-version = "0.11.7"
 
 [[Parsers]]
 deps = ["Dates"]
@@ -1290,21 +1236,21 @@ version = "2.0.1"
 
 [[PlotUtils]]
 deps = ["ColorSchemes", "Colors", "Dates", "Printf", "Random", "Reexport", "Statistics"]
-git-tree-sha1 = "6f1b25e8ea06279b5689263cc538f51331d7ca17"
+git-tree-sha1 = "bb16469fd5224100e422f0b027d26c5a25de1200"
 uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
-version = "1.1.3"
+version = "1.2.0"
 
 [[Plots]]
 deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "GeometryBasics", "JSON", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
-git-tree-sha1 = "9213b4c18b57b7020ee20f33a4ba49eb7bef85e0"
+git-tree-sha1 = "edec0846433f1c1941032385588fd57380b62b59"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.27.0"
+version = "1.27.4"
 
 [[PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "Markdown", "Random", "Reexport", "UUIDs"]
-git-tree-sha1 = "bf0a1121af131d9974241ba53f601211e9303a9e"
+git-tree-sha1 = "670e559e5c8e191ded66fa9ea89c97f10376bb4c"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.37"
+version = "0.7.38"
 
 [[PooledArrays]]
 deps = ["DataAPI", "Future"]
@@ -1334,12 +1280,6 @@ git-tree-sha1 = "c6c0f690d0cc7caddb74cef7aa847b824a16b256"
 uuid = "ea2cea3b-5b76-57ae-a6ef-0a8af62496e1"
 version = "5.15.3+1"
 
-[[QuadGK]]
-deps = ["DataStructures", "LinearAlgebra"]
-git-tree-sha1 = "78aadffb3efd2155af139781b8a8df1ef279ea39"
-uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
-version = "2.4.2"
-
 [[REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
@@ -1355,9 +1295,9 @@ version = "1.2.1"
 
 [[RecipesPipeline]]
 deps = ["Dates", "NaNMath", "PlotUtils", "RecipesBase"]
-git-tree-sha1 = "995a812c6f7edea7527bb570f0ac39d0fb15663c"
+git-tree-sha1 = "dc1e451e15d90347a7decc4221842a022b011714"
 uuid = "01d81517-befc-4cb6-b9ec-a95719d0359c"
-version = "0.5.1"
+version = "0.5.2"
 
 [[Reexport]]
 git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
@@ -1376,24 +1316,6 @@ git-tree-sha1 = "838a3a4188e2ded87a4f9f184b4b0d78a1e91cb7"
 uuid = "ae029012-a4dd-5104-9daa-d747884805df"
 version = "1.3.0"
 
-[[Rmath]]
-deps = ["Random", "Rmath_jll"]
-git-tree-sha1 = "bf3188feca147ce108c76ad82c2792c57abe7b1f"
-uuid = "79098fc4-a85e-5d69-aa6a-4863f24498fa"
-version = "0.7.0"
-
-[[Rmath_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "68db32dff12bb6127bac73c209881191bf0efbb7"
-uuid = "f50d1b31-88e8-58de-be2c-1cc44531875f"
-version = "0.3.0+0"
-
-[[Roots]]
-deps = ["CommonSolve", "Printf", "Setfield"]
-git-tree-sha1 = "554149b8b82e167c1fa79df99aeabed4f8404119"
-uuid = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
-version = "1.3.15"
-
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
 
@@ -1403,29 +1325,12 @@ git-tree-sha1 = "0b4b7f1393cff97c33891da2a0bf69c6ed241fda"
 uuid = "6c6a2e73-6563-6170-7368-637461726353"
 version = "1.1.0"
 
-[[SentinelArrays]]
-deps = ["Dates", "Random"]
-git-tree-sha1 = "6a2f7d70512d205ca8c7ee31bfa9f142fe74310c"
-uuid = "91c51154-3ec4-41a3-a24f-3f23e20d615c"
-version = "1.3.12"
-
 [[Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
-
-[[Setfield]]
-deps = ["ConstructionBase", "Future", "MacroTools", "Requires"]
-git-tree-sha1 = "fca29e68c5062722b5b4435594c3d1ba557072a3"
-uuid = "efcf1570-3423-57d1-acb7-fd33fddbac46"
-version = "0.7.1"
 
 [[SharedArrays]]
 deps = ["Distributed", "Mmap", "Random", "Serialization"]
 uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
-
-[[ShiftedArrays]]
-git-tree-sha1 = "22395afdcf37d6709a5a0766cc4a5ca52cb85ea0"
-uuid = "1277b4bf-5013-50f5-be3d-901d8477a67a"
-version = "1.0.0"
 
 [[Showoff]]
 deps = ["Dates", "Grisu"]
@@ -1446,17 +1351,11 @@ version = "1.0.1"
 deps = ["LinearAlgebra", "Random"]
 uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
-[[SpecialFunctions]]
-deps = ["ChainRulesCore", "IrrationalConstants", "LogExpFunctions", "OpenLibm_jll", "OpenSpecFun_jll"]
-git-tree-sha1 = "5ba658aeecaaf96923dce0da9e703bd1fe7666f9"
-uuid = "276daf66-3868-5448-9aa4-cd146d93841b"
-version = "2.1.4"
-
 [[StaticArrays]]
 deps = ["LinearAlgebra", "Random", "Statistics"]
-git-tree-sha1 = "74fb527333e72ada2dd9ef77d98e4991fb185f04"
+git-tree-sha1 = "4f6ec5d99a28e1a749559ef7dd518663c5eca3d5"
 uuid = "90137ffa-7385-5640-81b9-e52037218182"
-version = "1.4.1"
+version = "1.4.3"
 
 [[Statistics]]
 deps = ["LinearAlgebra", "SparseArrays"]
@@ -1474,27 +1373,11 @@ git-tree-sha1 = "8977b17906b0a1cc74ab2e3a05faa16cf08a8291"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.33.16"
 
-[[StatsFuns]]
-deps = ["ChainRulesCore", "HypergeometricFunctions", "InverseFunctions", "IrrationalConstants", "LogExpFunctions", "Reexport", "Rmath", "SpecialFunctions"]
-git-tree-sha1 = "25405d7016a47cf2bd6cd91e66f4de437fd54a07"
-uuid = "4c63d2b9-4356-54db-8cca-17b64c39e42c"
-version = "0.9.16"
-
-[[StatsModels]]
-deps = ["DataAPI", "DataStructures", "LinearAlgebra", "Printf", "REPL", "ShiftedArrays", "SparseArrays", "StatsBase", "StatsFuns", "Tables"]
-git-tree-sha1 = "03c99c7ef267c8526953cafe3c4239656693b8ab"
-uuid = "3eaba693-59b7-5ba5-a881-562e759f1c8d"
-version = "0.6.29"
-
 [[StructArrays]]
 deps = ["Adapt", "DataAPI", "StaticArrays", "Tables"]
 git-tree-sha1 = "57617b34fa34f91d536eb265df67c2d4519b8b98"
 uuid = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 version = "0.6.5"
-
-[[SuiteSparse]]
-deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
-uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[TOML]]
 deps = ["Dates"]
@@ -1505,12 +1388,6 @@ deps = ["IteratorInterfaceExtensions"]
 git-tree-sha1 = "c06b2f539df1c6efa794486abfb6ed2022561a39"
 uuid = "3783bdb8-4a98-5b6b-af9a-565f29a5fe9c"
 version = "1.0.1"
-
-[[TableTraitsUtils]]
-deps = ["DataValues", "IteratorInterfaceExtensions", "Missings", "TableTraits"]
-git-tree-sha1 = "78fecfe140d7abb480b53a44f3f85b6aa373c293"
-uuid = "382cd787-c1b6-5bf2-a167-d5b971a19bda"
-version = "1.0.2"
 
 [[Tables]]
 deps = ["DataAPI", "DataValueInterfaces", "IteratorInterfaceExtensions", "LinearAlgebra", "OrderedCollections", "TableTraits", "Test"]
@@ -1526,17 +1403,17 @@ uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
-[[TranscodingStreams]]
-deps = ["Random", "Test"]
-git-tree-sha1 = "216b95ea110b5972db65aa90f88d8d89dcb8851c"
-uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
-version = "0.9.6"
+[[TimeZones]]
+deps = ["Dates", "Downloads", "InlineStrings", "LazyArtifacts", "Mocking", "Printf", "RecipesBase", "Serialization", "Unicode"]
+git-tree-sha1 = "2d4b6de8676b34525ac518de36006dc2e89c7e2e"
+uuid = "f269a46b-ccf7-5d73-abea-4c690281aa53"
+version = "1.7.2"
 
-[[URIParser]]
-deps = ["Unicode"]
-git-tree-sha1 = "53a9f49546b8d2dd2e688d216421d050c9a31d0d"
-uuid = "30578b45-9adc-5946-b283-645ec420af67"
-version = "0.4.1"
+[[TimesDates]]
+deps = ["CompoundPeriods", "Dates", "TimeZones"]
+git-tree-sha1 = "4ca99fd8145f6ae574b6f98e1233148e7b91ac30"
+uuid = "bdfc003b-8df8-5c39-adcd-3a9087f5df4a"
+version = "0.3.1"
 
 [[URIs]]
 git-tree-sha1 = "97bbe755a53fe859669cd907f2d96aee8d2c1355"
@@ -1561,18 +1438,6 @@ git-tree-sha1 = "34db80951901073501137bdbc3d5a8e7bbd06670"
 uuid = "41fe7b60-77ed-43a1-b4f0-825fd5a5650d"
 version = "0.1.2"
 
-[[Vega]]
-deps = ["DataStructures", "DataValues", "Dates", "FileIO", "FilePaths", "IteratorInterfaceExtensions", "JSON", "JSONSchema", "MacroTools", "NodeJS", "Pkg", "REPL", "Random", "Setfield", "TableTraits", "TableTraitsUtils", "URIParser"]
-git-tree-sha1 = "43f83d3119a868874d18da6bca0f4b5b6aae53f7"
-uuid = "239c3e63-733f-47ad-beb7-a12fde22c578"
-version = "2.3.0"
-
-[[VegaLite]]
-deps = ["Base64", "DataStructures", "DataValues", "Dates", "FileIO", "FilePaths", "IteratorInterfaceExtensions", "JSON", "MacroTools", "NodeJS", "Pkg", "REPL", "Random", "TableTraits", "TableTraitsUtils", "URIParser", "Vega"]
-git-tree-sha1 = "3e23f28af36da21bfb4acef08b144f92ad205660"
-uuid = "112f6efa-9a02-5b7d-90c0-432ed331239a"
-version = "2.6.0"
-
 [[Wayland_jll]]
 deps = ["Artifacts", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
 git-tree-sha1 = "3e61f0b86f90dacb0bc0e73a0c5a83f6a8636e23"
@@ -1584,12 +1449,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "4528479aa01ee1b3b4cd0e6faef0e04cf16466da"
 uuid = "2381bf8a-dfd0-557d-9999-79630e7b1b91"
 version = "1.25.0+0"
-
-[[WeakRefStrings]]
-deps = ["DataAPI", "InlineStrings", "Parsers"]
-git-tree-sha1 = "b1be2855ed9ed8eac54e5caff2afcdb442d52c23"
-uuid = "ea10d353-3f73-51f8-a26c-33c1cb351aa5"
-version = "1.4.2"
 
 [[XML2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "Zlib_jll"]
@@ -1791,45 +1650,69 @@ version = "0.9.1+5"
 """
 
 # ╔═╡ Cell order:
-# ╠═8b90477d-5887-49bd-bcf3-d2d7276885af
-# ╟─3820a86d-fefa-43ca-a308-40d9ff2b3599
-# ╟─72cce814-aa8f-4ac8-98c1-f556ce43ed6d
-# ╟─960b2ed0-2394-11ec-17c0-5bdaeef72b5d
-# ╟─e7029f0e-832a-4b62-a4f4-09002dbd7159
-# ╟─ba9c36aa-e791-4411-85f6-5c230d19b017
-# ╟─833249db-8526-4fa1-b136-c48850d7e37f
-# ╠═c67dda3c-8044-436e-b668-e5c7c8feddaf
-# ╟─4efcb4b6-9000-4db6-b951-37c9c9c9676d
-# ╠═3d51f5f0-752d-407e-80e3-7e44849dd76b
-# ╟─a2946345-b457-4e02-a3eb-7646a7083058
-# ╠═c02ae1b0-ba3f-4c94-83d8-425af6cf8ed9
-# ╟─c8c2e3c2-d2dc-448e-9d32-8ba29697a1f3
-# ╠═0580541d-29f0-4731-9ea9-f36494f70516
-# ╟─561f5088-7a2a-47f4-bfbf-6977ae6a27a5
-# ╠═fb093381-1109-450b-898e-1a0f87bd54d4
-# ╟─5595417a-6333-4acd-b14b-27865d4f8736
-# ╟─a9e20df4-96aa-4798-a5ef-204671de44af
-# ╟─2732613f-2546-4fb4-93ee-1805a43e7521
-# ╟─9280b21d-d44e-49e5-a0c0-f31dbf90f51a
-# ╟─59e2e16a-d5ee-4fb0-ae02-94c05b07b306
-# ╠═8ee5dcd0-0ae6-4d7e-9270-38f36c9260d4
-# ╟─658f89c1-5452-491d-bed4-e0b189c7f457
-# ╟─9e7b7ef3-856d-4fca-907b-845666463e42
-# ╟─ba46a9a7-b469-401f-a3b4-10ab4a6f47cb
-# ╠═6024747f-e21a-40d7-8cd1-1681ca12718e
-# ╟─1424b025-89be-4adc-9c0f-38abca54bb2a
-# ╟─c42c62c4-db4d-44c3-81a6-0573f8d03258
-# ╟─6fd86104-021a-4ec7-acdb-4ac4c771f03e
-# ╠═40109f1e-f391-485e-80d1-5b60bd1ede63
-# ╟─0f0a5bcf-f0ca-4cd8-9722-ce8282780a3a
-# ╟─5f3ab6a9-d093-4fcc-9370-79bc76a94b0c
-# ╟─d86594f9-b563-42d9-812c-7dc663b9b8c3
-# ╟─4a60f8df-a871-4f96-9c1c-499a36310985
-# ╠═653d8f23-3a60-4778-897d-c092106ce20d
-# ╠═28c593e8-0ce6-4db6-a8bb-f64ec8307391
-# ╟─49a66213-b8b7-4789-b967-7bdfb859de9d
-# ╠═b22fb358-658a-44be-a99b-b5301c2dcadf
-# ╟─e79edd61-e5ea-4da2-a28a-483d13e6da71
-# ╠═925fd389-4d7d-4fdd-b84c-c81c7f6408e4
+# ╟─6199926c-0c4a-4991-b4c3-ebed35217375
+# ╟─b0b9984b-45f5-49a2-a5ce-86281745d623
+# ╟─886b6ade-b8df-494c-be5f-13aae328b848
+# ╟─26a704bf-6b13-45f2-9211-023fbf2e3cb6
+# ╟─1897543d-5c47-41ee-9f13-a099df5d9ed1
+# ╟─89d72808-d09e-421a-ae7b-5491e8fae0ee
+# ╟─dff6f3d9-f4fc-4964-a075-c1c11a953667
+# ╟─931659d2-cae1-43d3-87d9-b67edb7c16d0
+# ╟─c8cba87a-6ead-4f6a-b29b-bc3bcc3e75f0
+# ╟─50fb3be3-1674-47a3-9102-0c6fb24241de
+# ╟─81f0904b-3da6-4981-971b-b5e11e301eaa
+# ╠═6c003a32-ddb4-462b-bc73-3bbf633f184f
+# ╠═34545087-b68d-4271-9771-4686b770c619
+# ╟─4a235440-1810-4b18-85f9-377f9f5f6876
+# ╟─80b29628-2214-49ab-8eb7-31e99677fb1b
+# ╠═8560c709-61bd-4d7b-a7cd-78c9861b54cc
+# ╟─96ec6830-4c58-48b5-8538-236dc2a3c599
+# ╟─022c457f-83c1-4059-8730-6f788b1ec479
+# ╟─1dadf403-6dff-48d7-bb24-eae5c1147d7d
+# ╟─0fbd9fc7-2e7b-4559-a34b-17528e507ebe
+# ╟─a099bcf5-76df-468b-82df-cf29a914be9c
+# ╟─6978ce4e-0880-4d37-b894-caa63c5ff91f
+# ╠═bb9d0cfe-7f25-464e-bcd6-09d732c36eac
+# ╟─e861bcff-9e3f-453a-989f-1fbd342bccf8
+# ╠═3a4c94b5-6fd3-4253-839b-e898ab9025be
+# ╟─3bf77a4e-5019-4ad6-9e05-60d2dff701e6
+# ╠═435f564e-c550-4a54-bb7d-86ed3d3017bc
+# ╟─04c1af80-11cd-4a97-8d8c-5e35fd233d24
+# ╟─77339769-19c5-4299-bacc-72719804b1e5
+# ╠═e398ea5c-575e-4aa5-ad3b-2dd3cc0c1164
+# ╟─b16c32a6-cf18-4854-bd7d-020e324b4ff1
+# ╟─b9229901-5355-4479-836f-90310ce17a28
+# ╟─8c47c245-27e3-4e9b-88bf-10a9b807c451
+# ╟─8f7c8ce2-ce16-45fa-8244-3422b1abd03b
+# ╠═03fcdb25-0b2d-4022-8945-f7a66df81419
+# ╟─3760c655-d8a9-4893-a17a-0978ee1a4f40
+# ╠═a345db06-db99-4262-9b18-b4f4ce229515
+# ╟─b861419a-6e7a-4708-91d1-f160015241c5
+# ╟─612c2a18-5038-4b79-b768-fa93ad073cac
+# ╟─17fc303a-0b4a-4c03-9f6e-c8919e993557
+# ╠═f9a3339a-4858-4fde-9967-427ea6fc933c
+# ╟─ddbf5a8f-083c-4796-9f92-150e050d963d
+# ╠═837cf9b4-92ba-4539-802d-e3e37e83182d
+# ╠═7242e288-5eb3-42ab-8a7b-9b7cfdaa361e
+# ╟─9fba2de3-878b-4bcc-95b0-66aa868b925e
+# ╠═16689d26-739c-4581-b210-01998ace0d06
+# ╠═6f145c34-a0e9-47ec-99ac-f7cf0d11b4d2
+# ╟─191ddc32-d1f1-44c0-a1d8-2db523997791
+# ╠═0cb113ad-75f0-433d-85f2-e242a18e24fd
+# ╠═5ef1d64f-7854-4dd5-aa4b-d34c2aafdb89
+# ╟─581546d5-3e82-4a73-8b3a-b7cc4cd3633d
+# ╟─e589c45b-4e77-4630-8cf4-88c7cf666dc1
+# ╟─b814e8cd-31a7-4d9a-8c61-6f757141fc51
+# ╠═0dcbae87-d41a-4926-ac88-462b1c6fb1f4
+# ╟─fbe5916a-5788-44a1-b822-233dec173825
+# ╟─05838fce-a50e-4b0a-bde1-42bbdfa9daea
+# ╟─28244c87-0ad7-4717-af40-b01bf632e3db
+# ╠═7bff09b3-a8eb-4c96-adc1-be5a89b6babb
+# ╠═078763d8-8263-41fe-a5da-4e825357148c
+# ╟─677a8ed3-eb0f-4d08-9379-41df5c9a0bd5
+# ╠═8296b9a4-38bf-4381-b10f-9c32cf8b540e
+# ╠═ba17bd98-556c-4033-b8f9-3978f8aedd9e
+# ╠═f988520b-a61e-44ac-8b59-8840ca035389
+# ╟─77de41e2-4433-44dc-87c5-255b905edd29
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

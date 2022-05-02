@@ -6,6 +6,6 @@
 Topic | Slides
 :-----: | :--------:
 Efficient Markets    | [notebook](../lecture13_noSol_pluto)
-| [Partial Solution](../notebooks/lecture_13/lecture_13_wSol_partial_html.html)
+        | [Solution](../notebooks/lecture_13/lecture_13_wSol_html.html)
 <!--  -->
 

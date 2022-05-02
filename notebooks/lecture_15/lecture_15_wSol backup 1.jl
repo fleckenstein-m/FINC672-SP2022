@@ -4,16 +4,13 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 8b90477d-5887-49bd-bcf3-d2d7276885af
+# ╔═╡ 6199926c-0c4a-4991-b4c3-ebed35217375
+using CSV, DataFrames, Dates, Distributions, Plots, LaTeXStrings, LinearAlgebra, LinearRegressionKit, PlutoUI, Printf,  StatsBase, Statistics, StatsModels
+
+# ╔═╡ b0b9984b-45f5-49a2-a5ce-86281745d623
 begin
-using CSV, DataFrames, Dates, Plots, LaTeXStrings, LinearAlgebra, LinearRegressionKit, PlutoUI, Printf,  StatsBase, Statistics, StatsModels
+
 	
-	gr(size=(480,320))
-end
-
-# ╔═╡ 3820a86d-fefa-43ca-a308-40d9ff2b3599
-begin
-
 		
 	# The following code is by Paul Soederlind
 	# https://sites.google.com/site/paulsoderlindecon/home
@@ -272,316 +269,348 @@ begin
 	
 end
 
-# ╔═╡ 72cce814-aa8f-4ac8-98c1-f556ce43ed6d
+# ╔═╡ 9bb08ec0-23a8-11ec-3adf-9778fbfc2d3c
+md"""
+## FINC 672: Risk Measures
+
+In this notebook, we look at Value at Risk (VaR) and test it on real data. We also estimate a model for time-varying risk which we incorporate into the VaR calculations.
+"""
+
+# ╔═╡ 4f0291c6-9708-4b50-89e7-c9a7117d2aa3
 TableOfContents( indent=true, depth=1, aside=true)
 
-# ╔═╡ 960b2ed0-2394-11ec-17c0-5bdaeef72b5d
+# ╔═╡ db73f9e4-28a7-4084-af26-d50a4896159e
 md"""
-# FINC 672: Performance Evaluation
+## Value at Risk (VaR) for a N(μ,σ²) Return
+- The VaR is defined as
 
-- In this notebook, we summarize conventional performance measures for an investment fund. 
-- Then, we perform a "style analysis" to find out how a fund has changed its portfolio weights over time.
+$\textrm{VaR}_{95\%} = - (5^{th} \textrm{percentile of the return distribution})$
 
+- With a $N(\mu,\sigma^2)$ distribution this gives
+
+$\textrm{VaR}_{95\%} = - (\mu-1.64\sigma)$
 """
 
-# ╔═╡ e7029f0e-832a-4b62-a4f4-09002dbd7159
+# ╔═╡ 6c6ffdba-6330-40da-9d5c-7466bfdaffe4
 md"""
-We are going to use the following dataset in the performance analysis.
-1. S&P 500
-2. S&P MidCap 400
-3. S&P Small Cap 600
-4. World Developed - Ex. U.S.
-5. Emerging Markets
-6. US Corporate Bonds
-7. U.S. Treasury Bills	
-8. US Treasury	Bonds/Notes
-9. Putnam Asset Allocation: Growth A
-10. Vanguard Wellington Mutual Fund
-
-This dataset is provided to you in the file `lecture_14_PerfEval.csv` (available on Canvas).
+- **_Note:_** The [Distributions.jl](https://juliastats.org/Distributions.jl/latest/) package defines a normal distribution as `Normal(μ,σ)`. Notice that it uses the standard deviation, not the variance. 
+- For instance, to calculate the 5th quantile, use `quantile(Normal(μ,σ),0.05)` and to calculate the pdf value at each element of a vector `x`, use `pdf.(Normal(μ,σ),x)`.
 """
 
-# ╔═╡ ba9c36aa-e791-4411-85f6-5c230d19b017
+# ╔═╡ 49e65c75-ef1e-494e-9278-6d1550f2a78d
+let
+	μ = 8
+	σ = 16
+
+	q05   = μ - 1.64*σ 
+	VaR95 = -(μ - 1.64*σ)
+
+	with_terminal() do
+		printred("with μ=$μ and σ=$σ, we have approximately:\n")
+		printmat([q05,VaR95],rowNames=["5th quantile","VaR 95%"])
+	end
+end
+
+# ╔═╡ 5383e1b6-eb9a-4461-a2e1-32bc45a86190
+let
+	μ = 8
+	σ = 16
+	
+	q05b = quantile(Normal(μ,σ),0.05)    #exact calculation of the the 5th quantile, notice: σ
+	with_terminal() do
+		printlnPs("We get an exact result by using the quantile() function: ",q05b)
+	end
+end
+
+# ╔═╡ c1a614eb-c144-4123-8945-20a84dfb9cf8
 md"""
-## The Idea behind Performance Evaluation
-
-- Traditional performance analysis tries to answer the following question: “should we include an asset in our portfolio, assuming that future returns will have the same distribution as in a historical sample.” 
-
-- Since returns are random variables (although with different means, variances, etc.) and investors are risk averse, this means that performance analysis will typically not rank the fund with the highest return (in a historical sample) first.
-
-- Although that high return certainly was good for the old investors, it is more interesting to understand what kind of distribution of future returns this investment strategy might entail. In short, the high return will be compared with the risk of the strategy.
-
-- Most performance measures are based on mean-variance (MV) analysis, but the full MV portfolio choice problem is not solved. Instead, the performance measures can be seen as different approximations of the MV problem, where the issue is whether we should invest in fund `p` or in fund `q`. (We don’t allow a mix of them.) 
-
-- There are several popular performance measures, corresponding to different situations: is this an investment of your entire wealth, or just a small increment? 
-  - However, all these measures are (increasing) functions of Jensen’s alpha, the intercept in the CAPM regression.
-
-
+Let's show this visually.
 """
 
-# ╔═╡ 833249db-8526-4fa1-b136-c48850d7e37f
+# ╔═╡ 2ab67785-c6f0-4c1d-90ef-9823a5eebbec
+begin
+	μ = 8
+	σ = 16
+	q05   = μ - 1.64*σ 
+	VaR95 = -(μ - 1.64*σ)
+	
+	R    = range(-60,60,length=301)
+	pdfR = pdf.(Normal(μ,σ),R)
+	Rb   = R[R .<= -VaR95]             #or filter(<=(-VaR95),R)
+
+	p1 = plot( R,pdfR,
+			   linecolor = :red,
+			   linewidth = 2,
+			   label = "pdf of N($μ,$(σ^2))",
+			   title = "Pdf and VaR",
+			   xlabel = "return, %" )
+	plot!(Rb,pdf.(Normal(μ,σ),Rb),fillcolor=:red,linewidth=2,fill=(0,:blue),label="")
+	vline!([-VaR95],linecolor=:blue,label="-VaR (95%)")
+	
+end
+
+# ╔═╡ 2eac31a7-0d7e-4f44-9782-2e933fd9e6bd
 md"""
-## Data
+Next, let's calculate VaR on S&P 500 Data
 """
 
-# ╔═╡ c67dda3c-8044-436e-b668-e5c7c8feddaf
-PerfDat = CSV.File("lecture_14_PerfEval.csv") |> DataFrame
+# ╔═╡ 30e38e0f-2be8-45ca-9d04-1a3e17ed7d46
+md"""
+# S&P 500 Data
+"""
 
-# ╔═╡ 4efcb4b6-9000-4db6-b951-37c9c9c9676d
+# ╔═╡ fec6d3fe-aba3-4b76-9ac4-414962b236ac
+begin
+	SP  = CSV.File("lecture_15_SP500RfPs.csv",dateformat="dd/mm/yyyy") |> DataFrame
+	select!(SP, :Column1 => :Date, Not(:Column1))
+end
+
+# ╔═╡ 5e163ceb-6d66-4aac-a496-47c1c89aaa94
 md"""
 - Let's get some information on the dataset.
 """
 
-# ╔═╡ 3d51f5f0-752d-407e-80e3-7e44849dd76b
-describe(PerfDat, :eltype, :mean, :std, :min, :median, :max, ( x-> length(collect(skipmissing(x))) )=>:nobs, :nmissing )
+# ╔═╡ 09895094-e8ff-4fb2-8881-df3cd7849d13
+describe(SP, :eltype, :mean, :std, :min, :median, :max, (x->length(collect(skipmissing(x)))) =>:nobs, :nmissing)
 
-# ╔═╡ a2946345-b457-4e02-a3eb-7646a7083058
+# ╔═╡ 65e84f8b-36bf-4de3-a010-87a70a30430b
 md"""
 - Let's take a look at the first six rows.
 """
 
-# ╔═╡ c02ae1b0-ba3f-4c94-83d8-425af6cf8ed9
-first(PerfDat,6)
+# ╔═╡ 07622699-64b2-4c6f-b512-faa986cebc71
+first(SP,6)
 
-# ╔═╡ c8c2e3c2-d2dc-448e-9d32-8ba29697a1f3
-md"""
-- Let's take a look at the last six rows.
-"""
-
-# ╔═╡ 0580541d-29f0-4731-9ea9-f36494f70516
-last(PerfDat,6)
-
-# ╔═╡ 561f5088-7a2a-47f4-bfbf-6977ae6a27a5
-md"""
-- Let's work with matrices going forward.
-"""
-
-# ╔═╡ fb093381-1109-450b-898e-1a0f87bd54d4
+# ╔═╡ fc916453-5060-4c27-80f3-e6fc180ba1dd
 begin
-	x = Matrix(PerfDat)
+	x    = Matrix(SP)
+	SP500 = x[:,2]                               #S&P 500 level
+	Rsp  = (SP500[2:end]./SP500[1:end-1] .- 1) * 100  #returns, % 
+	Tsp  = length(Rsp)
 
-	IndNames = names(PerfDat)[2:9]
-	FundNames = names(PerfDat)[10:11]
-
-	dN = PerfDat[:,1]
-
-	(Rb, RFunds, Rf) = ( convert.(Float64, x[:,2:9]), convert.(Float64, x[:,10:11]),
-				convert.(Float64,x[:,12]))
-	
-	display("")
-	
-end
-
-# ╔═╡ 5595417a-6333-4acd-b14b-27865d4f8736
-md"""
-# Sharpe Ratio and M2
-"""
-
-# ╔═╡ a9e20df4-96aa-4798-a5ef-204671de44af
-md"""
-- Suppose we want to know if fund `p` is better than fund `q` to place all our savings in. (We don’t allow a mix of them.) 
-- The answer is that `p` is better if it has a higher Sharpe ratio—defined as
-
-$$SR_p = \mu_{p}^{e}/\sigma_p$$
-
- - where $\mu_{p}^{e}$ is the excess return of fund `p` and $/\sigma_p$ is fund `p`s standard deviation of returns.
-
-"""
-
-# ╔═╡ 2732613f-2546-4fb4-93ee-1805a43e7521
-md"""
-
-- The reason is that MV behaviour (MV preferences or normally distributed returns) implies that we should maximize the Sharpe ratio (selecting the tangency portfolio). 
-
-- Intuitively, for a given volatility, we then get the highest expected return.
-
-- A version of the Sharpe ratio, called $M^2$ is
-
-$$M_p^2 = \mu_{p^{\star}}^e - \mu_{m}^e $$
-
-where $\mu_{p^{\star}}^e$ is the expected return on a mix of portfolio $p$ and the riskfree asset such that the volatility is the same as for the market return.
-
-$$R_{p^{\star}} = a R_p + (1-a) R_f$$
-
-with $a=\sigma_m/\sigma_p.$
-
-- This gives the mean and standard deviation of portfolio $p^{\star}$
-
-$$\mu_{p^{\star}}^e = a \mu_{p}^e = \mu_{p}^e \sigma_m \ \sigma_p$$
-
-$$\sigma_{p^{\star}} = a \sigma_p= \sigma_m$$
-
-- Thus, $R_p$ indeed has the same volatility as the market.
-
-"""
-
-# ╔═╡ 9280b21d-d44e-49e5-a0c0-f31dbf90f51a
-md""" 
--  $M^2$ has the advantage of being easily interpreted because it is just a comparison of two returns. It shows how much better (or worse) this asset is compared to the capital market line (which is the location of efficient portfolios provided the market is MV efficient). """
-
-# ╔═╡ 59e2e16a-d5ee-4fb0-ae02-94c05b07b306
-md"""
-Let's now calculate $SR$ and $M^2$ empirically using our data.
-"""
-
-# ╔═╡ 8ee5dcd0-0ae6-4d7e-9270-38f36c9260d4
-begin
-
-	Re = RFunds .- Rf   #excess return of the two funds
-	Rme = Rb[:,1] .- Rf #excess return of the market (S&P)
-
-	μᵉp = mean(Re, dims=1)
-	σp  = std(Re, dims=1)
-
-	μᵉm = mean(Rme)
-	σm  = std(Rme)
-
-	SRp = (μᵉp./σp) * sqrt(52)
-	SRm = (μᵉm./σm) * sqrt(52)
-
-	M2p = (SRp.-SRm)*σm*sqrt(52)*100
-	M2m = 0
-
-	xut = hcat( [μᵉm; μᵉp']*52*100, [SRm; SRp'], [M2m; M2p'] )
+	dN = SP[:,1]    #Date
 
 	with_terminal() do
-		printmat(xut, colNames=["ERe","SR","M2"], rowNames=["Market"; FundNames])
+		println("Days in the sample: $Tsp")
+	end
+end
+
+# ╔═╡ 5a544306-554b-4475-9cdb-70bcfc27281b
+md"""
+# Backtesting a Static VaR
+
+- To backtest a VaR model, we look at the relative frequency of `Loss > VaR`.
+- We implement this for different confidence levels (0.95,0.96,...) of the VaR. 
+  - For instance at the 0.95 confidence levels we 
+    1. calculate the VaR as the (negative of the) 0.05 quantile of a normal distribution (with mean and std estimated from the sample).
+    2. count the relative frequency of the loss > VaR (it should be 0.05).
+"""
+
+# ╔═╡ bb247560-ee1a-45dc-83ec-5f7aba98b9a7
+begin
+	
+	μ_emp = mean(Rsp)                     #mean and std of data
+	σ_emp = std(Rsp)
+
+	confLev = 0.95:0.005:0.995          #different confidence levels
+	L       = length(confLev)
+	Loss    = -Rsp
+
+	(VaR,BreakFreq) = (fill(NaN,L),fill(NaN,L))
+	for i = 1:L                 #loop over confidence levels
+		VaR[i]       = -quantile(Normal(μ_emp,σ_emp),1-confLev[i])
+		BreakFreq[i] = mean(Loss .> VaR[i]) #freq of breaking the VaR
+	end
+
+	with_terminal() do
+		printred("Backtesting a static VaR:\n")
+		colNames = ["conf level","N()-based VaR","break freq"]
+		printmat([confLev VaR BreakFreq],colNames=colNames,width=18)
+		printred("The break frequency should be 1-confidence level")
 	end
 	
 end
 
-# ╔═╡ 658f89c1-5452-491d-bed4-e0b189c7f457
+# ╔═╡ ba277ee2-2b09-4023-9eac-bed5ab300f8e
 md"""
-# Appraisal Ratio
+- Next, we estimate the relative frequency of `Loss > VaR` over a moving data window (but keeping the confidence level fixed at 0.95).
+- This allows us to investigate if there are long periods of failures of the VaR calculations.
 """
 
-# ╔═╡ 9e7b7ef3-856d-4fca-907b-845666463e42
-md"""
-- If the question is “should we add fund `p` or fund `q` to our holding of the market portfolio?,” then the appraisal ratio can be used to provide an answer. 
-
-- The appraisal ratio of fund `p` is
-
-$$AR_p = \alpha_p / Std(\epsilon_{pt}$$
-
-where $\alpha_p$ is the intercept and $Std(\epsilon_{pt})$ is the volatility of the residual of a CAPM regression. (The residual is often called the tracking error.) 
-
-- A higher appraisal ratio is better. The intuition is as follows. 
- - If you think of $b_p R_{mt}^e$, as the benchmark return, then $AR_p$ is the average extra return per unit of extra volatility (standard deviation). 
- - For instance, a ratio of 1.7 could be interpreted as a 1.7 USD profit per each dollar at risk.
-
-"""
-
-# ╔═╡ ba46a9a7-b469-401f-a3b4-10ab4a6f47cb
-md"""
-Let's calculate the Appraisal Ratios in our data.
-"""
-
-# ╔═╡ 6024747f-e21a-40d7-8cd1-1681ca12718e
+# ╔═╡ 35817de0-78fc-4ed7-9394-ca69dc5dd818
 begin
+	VaR95_emp = -(μ_emp - 1.64*σ_emp)
 
+	BreakFreqT = fill(NaN,Tsp)   #vector, freq(Loss>VaR) on moving data window
 	
+	for t = 101:Tsp
+		BreakFreqT[t] = mean(Loss[t-100:t] .> VaR95_emp)
+	end
+
+	xTicksLoc = [Date(1980);Date(1990);Date(2000);Date(2010)]
+	xTicksLab = Dates.format.(xTicksLoc,"Y")
+
+	p2 = plot( dN,BreakFreqT*100,
+			   linecolor = :blue,
+			   ylim = (-1,35),
+			   legend = false,
+			   xticks = (xTicksLoc,xTicksLab),
+			   title = "Frequency of Loss > static VaR 95%",
+			   ylabel = "%",
+			   annotation = (Date(1980),32,text("over the last 100 days",8,:left)) )
+	hline!([5],linecolor=:black,line=(:dash,1))
 end
 
-# ╔═╡ 1424b025-89be-4adc-9c0f-38abca54bb2a
+# ╔═╡ ac73ae5d-2096-43db-9c3f-dfdca691bfec
 md"""
-# Treynor's Ratio and T2
+# Dynamic VaR with Time-Varying Volatility
 """
 
-# ╔═╡ c42c62c4-db4d-44c3-81a6-0573f8d03258
+# ╔═╡ 7e692ae2-aaa7-457a-9f9a-0d492e2101a2
 md"""
-- Suppose instead that the issue is whether we should add a small amount of fund `p` or fund `q` to an already well diversified portfolio (not the market portfolio). 
-- In this case, Treynor’s ratio might be useful 
+- We now extend the static VaR and make it dynamic.
+- To do this, we first construct an simple estimate of $\sigma_t^2$ as a backward looking exponential moving average.
 
-$$TR_p = \mu_{p}^e/\beta_p$$
+$\sigma_t^2 = \lambda \sigma_{t-1}^2 + (1-\lambda) (R_{t-1} -\mu_{t-1})^2$ where 
 
-- A higher Treynor’s ratio is better.
+$\mu_{t}=\lambda \, \mu_{t-1} + (1-\lambda) \, R_{t-1}$
 
-- The TR measure can be rephrased in terms of expected returns---and could then be called the $T^2$ measure.  
- - Mix `p` and `q` with the riskfree rate to get the same $\beta$ for both portfolios (here 1 to make it comparable with the market), the one with the highest Treynor’s ratio has the highest expected return ($T^2$ measure).
+- We then repeat the VaR$_{95\%}$ calculation using 
 
-- The $T^2$ measure is defined as
+$\textrm{VaR}_{t} = - (\mu_t-1.64\sigma_t)$ 
 
-$$T_p^2=\mu_{p^{\star}}^e - \mu_m^e = \mu_p^e/\beta_p - \mu_m^e.$$
+and study if it has better properties than the static VaR.
 
 """
 
-# ╔═╡ 6fd86104-021a-4ec7-acdb-4ac4c771f03e
-md"""
-Let's now calculate Treynor's Ratio and $T^2$ in the data.
-"""
-
-# ╔═╡ 40109f1e-f391-485e-80d1-5b60bd1ede63
+# ╔═╡ ee03b4cc-ae47-46d0-820e-2d2ead4070c9
 begin
 	
-end
-
-# ╔═╡ 0f0a5bcf-f0ca-4cd8-9722-ce8282780a3a
-md"""
-# Style Analysis
-"""
-
-# ╔═╡ 5f3ab6a9-d093-4fcc-9370-79bc76a94b0c
-md"""
-- Style analysis is a way to use econometric tools to find out the portfolio composition from a series of the returns, at least in broad terms.
-- The basic idea is to identify a number (5 to 10 perhaps) return indices that are expected to account for the brunt of the portfolio's returns, and then run a regression to find the portfolio “weights.” 
-- It is essentially a multi-factor regression without any intercept and where the coefficients are constrained to sum to unity and to be positive.
-
-  - The regression is $R^{e}_{pt} = b_1 X_1 + \ldots + b_K X_K + \epsilon_{pt}$, where $b_j \geq 0$ for all $j$, and $\sum_{i=1}^K b_i = 1$.
-  - The coefficients are typically estimated by minimizing the sum of squared residuals. This is a nonlinear estimation problem, but there are very efficient methods for it (since it is a quadratic problem).
-  - We will use the optimization packages [Convex.jl](https://jump.dev/Convex.jl/stable/) for the interface and [SCS.jl](https://github.com/jump-dev/SCS.jl) for the optimization algorithm.
-
-- A pseudo-$R^2$ (the squared correlation of the fitted and actual values) is sometimes used to gauge how well the regression captures the returns of the portfolio. 
-- The residuals can be thought of as the effect of stock selection, or possibly changing portfolio weights more generally. 
-  - One way to get a handle of the latter is to run the regression on a moving data sample. 
-  - The time-varying weights are often compared with the returns on the indices to see if the weights were moved in the right direction.
-
-"""
-
-# ╔═╡ d86594f9-b563-42d9-812c-7dc663b9b8c3
-md"""
-- Note on the implementation. 
-- The regression is 
-$$Y = b_1 X_1 + \ldots + b_K X_K + u,$$ where $b_j \geq 0$ for all $j$, and $\sum_{i=1}^K b_i = 1$.
-- We write the sum of squared residuals as
-$$(Y- X\,b)' (Y - X\,b) = YY' - 2Y'Xb + b'X'Xb.$$
-  - Only the two last terms matter for the choice of $b$.
-"""
-
-# ╔═╡ 4a60f8df-a871-4f96-9c1c-499a36310985
-md"""
-- Let's write a function to implement the style analysis regression.
-"""
-
-# ╔═╡ 653d8f23-3a60-4778-897d-c092106ce20d
-
-
-# ╔═╡ 28c593e8-0ce6-4db6-a8bb-f64ec8307391
-begin
-
-end
-
-# ╔═╡ 49a66213-b8b7-4789-b967-7bdfb859de9d
-md"""
-- Next, we run the style regression.
-- The next cell makes a "style analysis regression" based on the entire sample. 
-- The dependent variable is the first mutual fund (_Putnam Asset Allocation: Growth A_) and the regressors include all indices.
-"""
-
-# ╔═╡ b22fb358-658a-44be-a99b-b5301c2dcadf
-let
+	λ   = 0.94
+	(μT,s2T) = (fill(μ_emp,Tsp),fill(σ_emp^2,Tsp)) #vectors, time-varying mean and 	variance
 	
+	for t = 2:Tsp
+    	μT[t]  = λ*μT[t-1]  + (1-λ)*Rsp[t-1]
+	    s2T[t] = λ*s2T[t-1] + (1-λ)*(Rsp[t-1]-μT[t-1])^2    #RiskMetrics approach
+	end
 	
 end
 
-# ╔═╡ e79edd61-e5ea-4da2-a28a-483d13e6da71
-md"""
-- We also run the style analysis on a moving window and then we plot coefficients change over time.
-"""
-
-# ╔═╡ 925fd389-4d7d-4fdd-b84c-c81c7f6408e4
+# ╔═╡ c4ef4c6b-d406-469c-9dfe-62ab65a3cf9e
 let
 
+	VaR95d = fill(NaN,Tsp)
+	
+	for t = 2:Tsp
+	    VaR95d[t] = -quantile(Normal(μT[t],sqrt(s2T[t])),0.05)   #dynamic VaR
+	end
 
+	xTicksLoc = [Date(1980);Date(1990);Date(2000);Date(2010)]
+	xTicksLab = Dates.format.(xTicksLoc,"Y")
+	
+	p1 = plot( dN,VaR95d,
+	           linecolor = :blue,
+	           ylim = (0,12),
+	           legend = false,
+	           xticks = (xTicksLoc,xTicksLab),
+	           title = "Dynamic VaR 95%",
+	           ylabel= "",
+	           annotation = (Date(1980),32,text("over the last 100 days",8,:left)) )
+	hline!([VaR95],linecolor=:black,line=(:dash,1))
+		
+end
+
+# ╔═╡ f1ae90dc-6ba0-4e82-8a19-0192c6008134
+md"""
+- Next, let's visualize the frequency of losses exceeding the 95% VaR over the moving data window.
+"""
+
+# ╔═╡ de779db5-3807-41d5-90ba-a8941325468c
+begin
+	VaR95_2 = -(μT .- 1.64*sqrt.(s2T))
+
+	BreakFreqT_2 = fill(NaN,Tsp)         #freq(Loss>VaR) on moving data window
+	for t = 101:Tsp
+		BreakFreqT_2[t] = mean(Loss[t-100:t] .> VaR95_2[t-100:t])
+	end
+
+	xTicksLoc_2 = [Date(1980);Date(1990);Date(2000);Date(2010)]
+	xTicksLab_2 = Dates.format.(xTicksLoc_2,"Y")
+
+	p3 = plot( dN,BreakFreqT_2*100,
+			   linecolor = :blue,
+			   ylim = (-1,35),
+			   legend = false,
+			   xticks = (xTicksLoc_2,xTicksLab_2),
+			   title = "Frequency of Loss > dynamic VaR 95%",
+			   ylabel= "%",
+			   annotation = (Date(1980),32,text("over the last 100 days",8,:left)) )
+	hline!([5],linecolor_2=:black,line_2=(:dash,1))
+	p3
+end
+
+# ╔═╡ fde379f2-fd8c-414e-bcb9-dbe98b1155c0
+md"""
+# Expected Shortfall
+"""
+
+# ╔═╡ 3b436f6c-ad22-4d68-a307-e06e2e9e1edc
+md"""
+- While the value at risk is a useful risk measure, it has the strange property that it does not make a distinction between a loss that is just below the VaR level and a loss that is a lot below it. 
+  - The VaR only cares about whether the outcome is in the tail of the return distribution, not how far out.
+- In addition, the VaR concept has been criticized for having poor aggregation properties. 
+  - In particular, the VaR for a portfolio is not necessarily (weakly) lower than the portfolio of the VaRs, which contradicts the notion of diversification benefits. (To get this unfortunate property, the return distributions must be heavily skewed.) 
+
+- The expected shortfall (also called conditional VaR, average value at risk and expected tail loss) has better properties. It is the expected loss when the return actually is below the $\textrm{VaR}_{\alpha}$, that is
+
+$$\text{ES}_{\alpha}=-\text{E}(R|R\leq-\text{VaR}_{\alpha})$$
+
+- For a normally distributed return $R\sim N(\mu,\sigma^{2})$ we have
+
+$\text{ES}_{95\%}=-\mu+\frac{\phi(-1.64)}{0.05}\sigma$
+
+where $\phi()$ is the pdf of a $N(0,1)$ variable. For other confidence levels, change -1.64 and 0.05.
+"""
+
+# ╔═╡ a4b45c74-801f-4ff2-8089-d5d27432ea58
+md"""
+To illustrate, consider the following example.
+"""
+
+# ╔═╡ 758bb75c-4ed6-4376-9428-ef01a8088a31
+begin
+	μ_sf = 8
+	σ_sf = 16
+	ES95 = -μ_sf + pdf(Normal(0,1),-1.64)/0.05*σ_sf
+	
+	with_terminal() do
+		printlnPs("N() based ES 95% with μ=$μ and σ=$σ is: ",ES95)
+	end
+end
+
+# ╔═╡ 6e1b8294-207e-4462-afb0-108dc7719303
+md"""
+Let's calculate expected shortfall in our data.
+"""
+
+# ╔═╡ 29a13624-2759-46b2-a075-23dd8ba13f90
+begin
+	(ESN,ES_emp) = (fill(NaN,L),fill(NaN,L)) 
+	for i = 1:L
+		#local c, vv_i           #local/global is needed in script
+		c         = quantile(Normal(0,1),1-confLev[i])  #critical value
+		ESN[i]    = -μ_emp .+ pdf(Normal(0,1),c)/(1-confLev[i])*σ_emp
+		vv_i      = Loss .> VaR[i]
+		ES_emp[i] = mean(Loss[vv_i])        #mean of obs when Loss > VaR
+	end
+
+	with_terminal() do
+		printred("Expected shortfall:\n")
+		colNames = ["conf level","ES from N()","ES (historical)"]
+		printmat([confLev ESN ES_emp],colNames=colNames,width=20)
+
+		printred("Notice that the N()-based ES deviates from the historical ES at high conf levels")
+	end
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -590,6 +619,7 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearRegressionKit = "e91d531d-6e51-44a8-96b7-a10d5d51daa3"
@@ -604,6 +634,7 @@ StatsModels = "3eaba693-59b7-5ba5-a881-562e759f1c8d"
 [compat]
 CSV = "~0.10.3"
 DataFrames = "~1.2.2"
+Distributions = "~0.25.49"
 LaTeXStrings = "~1.3.0"
 LinearRegressionKit = "~0.7.4"
 Plots = "~1.27.0"
@@ -1791,45 +1822,39 @@ version = "0.9.1+5"
 """
 
 # ╔═╡ Cell order:
-# ╠═8b90477d-5887-49bd-bcf3-d2d7276885af
-# ╟─3820a86d-fefa-43ca-a308-40d9ff2b3599
-# ╟─72cce814-aa8f-4ac8-98c1-f556ce43ed6d
-# ╟─960b2ed0-2394-11ec-17c0-5bdaeef72b5d
-# ╟─e7029f0e-832a-4b62-a4f4-09002dbd7159
-# ╟─ba9c36aa-e791-4411-85f6-5c230d19b017
-# ╟─833249db-8526-4fa1-b136-c48850d7e37f
-# ╠═c67dda3c-8044-436e-b668-e5c7c8feddaf
-# ╟─4efcb4b6-9000-4db6-b951-37c9c9c9676d
-# ╠═3d51f5f0-752d-407e-80e3-7e44849dd76b
-# ╟─a2946345-b457-4e02-a3eb-7646a7083058
-# ╠═c02ae1b0-ba3f-4c94-83d8-425af6cf8ed9
-# ╟─c8c2e3c2-d2dc-448e-9d32-8ba29697a1f3
-# ╠═0580541d-29f0-4731-9ea9-f36494f70516
-# ╟─561f5088-7a2a-47f4-bfbf-6977ae6a27a5
-# ╠═fb093381-1109-450b-898e-1a0f87bd54d4
-# ╟─5595417a-6333-4acd-b14b-27865d4f8736
-# ╟─a9e20df4-96aa-4798-a5ef-204671de44af
-# ╟─2732613f-2546-4fb4-93ee-1805a43e7521
-# ╟─9280b21d-d44e-49e5-a0c0-f31dbf90f51a
-# ╟─59e2e16a-d5ee-4fb0-ae02-94c05b07b306
-# ╠═8ee5dcd0-0ae6-4d7e-9270-38f36c9260d4
-# ╟─658f89c1-5452-491d-bed4-e0b189c7f457
-# ╟─9e7b7ef3-856d-4fca-907b-845666463e42
-# ╟─ba46a9a7-b469-401f-a3b4-10ab4a6f47cb
-# ╠═6024747f-e21a-40d7-8cd1-1681ca12718e
-# ╟─1424b025-89be-4adc-9c0f-38abca54bb2a
-# ╟─c42c62c4-db4d-44c3-81a6-0573f8d03258
-# ╟─6fd86104-021a-4ec7-acdb-4ac4c771f03e
-# ╠═40109f1e-f391-485e-80d1-5b60bd1ede63
-# ╟─0f0a5bcf-f0ca-4cd8-9722-ce8282780a3a
-# ╟─5f3ab6a9-d093-4fcc-9370-79bc76a94b0c
-# ╟─d86594f9-b563-42d9-812c-7dc663b9b8c3
-# ╟─4a60f8df-a871-4f96-9c1c-499a36310985
-# ╠═653d8f23-3a60-4778-897d-c092106ce20d
-# ╠═28c593e8-0ce6-4db6-a8bb-f64ec8307391
-# ╟─49a66213-b8b7-4789-b967-7bdfb859de9d
-# ╠═b22fb358-658a-44be-a99b-b5301c2dcadf
-# ╟─e79edd61-e5ea-4da2-a28a-483d13e6da71
-# ╠═925fd389-4d7d-4fdd-b84c-c81c7f6408e4
+# ╠═6199926c-0c4a-4991-b4c3-ebed35217375
+# ╟─b0b9984b-45f5-49a2-a5ce-86281745d623
+# ╟─9bb08ec0-23a8-11ec-3adf-9778fbfc2d3c
+# ╟─4f0291c6-9708-4b50-89e7-c9a7117d2aa3
+# ╟─db73f9e4-28a7-4084-af26-d50a4896159e
+# ╟─6c6ffdba-6330-40da-9d5c-7466bfdaffe4
+# ╠═49e65c75-ef1e-494e-9278-6d1550f2a78d
+# ╠═5383e1b6-eb9a-4461-a2e1-32bc45a86190
+# ╟─c1a614eb-c144-4123-8945-20a84dfb9cf8
+# ╠═2ab67785-c6f0-4c1d-90ef-9823a5eebbec
+# ╟─2eac31a7-0d7e-4f44-9782-2e933fd9e6bd
+# ╟─30e38e0f-2be8-45ca-9d04-1a3e17ed7d46
+# ╠═fec6d3fe-aba3-4b76-9ac4-414962b236ac
+# ╟─5e163ceb-6d66-4aac-a496-47c1c89aaa94
+# ╟─09895094-e8ff-4fb2-8881-df3cd7849d13
+# ╟─65e84f8b-36bf-4de3-a010-87a70a30430b
+# ╠═07622699-64b2-4c6f-b512-faa986cebc71
+# ╠═fc916453-5060-4c27-80f3-e6fc180ba1dd
+# ╟─5a544306-554b-4475-9cdb-70bcfc27281b
+# ╠═bb247560-ee1a-45dc-83ec-5f7aba98b9a7
+# ╟─ba277ee2-2b09-4023-9eac-bed5ab300f8e
+# ╠═35817de0-78fc-4ed7-9394-ca69dc5dd818
+# ╟─ac73ae5d-2096-43db-9c3f-dfdca691bfec
+# ╟─7e692ae2-aaa7-457a-9f9a-0d492e2101a2
+# ╠═ee03b4cc-ae47-46d0-820e-2d2ead4070c9
+# ╠═c4ef4c6b-d406-469c-9dfe-62ab65a3cf9e
+# ╟─f1ae90dc-6ba0-4e82-8a19-0192c6008134
+# ╠═de779db5-3807-41d5-90ba-a8941325468c
+# ╟─fde379f2-fd8c-414e-bcb9-dbe98b1155c0
+# ╟─3b436f6c-ad22-4d68-a307-e06e2e9e1edc
+# ╟─a4b45c74-801f-4ff2-8089-d5d27432ea58
+# ╠═758bb75c-4ed6-4376-9428-ef01a8088a31
+# ╟─6e1b8294-207e-4462-afb0-108dc7719303
+# ╠═29a13624-2759-46b2-a075-23dd8ba13f90
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

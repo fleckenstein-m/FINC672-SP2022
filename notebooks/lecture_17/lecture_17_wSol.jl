@@ -1,11 +1,11 @@
 ### A Pluto.jl notebook ###
-# v0.18.2
+# v0.19.0
 
 using Markdown
 using InteractiveUtils
 
 # ╔═╡ 6199926c-0c4a-4991-b4c3-ebed35217375
-using Plots, Statistics, StatsBase, DataFrames, Chain, Dates, DataFramesMeta
+using Plots, Statistics, StatsBase, StatsModels, DataFrames, Chain, Dates, DataFramesMeta
 
 # ╔═╡ b0b9984b-45f5-49a2-a5ce-86281745d623
 begin
@@ -394,7 +394,7 @@ bookData[!, "price_bid"][1]
 
 # ╔═╡ 1bdd1856-8f8b-490b-a6f6-224538fa7356
 md"""
-- Next, let's plot the total amount and the total cost of tradeing.
+- Next, let's plot the total amount and the total cost of trading.
 """
 
 # ╔═╡ 8e1246c0-3bf3-4bd0-b7e2-a87dc818831e
@@ -426,7 +426,7 @@ end
 
 # ╔═╡ 64728fae-6674-4877-a19e-26767b96d7c4
 md"""
-- We can interpret this as follows. Suppose we bought \$500,000 of bitcoin, then the plots shows the intercept at around $50. Thus, it costs $50 dollars to get the $500,000 order executed. Clearly, this is an execution cost. In other words, when we buy $500,000 of BTC, we end up receiving BTC worth $499,950.
+- We can interpret this as follows. Suppose we bought \$1,000 of bitcoin, then the plots shows the intercept at around $0.22. Thus, it costs twenty-two cents to get the $1,000 order executed.
 """
 
 # ╔═╡ 9165b298-c580-420f-b2e5-8190ccb9ce6f
@@ -437,7 +437,7 @@ md"""
 
 # ╔═╡ 0287028d-b219-4c01-b712-e7dc0db214d7
 md"""
-- We can also get the last 1000 trades.
+- We can get the last 1000 trades.
 """
 
 # ╔═╡ 0f655a55-7da4-4f99-80e4-d0460c8d083d
@@ -539,9 +539,6 @@ aggTrades = @chain trades begin
 	@combine( N=length(:size), TotalSize = sum(:size))
 end
 
-# ╔═╡ b4f9926f-1828-43c2-9946-b4d44c57c819
-
-
 # ╔═╡ c311670b-4127-4426-a179-e314db3e3078
 md"""
 - For each of the aggregated timestamp trades we assign buys as 1 and sells as -1. Then by looking at the autocorrelation between the trades we can come up with an explanation of how likely a buy is followed by another buy.
@@ -582,7 +579,7 @@ end
 
 # ╔═╡ 9f469b4e-4687-4632-a4a1-32a571cc4bda
 md"""
-- We model the relationship as $\tau^\gamma$, where $\au$ is the lag. We also remove some of the outliers to stop them influencing the result.
+- We model the relationship as $\tau^\gamma$, where $\tau$ is the lag. We also remove some of the outliers to stop them influencing the result.
 """
 
 # ╔═╡ 0bebe9bd-3314-4697-a95c-cde9d80d7966
@@ -662,6 +659,7 @@ Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+StatsModels = "3eaba693-59b7-5ba5-a881-562e759f1c8d"
 
 [compat]
 CategoricalArrays = "~0.10.4"
@@ -672,6 +670,7 @@ DataFramesMeta = "~0.10.0"
 GLM = "~1.6.1"
 Plots = "~1.27.0"
 StatsBase = "~0.33.16"
+StatsModels = "~0.6.29"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -1153,7 +1152,7 @@ uuid = "38a345b3-de98-5d2b-a5d3-14cd9215e700"
 version = "2.36.0+0"
 
 [[LinearAlgebra]]
-deps = ["Libdl", "libblastrampoline_jll"]
+deps = ["Libdl"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[LogExpFunctions]]
@@ -1221,10 +1220,6 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
 version = "1.3.5+1"
-
-[[OpenBLAS_jll]]
-deps = ["Artifacts", "CompilerSupportLibraries_jll", "Libdl"]
-uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
 
 [[OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -1323,9 +1318,9 @@ uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [[Qt5Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "xkbcommon_jll"]
-git-tree-sha1 = "ad368663a5e20dbb8d6dc2fddeefe4dae0781ae8"
+git-tree-sha1 = "c6c0f690d0cc7caddb74cef7aa847b824a16b256"
 uuid = "ea2cea3b-5b76-57ae-a6ef-0a8af62496e1"
-version = "5.15.3+0"
+version = "5.15.3+1"
 
 [[QuadGK]]
 deps = ["DataStructures", "LinearAlgebra"]
@@ -1338,7 +1333,7 @@ deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 
 [[Random]]
-deps = ["SHA", "Serialization"]
+deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [[RecipesBase]]
@@ -1696,10 +1691,6 @@ git-tree-sha1 = "5982a94fcba20f02f42ace44b9894ee2b140fe47"
 uuid = "0ac62f75-1d6f-5e53-bd7c-93b484bb37c0"
 version = "0.15.1+0"
 
-[[libblastrampoline_jll]]
-deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
-uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
-
 [[libfdk_aac_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "daacc84a041563f965be61859a36e17c4e4fcd55"
@@ -1752,65 +1743,64 @@ version = "0.9.1+5"
 # ╟─26a704bf-6b13-45f2-9211-023fbf2e3cb6
 # ╟─1897543d-5c47-41ee-9f13-a099df5d9ed1
 # ╠═cc9ed5ee-ef24-457a-806d-8bed26617b13
-# ╠═4a235440-1810-4b18-85f9-377f9f5f6876
-# ╠═825c7258-ade5-48ad-83c9-acc362101715
-# ╠═16386405-896d-4cea-a733-41e298da1258
-# ╠═912ee012-981c-4003-abca-5aa0b3e7f673
+# ╟─4a235440-1810-4b18-85f9-377f9f5f6876
+# ╟─825c7258-ade5-48ad-83c9-acc362101715
+# ╟─16386405-896d-4cea-a733-41e298da1258
+# ╟─912ee012-981c-4003-abca-5aa0b3e7f673
 # ╠═451ecc21-b276-4009-ac12-561dd858e507
-# ╠═a4b4cb2a-03b4-4498-9978-d786a2663718
+# ╟─a4b4cb2a-03b4-4498-9978-d786a2663718
 # ╠═62eeb08c-9c02-47e0-9e44-8dda89fe7f3c
-# ╠═8d5c0e6b-ae4a-4f77-a0ff-8de784934136
-# ╠═d71efea4-1a1e-43b2-ba62-84411b8688b1
+# ╟─8d5c0e6b-ae4a-4f77-a0ff-8de784934136
+# ╟─d71efea4-1a1e-43b2-ba62-84411b8688b1
 # ╠═ec0eb792-f467-43ac-8f31-91d542b08e67
 # ╠═ab3fef5d-14d7-4528-ad4b-a395f844e0b9
-# ╠═653dc5ac-245a-4bcd-bfaa-69567275a388
-# ╠═a08832c4-58e8-48fd-a4a1-205399b7a1fb
-# ╠═d3cde55d-0e81-4637-a705-31255148e7b2
+# ╟─653dc5ac-245a-4bcd-bfaa-69567275a388
+# ╟─a08832c4-58e8-48fd-a4a1-205399b7a1fb
+# ╟─d3cde55d-0e81-4637-a705-31255148e7b2
 # ╠═8d6cbbed-e8bd-4b43-859d-d86e1a70e7ff
 # ╠═2ed85d07-b706-4ba9-83c2-3e3e0249c4a5
 # ╠═417a13a8-0594-43fe-97d8-b49b7288992e
-# ╠═1bdd1856-8f8b-490b-a6f6-224538fa7356
+# ╟─1bdd1856-8f8b-490b-a6f6-224538fa7356
 # ╠═8e1246c0-3bf3-4bd0-b7e2-a87dc818831e
-# ╠═f6d356b2-4b9a-4552-9d4a-7840ff1c253c
+# ╟─f6d356b2-4b9a-4552-9d4a-7840ff1c253c
 # ╠═ddffd1c1-75b0-463f-89bb-a1ddfb337f7e
 # ╠═9c95c0b9-63b1-46c1-9457-3561c665b127
 # ╠═2940c863-1067-493d-8a96-e00aa7bd5d08
-# ╠═64728fae-6674-4877-a19e-26767b96d7c4
-# ╠═9165b298-c580-420f-b2e5-8190ccb9ce6f
-# ╠═0287028d-b219-4c01-b712-e7dc0db214d7
+# ╟─64728fae-6674-4877-a19e-26767b96d7c4
+# ╟─9165b298-c580-420f-b2e5-8190ccb9ce6f
+# ╟─0287028d-b219-4c01-b712-e7dc0db214d7
 # ╠═0f655a55-7da4-4f99-80e4-d0460c8d083d
-# ╠═49b20294-14ce-408f-91e6-773fc7d15816
+# ╟─49b20294-14ce-408f-91e6-773fc7d15816
 # ╠═2af218ec-0514-431a-a79b-736a83ada996
 # ╠═b9c2b715-f99c-4d2b-8d42-10c1e68e1f75
 # ╠═fc510d58-17b4-4067-bd6b-967a966bc35b
-# ╠═45fd2d0e-2e10-43c6-9964-125648dba4ff
-# ╠═724bf604-9c31-4307-a6a6-9d4e4038aa7d
+# ╟─45fd2d0e-2e10-43c6-9964-125648dba4ff
+# ╟─724bf604-9c31-4307-a6a6-9d4e4038aa7d
 # ╠═37d58842-b064-42ce-a39e-d1c75a4781a3
 # ╠═11ce1c61-1ac8-4156-8f01-edbc98b8a88d
 # ╠═a719d880-0847-4925-81e3-b9dc77407a6c
 # ╠═903dfdf7-ec30-4c22-a8da-2cbc8adb359d
 # ╠═8918ea92-5792-4f4d-b640-e827410cf004
 # ╠═561bdf9a-77d3-426d-a788-264f9e6ba520
-# ╠═9b460614-9c7b-4224-a40f-470b9bd195e8
-# ╠═122ff387-ee13-4bf8-b323-279d9620d1f6
+# ╟─9b460614-9c7b-4224-a40f-470b9bd195e8
+# ╟─122ff387-ee13-4bf8-b323-279d9620d1f6
 # ╠═f8f91e89-2637-40bc-baec-9651ace19609
-# ╠═b4f9926f-1828-43c2-9946-b4d44c57c819
-# ╠═c311670b-4127-4426-a179-e314db3e3078
+# ╟─c311670b-4127-4426-a179-e314db3e3078
 # ╠═80d45c3e-6c44-426e-88bf-85760d1a1ffb
-# ╠═adad8237-7b4d-404c-9976-83fa6cc67fc8
+# ╟─adad8237-7b4d-404c-9976-83fa6cc67fc8
 # ╠═2859fbaf-e284-4156-ba27-b4981c96041f
-# ╠═9f469b4e-4687-4632-a4a1-32a571cc4bda
+# ╟─9f469b4e-4687-4632-a4a1-32a571cc4bda
 # ╠═431ab113-2f60-4c1f-8997-73805833bac9
 # ╠═0bebe9bd-3314-4697-a95c-cde9d80d7966
-# ╠═10120e92-bf32-4ddd-bffd-7f9a840381ab
-# ╠═90a153cb-5482-47cf-9315-3e8b25c32350
-# ╠═c9755bcf-97b7-4176-a91e-70ccf0671ed6
+# ╟─10120e92-bf32-4ddd-bffd-7f9a840381ab
+# ╟─90a153cb-5482-47cf-9315-3e8b25c32350
+# ╟─c9755bcf-97b7-4176-a91e-70ccf0671ed6
 # ╠═242de54b-d628-4798-86fe-bfced022a8c2
-# ╠═7384e361-1b07-4645-b9de-74989a837ac6
+# ╟─7384e361-1b07-4645-b9de-74989a837ac6
 # ╠═5d4a0ddd-9eb9-4459-8eea-e9451a503fe7
-# ╠═ab83b86d-6774-4c50-ba6d-7f8b934787b6
+# ╟─ab83b86d-6774-4c50-ba6d-7f8b934787b6
 # ╠═36f3d960-9ea8-4cb1-8efb-a6ab3941cde7
 # ╠═7c2d1dc4-31b3-449c-b4a3-92b096e7f72a
-# ╠═9cbed260-c673-4e46-93e0-644e5dced80a
+# ╟─9cbed260-c673-4e46-93e0-644e5dced80a
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

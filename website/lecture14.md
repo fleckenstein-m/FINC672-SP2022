@@ -6,5 +6,6 @@
 Topic | Slides
 :-----: | :--------:
 Performance Analysis    | [notebook](../lecture14_noSol_pluto)
+        | [Partial Solution](../notebooks/lecture_14/lecture_14_wSol_partial_html.html)
 <!--  -->
 
