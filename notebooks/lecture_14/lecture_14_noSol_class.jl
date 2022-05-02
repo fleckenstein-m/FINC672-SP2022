@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.0
+# v0.18.1
 
 using Markdown
 using InteractiveUtils
@@ -325,7 +325,7 @@ md"""
 """
 
 # ╔═╡ c67dda3c-8044-436e-b668-e5c7c8feddaf
-
+PerfDat = CSV.File("lecture_14_PerfEval.csv") |> DataFrame
 
 # ╔═╡ 4efcb4b6-9000-4db6-b951-37c9c9c9676d
 md"""
@@ -333,7 +333,7 @@ md"""
 """
 
 # ╔═╡ 3d51f5f0-752d-407e-80e3-7e44849dd76b
-
+describe(PerfDat, :eltype, :mean, :std, :min, :median, :max, ( x-> length(collect(skipmissing(x))) )=>:nobs, :nmissing )
 
 # ╔═╡ a2946345-b457-4e02-a3eb-7646a7083058
 md"""
@@ -341,7 +341,7 @@ md"""
 """
 
 # ╔═╡ c02ae1b0-ba3f-4c94-83d8-425af6cf8ed9
-
+first(PerfDat,6)
 
 # ╔═╡ c8c2e3c2-d2dc-448e-9d32-8ba29697a1f3
 md"""
@@ -349,7 +349,7 @@ md"""
 """
 
 # ╔═╡ 0580541d-29f0-4731-9ea9-f36494f70516
-
+last(PerfDat,6)
 
 # ╔═╡ 561f5088-7a2a-47f4-bfbf-6977ae6a27a5
 md"""
@@ -358,6 +358,17 @@ md"""
 
 # ╔═╡ fb093381-1109-450b-898e-1a0f87bd54d4
 begin
+	x = Matrix(PerfDat)
+
+	IndNames = names(PerfDat)[2:9]
+	FundNames = names(PerfDat)[10:11]
+
+	dN = PerfDat[:,1]
+
+	(Rb, RFunds, Rf) = ( convert.(Float64, x[:,2:9]), convert.(Float64, x[:,10:11]),
+				convert.(Float64,x[:,12]))
+	
+	display("")
 	
 end
 
@@ -415,6 +426,27 @@ Let's now calculate $SR$ and $M^2$ empirically using our data.
 
 # ╔═╡ 8ee5dcd0-0ae6-4d7e-9270-38f36c9260d4
 begin
+
+	Re = RFunds .- Rf   #excess return of the two funds
+	Rme = Rb[:,1] .- Rf #excess return of the market (S&P)
+
+	μᵉp = mean(Re, dims=1)
+	σp  = std(Re, dims=1)
+
+	μᵉm = mean(Rme)
+	σm  = std(Rme)
+
+	SRp = (μᵉp./σp) * sqrt(52)
+	SRm = (μᵉm./σm) * sqrt(52)
+
+	M2p = (SRp.-SRm)*σm*sqrt(52)*100
+	M2m = 0
+
+	xut = hcat( [μᵉm; μᵉp']*52*100, [SRm; SRp'], [M2m; M2p'] )
+
+	with_terminal() do
+		printmat(xut, colNames=["ERe","SR","M2"], rowNames=["Market"; FundNames])
+	end
 	
 end
 
@@ -446,6 +478,22 @@ Let's calculate the Appraisal Ratios in our data.
 
 # ╔═╡ 6024747f-e21a-40d7-8cd1-1681ca12718e
 begin
+	
+	T_app = size(Re,1)
+	x_app = [ones(T_app) Rme]
+
+	b_app = x_app\Re
+	ϵ_app = Re .- (x_app.*b_app)
+	σϵ_app = std(ϵ_app, dims=1)
+
+	ARp = (b_app[1:1,:]*52*100)./(σϵ_app*sqrt(52)*100)
+	ARm = 0
+
+	xut_app = [ARm; ARp']
+
+	with_terminal() do
+		printmat(xut_app, colNames = ["AR"], rowNames=["Market"; FundNames])
+	end
 	
 end
 

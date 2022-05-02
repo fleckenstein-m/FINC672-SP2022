@@ -386,7 +386,7 @@ md"""
 
 $$SR_p = \mu_{p}^{e}/\sigma_p$$
 
- - where $\mu_{p}^{e}$ is the excess return of fund `p` and $/\sigma_p$ is fund `p`s standard deviation of returns.
+ - where $\mu_{p}^{e}$ is the excess return of fund `p` and $\sigma_p$ is fund `p`'s standard deviation of returns.
 
 """
 
@@ -446,7 +446,7 @@ begin
 	xut = hcat([μᵉm;μᵉp']*52*100,[SRm;SRp'],[M2m;M2p'])
 	
 	with_terminal() do
-		printmat(xut,colNames=["ERe","SR","M2"],rowNames=["Market";FundNames])
+	 	printmat(xut,colNames=["ERe","SR","M2"],rowNames=["Market";FundNames])
 	end
 end
 
@@ -461,7 +461,7 @@ md"""
 
 - The appraisal ratio of fund `p` is
 
-$$AR_p = \alpha_p / Std(\epsilon_{pt}$$
+$$AR_p = \alpha_p / Std(\epsilon_{pt})$$
 
 where $\alpha_p$ is the intercept and $Std(\epsilon_{pt})$ is the volatility of the residual of a CAPM regression. (The residual is often called the tracking error.) 
 
@@ -654,7 +654,7 @@ end
 
 # ╔═╡ e79edd61-e5ea-4da2-a28a-483d13e6da71
 md"""
-- We also run the style analysis on a moving window and then we plot coefficients change over time.
+- We also run the style analysis on a moving window and then we plot how coefficients change over time.
 """
 
 # ╔═╡ 925fd389-4d7d-4fdd-b84c-c81c7f6408e4
