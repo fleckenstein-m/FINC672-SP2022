@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.18.1
+# v0.19.0
 
 using Markdown
 using InteractiveUtils
@@ -478,22 +478,7 @@ Let's calculate the Appraisal Ratios in our data.
 
 # ╔═╡ 6024747f-e21a-40d7-8cd1-1681ca12718e
 begin
-	
-	T_app = size(Re,1)
-	x_app = [ones(T_app) Rme]
 
-	b_app = x_app\Re
-	ϵ_app = Re .- (x_app.*b_app)
-	σϵ_app = std(ϵ_app, dims=1)
-
-	ARp = (b_app[1:1,:]*52*100)./(σϵ_app*sqrt(52)*100)
-	ARm = 0
-
-	xut_app = [ARm; ARp']
-
-	with_terminal() do
-		printmat(xut_app, colNames = ["AR"], rowNames=["Market"; FundNames])
-	end
 	
 end
 
