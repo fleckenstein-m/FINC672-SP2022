@@ -4,13 +4,15 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 6199926c-0c4a-4991-b4c3-ebed35217375
-using CSV, DataFrames, Dates, Distributions, Plots, LaTeXStrings, LinearAlgebra, LinearRegressionKit, PlutoUI, Printf,  StatsBase, Statistics, StatsModels
-
-# ╔═╡ b0b9984b-45f5-49a2-a5ce-86281745d623
+# ╔═╡ 26681735-61e6-4633-b4a5-012e330fd336
 begin
-
+	using CSV, DataFrames, Dates, Plots, LaTeXStrings, LinearAlgebra, LinearRegressionKit, PlutoUI, Printf,  StatsBase, Statistics, StatsModels
 	
+	gr(size=(480,320))
+end
+
+# ╔═╡ 17b06cb8-effe-4cc7-a665-454ff3dc7eee
+begin
 		
 	# The following code is by Paul Soederlind
 	# https://sites.google.com/site/paulsoderlindecon/home
@@ -266,351 +268,277 @@ begin
 	global_logger(NullLogger())
 		
 	display("")
-	
 end
 
-# ╔═╡ 9bb08ec0-23a8-11ec-3adf-9778fbfc2d3c
-md"""
-## FINC 672: Risk Measures
-
-In this notebook, we look at Value at Risk (VaR) and test it on real data. We also estimate a model for time-varying risk which we incorporate into the VaR calculations.
-"""
-
-# ╔═╡ 4f0291c6-9708-4b50-89e7-c9a7117d2aa3
+# ╔═╡ 656443ae-82f1-434b-88b2-250cc6313ce9
 TableOfContents( indent=true, depth=1, aside=true)
 
-# ╔═╡ db73f9e4-28a7-4084-af26-d50a4896159e
+# ╔═╡ a4982262-23b1-11ec-245e-f7de7d8e3cbd
 md"""
-## Value at Risk (VaR) for a N(μ,σ²) Return
-- The VaR is defined as
+## FINC 672: Efficient Markets
 
-$\textrm{VaR}_{95\%} = - (5^{th} \textrm{percentile of the return distribution})$
-
-- With a $N(\mu,\sigma^2)$ distribution this gives
-
-$\textrm{VaR}_{95\%} = - (\mu-1.64\sigma)$
+- In this notebook, we test the predictability of asset returns (autocorrelations, autoregressions, out-of-sample R2, Mariano-Diebold test) and implement a simple trading strategy.
 """
 
-# ╔═╡ 6c6ffdba-6330-40da-9d5c-7466bfdaffe4
+# ╔═╡ a4854850-0b6b-4b27-8967-49b4c156f949
 md"""
-- **_Note:_** The [Distributions.jl](https://juliastats.org/Distributions.jl/latest/) package defines a normal distribution as `Normal(μ,σ)`. Notice that it uses the standard deviation, not the variance. 
-- For instance, to calculate the 5th quantile, use `quantile(Normal(μ,σ),0.05)` and to calculate the pdf value at each element of a vector `x`, use `pdf.(Normal(μ,σ),x)`.
+- First, let's define our own OLS function.
 """
 
-# ╔═╡ 49e65c75-ef1e-494e-9278-6d1550f2a78d
-let
-	μ = 8
-	σ = 16
-
-	q05   = μ - 1.64*σ 
-	VaR95 = -(μ - 1.64*σ)
-
-	with_terminal() do
-		printred("with μ=$μ and σ=$σ, we have approximately:\n")
-		printmat([q05,VaR95],rowNames=["5th quantile","VaR 95%"])
+# ╔═╡ b01db26c-6c7f-4780-9780-1d2d8fde5daf
+begin
+	md"""
+	    OlsGMFn(Y,X)
+	
+	LS of Y on X; for one dependent variable, Gauss-Markov assumptions
+	
+	# Usage
+	(b,u,Yhat,V,R2) = OlsGMFn(Y,X)
+	
+	# Input
+	- `Y::Vector`:    Tx1, the dependent variable
+	- `X::Matrix`:    Txk matrix of regressors (including deterministic ones)
+	
+	# Output
+	- `b::Vector`:    kx1, regression coefficients
+	- `u::Vector`:    Tx1, residuals Y - yhat
+	- `Yhat::Vector`: Tx1, fitted values X*b
+	- `V::Matrix`:    kxk matrix, covariance matrix of b
+	- `R2::Number`:   scalar, R2 value
+	
+	"""
+	
+	function OlsGMFn(Y,X)
+	
+	    T    = size(Y,1)
+	
+	    b    = X\Y
+	    Yhat = X*b
+	    u    = Y - Yhat
+	
+	    σ2   = var(u)
+	    V    = inv(X'X)*σ2
+	    R2   = 1 - σ2/var(Y)
+	
+	    return b, u, Yhat, V, R2
+	
+		display("")
 	end
 end
 
-# ╔═╡ 5383e1b6-eb9a-4461-a2e1-32bc45a86190
-let
-	μ = 8
-	σ = 16
-	
-	q05b = quantile(Normal(μ,σ),0.05)    #exact calculation of the the 5th quantile, notice: σ
-	with_terminal() do
-		printlnPs("We get an exact result by using the quantile() function: ",q05b)
-	end
-end
-
-# ╔═╡ c1a614eb-c144-4123-8945-20a84dfb9cf8
+# ╔═╡ 4d56e19c-2051-49ee-9e41-c7ae0c6c1c5f
 md"""
-Let's show this visually.
+## Dataset
+
+The data set `MomentumSR.csv` contains daily data for the equity market return, riskfree rate and the returns of the 25 Fama-French portfolios. All returns are in percent. The data are available on Canvas.
+
 """
 
-# ╔═╡ 2ab67785-c6f0-4c1d-90ef-9823a5eebbec
+# ╔═╡ 5aaa48ba-6f09-4571-8dae-bf25833f7fea
 begin
-	μ = 8
-	σ = 16
-	q05   = μ - 1.64*σ 
-	VaR95 = -(μ - 1.64*σ)
-	
-	R    = range(-60,60,length=301)
-	pdfR = pdf.(Normal(μ,σ),R)
-	Rb   = R[R .<= -VaR95]             #or filter(<=(-VaR95),R)
-
-	p1 = plot( R,pdfR,
-			   linecolor = :red,
-			   linewidth = 2,
-			   label = "pdf of N($μ,$(σ^2))",
-			   title = "Pdf and VaR",
-			   xlabel = "return, %" )
-	plot!(Rb,pdf.(Normal(μ,σ),Rb),fillcolor=:red,linewidth=2,fill=(0,:blue),label="")
-	vline!([-VaR95],linecolor=:blue,label="-VaR (95%)")
 	
 end
 
-# ╔═╡ 2eac31a7-0d7e-4f44-9782-2e933fd9e6bd
-md"""
-Next, let's calculate VaR on S&P 500 Data
-"""
-
-# ╔═╡ 30e38e0f-2be8-45ca-9d04-1a3e17ed7d46
-md"""
-# S&P 500 Data
-"""
-
-# ╔═╡ fec6d3fe-aba3-4b76-9ac4-414962b236ac
-begin
-	SP  = CSV.File("lecture_15_SP500RfPs.csv",dateformat="dd/mm/yyyy") |> DataFrame
-	select!(SP, :Column1 => :Date, Not(:Column1))
-end
-
-# ╔═╡ 5e163ceb-6d66-4aac-a496-47c1c89aaa94
+# ╔═╡ 55002aeb-c568-4b79-85e8-0b818cf3d7cf
 md"""
 - Let's get some information on the dataset.
 """
 
-# ╔═╡ 09895094-e8ff-4fb2-8881-df3cd7849d13
-describe(SP, :eltype, :mean, :std, :min, :median, :max, (x->length(collect(skipmissing(x)))) =>:nobs, :nmissing)
+# ╔═╡ 141e5d73-6006-46cc-8a8f-e1de1cefcfee
 
-# ╔═╡ 65e84f8b-36bf-4de3-a010-87a70a30430b
+
+# ╔═╡ 335d006b-2fb7-4b08-8eaf-93a3c4878eba
 md"""
 - Let's take a look at the first six rows.
 """
 
-# ╔═╡ 07622699-64b2-4c6f-b512-faa986cebc71
-first(SP,6)
+# ╔═╡ 6d1305a7-e26c-4c4e-b587-353c7585d1ed
 
-# ╔═╡ fc916453-5060-4c27-80f3-e6fc180ba1dd
-begin
-	x    = Matrix(SP)
-	SP500 = x[:,2]                               #S&P 500 level
-	Rsp  = (SP500[2:end]./SP500[1:end-1] .- 1) * 100  #returns, % 
-	Tsp  = length(Rsp)
 
-	dN = SP[:,1]    #Date
-
-	with_terminal() do
-		println("Days in the sample: $Tsp")
-	end
-end
-
-# ╔═╡ 5a544306-554b-4475-9cdb-70bcfc27281b
+# ╔═╡ e0e40dba-4468-43ce-98db-4bccf6dca1cb
 md"""
-# Backtesting a Static VaR
-
-- To backtest a VaR model, we look at the relative frequency of `Loss > VaR`.
-- We implement this for different confidence levels (0.95,0.96,...) of the VaR. 
-  - For instance at the 0.95 confidence levels we 
-    1. calculate the VaR as the (negative of the) 0.05 quantile of a normal distribution (with mean and std estimated from the sample).
-    2. count the relative frequency of the loss > VaR (it should be 0.05).
+- Let's take a look at the last six rows.
 """
 
-# ╔═╡ bb247560-ee1a-45dc-83ec-5f7aba98b9a7
+# ╔═╡ 67b3e419-0ae2-4823-83b7-7c1ee3a71a08
+
+
+# ╔═╡ 17ce2dbf-4ace-4928-ba87-372765c14065
 begin
-	
-	μ_emp = mean(Rsp)                     #mean and std of data
-	σ_emp = std(Rsp)
-
-	confLev = 0.95:0.005:0.995          #different confidence levels
-	L       = length(confLev)
-	Loss    = -Rsp
-
-	(VaR,BreakFreq) = (fill(NaN,L),fill(NaN,L))
-	for i = 1:L                 #loop over confidence levels
-		VaR[i]       = -quantile(Normal(μ_emp,σ_emp),1-confLev[i])
-		BreakFreq[i] = mean(Loss .> VaR[i]) #freq of breaking the VaR
-	end
-
-	with_terminal() do
-		printred("Backtesting a static VaR:\n")
-		colNames = ["conf level","N()-based VaR","break freq"]
-		printmat([confLev VaR BreakFreq],colNames=colNames,width=18)
-		printred("The break frequency should be 1-confidence level")
-	end
 	
 end
 
-# ╔═╡ ba277ee2-2b09-4023-9eac-bed5ab300f8e
+# ╔═╡ c7c1cb00-fa37-4456-b0fb-c86462313085
 md"""
-- Next, we estimate the relative frequency of `Loss > VaR` over a moving data window (but keeping the confidence level fixed at 0.95).
-- This allows us to investigate if there are long periods of failures of the VaR calculations.
+# Autocorrelations
+
+The $s$th autocorrelation is
+
+$\rho_s = \text{Corr}(R_t,R_{t-s})$
+
+In large samples, $\sqrt{T}\hat{\rho}_{s}\sim N(0,1)$ if the true value is $\rho_s=0$ for all $s$.
+- The [StatsBase.jl](https://juliastats.org/StatsBase.jl/stable/) package contains methods for estimating, for instance, autocorrelations (see `autocor()` below).
 """
 
-# ╔═╡ 35817de0-78fc-4ed7-9394-ca69dc5dd818
+# ╔═╡ ebcd3e26-9680-40ac-88fd-40079668b7f1
 begin
-	VaR95_emp = -(μ_emp - 1.64*σ_emp)
-
-	BreakFreqT = fill(NaN,Tsp)   #vector, freq(Loss>VaR) on moving data window
-	
-	for t = 101:Tsp
-		BreakFreqT[t] = mean(Loss[t-100:t] .> VaR95_emp)
-	end
-
-	xTicksLoc = [Date(1980);Date(1990);Date(2000);Date(2010)]
-	xTicksLab = Dates.format.(xTicksLoc,"Y")
-
-	p2 = plot( dN,BreakFreqT*100,
-			   linecolor = :blue,
-			   ylim = (-1,35),
-			   legend = false,
-			   xticks = (xTicksLoc,xTicksLab),
-			   title = "Frequency of Loss > static VaR 95%",
-			   ylabel = "%",
-			   annotation = (Date(1980),32,text("over the last 100 days",8,:left)) )
-	hline!([5],linecolor=:black,line=(:dash,1))
-end
-
-# ╔═╡ ac73ae5d-2096-43db-9c3f-dfdca691bfec
-md"""
-# Dynamic VaR with Time-Varying Volatility
-"""
-
-# ╔═╡ 7e692ae2-aaa7-457a-9f9a-0d492e2101a2
-md"""
-- We now extend the static VaR and make it dynamic.
-- To do this, we first construct an simple estimate of $\sigma_t^2$ as a backward looking exponential moving average.
-
-$\sigma_t^2 = \lambda \sigma_{t-1}^2 + (1-\lambda) (R_{t-1} -\mu_{t-1})^2$ where 
-
-$\mu_{t}=\lambda \, \mu_{t-1} + (1-\lambda) \, R_{t-1}$
-
-- We then repeat the VaR$_{95\%}$ calculation using 
-
-$\textrm{VaR}_{t} = - (\mu_t-1.64\sigma_t)$ 
-
-and study if it has better properties than the static VaR.
-
-"""
-
-# ╔═╡ ee03b4cc-ae47-46d0-820e-2d2ead4070c9
-begin
-	
-	λ   = 0.94
-	(μT,s2T) = (fill(μ_emp,Tsp),fill(σ_emp^2,Tsp)) #vectors, time-varying mean and 	variance
-	
-	for t = 2:Tsp
-    	μT[t]  = λ*μT[t-1]  + (1-λ)*Rsp[t-1]
-	    s2T[t] = λ*s2T[t-1] + (1-λ)*(Rsp[t-1]-μT[t-1])^2    #RiskMetrics approach
-	end
 	
 end
 
-# ╔═╡ c4ef4c6b-d406-469c-9dfe-62ab65a3cf9e
+# ╔═╡ 3d06bb8a-f90f-4a17-8f5c-a2d426690fad
+md"""
+- Let's compute the autocorrelations and t-Stats for all portfolios and show the results in a table.
+"""
+
+# ╔═╡ 70e40483-6dec-4dc3-ad08-2abbbd7b4af0
+let
+	
+end
+
+# ╔═╡ 4cad811b-0220-46d8-8c9f-e69c834feff3
+md"""
+# Autoregressions
+
+- Next, let's analyze the relation between current and past return realizations more formally by using autoregression analysis.
+
+- An AR(1) is
+
+$$R_{t}=c+a_{1}R_{t-1}+\varepsilon_{t}.$$
+
+- We also consider an asymmetric AR(1)
+
+$$R_{t} =\alpha+\beta Q_{t-1}R_{t-1}+\gamma(1-Q_{t-1})R_{t-1}+\varepsilon
+_{t},$$
+- where $Q_{t-1}=1 \ \text{ if } \ R_{t-1} \lt 0$ and zero otherwise.
+
+- Both models can be estimated by OLS.
+"""
+
+# ╔═╡ 0e3033e0-bc68-4c00-acbc-819daca88726
+let
+	
+end
+
+# ╔═╡ 78e43ba8-6c5e-4f9f-8def-9d6be7434705
+md"""
+- Let's run the OLS regression for all of the portfolios and display the results in a table.
+"""
+
+# ╔═╡ f4d35e6f-e78b-4e2b-a934-c58ad9a5ce89
 let
 
-	VaR95d = fill(NaN,Tsp)
-	
-	for t = 2:Tsp
-	    VaR95d[t] = -quantile(Normal(μT[t],sqrt(s2T[t])),0.05)   #dynamic VaR
-	end
-
-	xTicksLoc = [Date(1980);Date(1990);Date(2000);Date(2010)]
-	xTicksLab = Dates.format.(xTicksLoc,"Y")
-	
-	p1 = plot( dN,VaR95d,
-	           linecolor = :blue,
-	           ylim = (0,12),
-	           legend = false,
-	           xticks = (xTicksLoc,xTicksLab),
-	           title = "Dynamic VaR 95%",
-	           ylabel= "",
-	           annotation = (Date(1980),32,text("over the last 100 days",8,:left)) )
-	hline!([VaR95],linecolor=:black,line=(:dash,1))
-		
 end
 
-# ╔═╡ f1ae90dc-6ba0-4e82-8a19-0192c6008134
+# ╔═╡ 30c5bda2-a232-4edd-acab-4704ed2f801b
 md"""
-- Next, let's visualize the frequency of losses exceeding the 95% VaR over the moving data window.
+- Next, we consider the asymmetric AR(1).
 """
 
-# ╔═╡ de779db5-3807-41d5-90ba-a8941325468c
-begin
-	VaR95_2 = -(μT .- 1.64*sqrt.(s2T))
-
-	BreakFreqT_2 = fill(NaN,Tsp)         #freq(Loss>VaR) on moving data window
-	for t = 101:Tsp
-		BreakFreqT_2[t] = mean(Loss[t-100:t] .> VaR95_2[t-100:t])
-	end
-
-	xTicksLoc_2 = [Date(1980);Date(1990);Date(2000);Date(2010)]
-	xTicksLab_2 = Dates.format.(xTicksLoc_2,"Y")
-
-	p3 = plot( dN,BreakFreqT_2*100,
-			   linecolor = :blue,
-			   ylim = (-1,35),
-			   legend = false,
-			   xticks = (xTicksLoc_2,xTicksLab_2),
-			   title = "Frequency of Loss > dynamic VaR 95%",
-			   ylabel= "%",
-			   annotation = (Date(1980),32,text("over the last 100 days",8,:left)) )
-	hline!([5],linecolor_2=:black,line_2=(:dash,1))
-	p3
-end
-
-# ╔═╡ fde379f2-fd8c-414e-bcb9-dbe98b1155c0
-md"""
-# Expected Shortfall
-"""
-
-# ╔═╡ 3b436f6c-ad22-4d68-a307-e06e2e9e1edc
-md"""
-- While the value at risk is a useful risk measure, it has the strange property that it does not make a distinction between a loss that is just below the VaR level and a loss that is a lot below it. 
-  - The VaR only cares about whether the outcome is in the tail of the return distribution, not how far out.
-- In addition, the VaR concept has been criticized for having poor aggregation properties. 
-  - In particular, the VaR for a portfolio is not necessarily (weakly) lower than the portfolio of the VaRs, which contradicts the notion of diversification benefits. (To get this unfortunate property, the return distributions must be heavily skewed.) 
-
-- The expected shortfall (also called conditional VaR, average value at risk and expected tail loss) has better properties. It is the expected loss when the return actually is below the $\textrm{VaR}_{\alpha}$, that is
-
-$$\text{ES}_{\alpha}=-\text{E}(R|R\leq-\text{VaR}_{\alpha})$$
-
-- For a normally distributed return $R\sim N(\mu,\sigma^{2})$ we have
-
-$\text{ES}_{95\%}=-\mu+\frac{\phi(-1.64)}{0.05}\sigma$
-
-where $\phi()$ is the pdf of a $N(0,1)$ variable. For other confidence levels, change -1.64 and 0.05.
-"""
-
-# ╔═╡ a4b45c74-801f-4ff2-8089-d5d27432ea58
-md"""
-To illustrate, consider the following example.
-"""
-
-# ╔═╡ 758bb75c-4ed6-4376-9428-ef01a8088a31
-begin
-	μ_sf = 8
-	σ_sf = 16
-	ES95 = -μ_sf + pdf(Normal(0,1),-1.64)/0.05*σ_sf
+# ╔═╡ 144feff0-d281-4b24-b2e0-1db2eada7b72
+let
 	
-	with_terminal() do
-		printlnPs("N() based ES 95% with μ=$μ and σ=$σ is: ",ES95)
-	end
+
 end
 
-# ╔═╡ 6e1b8294-207e-4462-afb0-108dc7719303
+# ╔═╡ 73694e9f-d903-407b-a832-9f6550f3b38e
+let
+
+end
+
+# ╔═╡ ec81f382-30a9-459c-b490-807cf2032ba5
 md"""
-Let's calculate expected shortfall in our data.
+# Recursive Estimation and Out-of-Sample $R^2$
+
+- Next, we use recursive estimation (longer and longer sample) and predict one period ahead (outside of the sample). 
+- The performance of this prediction model is measured by an "out-of-sample" defined as.
+
+$$R^2_{\textrm{OOS}} = 1- \frac{\textrm{MSE(forecasting model)}}{\textrm{MSE(benchmark model)}}$$
 """
 
-# ╔═╡ 29a13624-2759-46b2-a075-23dd8ba13f90
+# ╔═╡ 577e7ca8-4071-46fa-be4a-9a0f9d2a5474
 begin
-	(ESN,ES_emp) = (fill(NaN,L),fill(NaN,L)) 
-	for i = 1:L
-		#local c, vv_i           #local/global is needed in script
-		c         = quantile(Normal(0,1),1-confLev[i])  #critical value
-		ESN[i]    = -μ_emp .+ pdf(Normal(0,1),c)/(1-confLev[i])*σ_emp
-		vv_i      = Loss .> VaR[i]
-		ES_emp[i] = mean(Loss[vv_i])        #mean of obs when Loss > VaR
-	end
 
-	with_terminal() do
-		printred("Expected shortfall:\n")
-		colNames = ["conf level","ES from N()","ES (historical)"]
-		printmat([confLev ESN ES_emp],colNames=colNames,width=20)
+	
 
-		printred("Notice that the N()-based ES deviates from the historical ES at high conf levels")
-	end
+end
+
+# ╔═╡ a4dcf17c-16e6-4964-900f-7c965c47f2be
+let
+
+end
+
+# ╔═╡ c453a1cb-7d85-44fe-b01b-d87752de94d0
+md"""
+# Mariano-Diebold and Clark-West Tests (extra)
+"""
+
+# ╔═╡ 5e158b1e-d04e-4537-a704-f25fced079c1
+md"""
+- The Mariano-Diebold and Clark-West tests both compare the prediction errors of two models ($e$ benchmark; $\epsilon$ your model). 
+  - Notice that the MD test is not well suited for nested model (your model is an augmented version of the baseline model). Use the Clark-West in that case.
+"""
+
+# ╔═╡ 8d0cddc6-3232-4f05-943f-0de78500eb68
+
+
+# ╔═╡ dbc2a3a3-a2a6-44c5-85fc-9c0b76cb5635
+let
+
+end
+
+# ╔═╡ 2c1c7d2b-7fe7-460f-960f-64c53bef928f
+md"""
+# Trading Strategy
+
+- We now implement a momentum strategy (buy past winners, short sell past losers), and rebalance daily. 
+  - For clarity of exposition, we disregard trading costs.
+
+## Implementing the Strategy
+- Sort $R_{t-1}$ across the 25 assets.
+- (In the evening of) period $t-1$ buy 1/5 of each of the 5 best assets based on the sort in point 1. 
+- Similarly, buy -1/5 (short-sell) each of the 5 worst assets. 
+- Collect these portfolio weights in a vector $w_{t}$.
+- In period $t$ , the return on the portfolio is $R_{p,t}=w^{'}_{t} \, R_{t}$.
+- Repeat for all periods.
+"""
+
+# ╔═╡ 4aa76119-ffae-42aa-b22f-b2b70168ebb8
+begin
+	
+end
+
+# ╔═╡ b623ded6-93bf-4d1b-ac2c-1405b8d51371
+md"""
+- Next, we calculate the mean (excess) return, its standard deviation and the Sharpe ratio. 
+  - We annualize by assuming 250 trading days per year. 
+- Let's compare the profitability of the momentum trading strategy with the excess return on passively holding an equity market index.
+"""
+
+# ╔═╡ dab38b9a-b473-4bde-8b9f-eeb2279ab52b
+begin
+	
+end
+
+# ╔═╡ e20869bd-30b7-42df-9003-3f89be72b108
+md"""
+- To cumulate the returns to a return index, we need to use $(1+R_1)$, $(1+R_1)(1+R_2)$, etc. 
+- However, this does not work for excess returns, so we convert them to net returns by adding the riskfree rate.
+- It is often more useful to show the logarithm of the return index. The slope can then be interpreted as a return.
+"""
+
+# ╔═╡ 6b9d060f-e821-4088-9e26-bed186066a30
+begin
+	
+end
+
+# ╔═╡ a7b75ad7-7d8a-4ac7-b7ed-291ab2aba891
+md"""
+Let's plot the results of the trading strategy.
+"""
+
+# ╔═╡ f87dc4a0-a538-46bd-b067-51863fe88c03
+begin
+	
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -619,7 +547,6 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
-Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearRegressionKit = "e91d531d-6e51-44a8-96b7-a10d5d51daa3"
@@ -634,7 +561,6 @@ StatsModels = "3eaba693-59b7-5ba5-a881-562e759f1c8d"
 [compat]
 CSV = "~0.10.3"
 DataFrames = "~1.2.2"
-Distributions = "~0.25.49"
 LaTeXStrings = "~1.3.0"
 LinearRegressionKit = "~0.7.4"
 Plots = "~1.27.0"
@@ -1188,9 +1114,9 @@ version = "0.7.4"
 
 [[LogExpFunctions]]
 deps = ["ChainRulesCore", "ChangesOfVariables", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "56ad13e26b7093472eba53b418eba15ad830d6b5"
+git-tree-sha1 = "db0eee9b3bb2b38ab2d94349a3b0272d0a68e21f"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.9"
+version = "0.3.8"
 
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -1421,9 +1347,9 @@ version = "0.3.0+0"
 
 [[Roots]]
 deps = ["CommonSolve", "Printf", "Setfield"]
-git-tree-sha1 = "554149b8b82e167c1fa79df99aeabed4f8404119"
+git-tree-sha1 = "0abe7fc220977da88ad86d339335a4517944fea2"
 uuid = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
-version = "1.3.15"
+version = "1.3.14"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -1822,39 +1748,46 @@ version = "0.9.1+5"
 """
 
 # ╔═╡ Cell order:
-# ╠═6199926c-0c4a-4991-b4c3-ebed35217375
-# ╟─b0b9984b-45f5-49a2-a5ce-86281745d623
-# ╟─9bb08ec0-23a8-11ec-3adf-9778fbfc2d3c
-# ╟─4f0291c6-9708-4b50-89e7-c9a7117d2aa3
-# ╟─db73f9e4-28a7-4084-af26-d50a4896159e
-# ╟─6c6ffdba-6330-40da-9d5c-7466bfdaffe4
-# ╠═49e65c75-ef1e-494e-9278-6d1550f2a78d
-# ╠═5383e1b6-eb9a-4461-a2e1-32bc45a86190
-# ╟─c1a614eb-c144-4123-8945-20a84dfb9cf8
-# ╠═2ab67785-c6f0-4c1d-90ef-9823a5eebbec
-# ╟─2eac31a7-0d7e-4f44-9782-2e933fd9e6bd
-# ╟─30e38e0f-2be8-45ca-9d04-1a3e17ed7d46
-# ╠═fec6d3fe-aba3-4b76-9ac4-414962b236ac
-# ╟─5e163ceb-6d66-4aac-a496-47c1c89aaa94
-# ╟─09895094-e8ff-4fb2-8881-df3cd7849d13
-# ╟─65e84f8b-36bf-4de3-a010-87a70a30430b
-# ╠═07622699-64b2-4c6f-b512-faa986cebc71
-# ╠═fc916453-5060-4c27-80f3-e6fc180ba1dd
-# ╟─5a544306-554b-4475-9cdb-70bcfc27281b
-# ╠═bb247560-ee1a-45dc-83ec-5f7aba98b9a7
-# ╟─ba277ee2-2b09-4023-9eac-bed5ab300f8e
-# ╠═35817de0-78fc-4ed7-9394-ca69dc5dd818
-# ╟─ac73ae5d-2096-43db-9c3f-dfdca691bfec
-# ╟─7e692ae2-aaa7-457a-9f9a-0d492e2101a2
-# ╠═ee03b4cc-ae47-46d0-820e-2d2ead4070c9
-# ╠═c4ef4c6b-d406-469c-9dfe-62ab65a3cf9e
-# ╟─f1ae90dc-6ba0-4e82-8a19-0192c6008134
-# ╠═de779db5-3807-41d5-90ba-a8941325468c
-# ╟─fde379f2-fd8c-414e-bcb9-dbe98b1155c0
-# ╟─3b436f6c-ad22-4d68-a307-e06e2e9e1edc
-# ╟─a4b45c74-801f-4ff2-8089-d5d27432ea58
-# ╠═758bb75c-4ed6-4376-9428-ef01a8088a31
-# ╟─6e1b8294-207e-4462-afb0-108dc7719303
-# ╠═29a13624-2759-46b2-a075-23dd8ba13f90
+# ╠═26681735-61e6-4633-b4a5-012e330fd336
+# ╟─17b06cb8-effe-4cc7-a665-454ff3dc7eee
+# ╟─656443ae-82f1-434b-88b2-250cc6313ce9
+# ╟─a4982262-23b1-11ec-245e-f7de7d8e3cbd
+# ╟─a4854850-0b6b-4b27-8967-49b4c156f949
+# ╠═b01db26c-6c7f-4780-9780-1d2d8fde5daf
+# ╟─4d56e19c-2051-49ee-9e41-c7ae0c6c1c5f
+# ╠═5aaa48ba-6f09-4571-8dae-bf25833f7fea
+# ╟─55002aeb-c568-4b79-85e8-0b818cf3d7cf
+# ╠═141e5d73-6006-46cc-8a8f-e1de1cefcfee
+# ╟─335d006b-2fb7-4b08-8eaf-93a3c4878eba
+# ╠═6d1305a7-e26c-4c4e-b587-353c7585d1ed
+# ╟─e0e40dba-4468-43ce-98db-4bccf6dca1cb
+# ╠═67b3e419-0ae2-4823-83b7-7c1ee3a71a08
+# ╠═17ce2dbf-4ace-4928-ba87-372765c14065
+# ╟─c7c1cb00-fa37-4456-b0fb-c86462313085
+# ╠═ebcd3e26-9680-40ac-88fd-40079668b7f1
+# ╟─3d06bb8a-f90f-4a17-8f5c-a2d426690fad
+# ╠═70e40483-6dec-4dc3-ad08-2abbbd7b4af0
+# ╟─4cad811b-0220-46d8-8c9f-e69c834feff3
+# ╠═0e3033e0-bc68-4c00-acbc-819daca88726
+# ╟─78e43ba8-6c5e-4f9f-8def-9d6be7434705
+# ╠═f4d35e6f-e78b-4e2b-a934-c58ad9a5ce89
+# ╟─30c5bda2-a232-4edd-acab-4704ed2f801b
+# ╠═144feff0-d281-4b24-b2e0-1db2eada7b72
+# ╠═73694e9f-d903-407b-a832-9f6550f3b38e
+# ╟─ec81f382-30a9-459c-b490-807cf2032ba5
+# ╠═577e7ca8-4071-46fa-be4a-9a0f9d2a5474
+# ╠═a4dcf17c-16e6-4964-900f-7c965c47f2be
+# ╟─c453a1cb-7d85-44fe-b01b-d87752de94d0
+# ╟─5e158b1e-d04e-4537-a704-f25fced079c1
+# ╠═8d0cddc6-3232-4f05-943f-0de78500eb68
+# ╠═dbc2a3a3-a2a6-44c5-85fc-9c0b76cb5635
+# ╟─2c1c7d2b-7fe7-460f-960f-64c53bef928f
+# ╠═4aa76119-ffae-42aa-b22f-b2b70168ebb8
+# ╟─b623ded6-93bf-4d1b-ac2c-1405b8d51371
+# ╠═dab38b9a-b473-4bde-8b9f-eeb2279ab52b
+# ╟─e20869bd-30b7-42df-9003-3f89be72b108
+# ╠═6b9d060f-e821-4088-9e26-bed186066a30
+# ╟─a7b75ad7-7d8a-4ac7-b7ed-291ab2aba891
+# ╠═f87dc4a0-a538-46bd-b067-51863fe88c03
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
