@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.0
+# v0.18.1
 
 using Markdown
 using InteractiveUtils
@@ -272,8 +272,11 @@ begin
 	
 end
 
+# ╔═╡ 653d8f23-3a60-4778-897d-c092106ce20d
+using Convex, SCS
+
 # ╔═╡ 72cce814-aa8f-4ac8-98c1-f556ce43ed6d
-TableOfContents( indent=true, depth=1, aside=true)
+#TableOfContents( indent=true, depth=1, aside=true)
 
 # ╔═╡ 960b2ed0-2394-11ec-17c0-5bdaeef72b5d
 md"""
@@ -479,6 +482,22 @@ Let's calculate the Appraisal Ratios in our data.
 # ╔═╡ 6024747f-e21a-40d7-8cd1-1681ca12718e
 begin
 
+	T_app = size(Re,1)
+	x_app = [ones(T_app) Rme]
+
+	b_app = x_app\Re
+	ϵ_app = Re - x_app*b_app
+
+	σϵ_app = std(ϵ_app)
+
+	ARp = (b_app[1:1,:]*52*100)./(σϵ_app*sqrt(52)*100)
+	ARm = 0
+	
+	xut_app = [ARm; ARp']
+
+	with_terminal() do
+		printmat(xut_app, colNames=["AR"], rowNames=["Market"; FundNames])
+	end
 	
 end
 
@@ -512,6 +531,24 @@ Let's now calculate Treynor's Ratio and $T^2$ in the data.
 
 # ╔═╡ 40109f1e-f391-485e-80d1-5b60bd1ede63
 begin
+
+	T_tr = size(Re,1)
+	x_tr = [ones(T_tr) Rme]
+
+	b_tr = x_tr\Re
+	ϵ_tr = Re - x_tr * b_tr
+	σϵ_tr = std(ϵ_tr, dims=1)
+
+	TRp = (52*100*μᵉp)./b_tr[2:2,:]
+	TRm = 52*100*μᵉm/1
+
+	T2p = TRp .- μᵉm * 52 * 100
+	T2m = 0
+
+	with_terminal() do
+		xut = hcat([TRm; TRp'],[T2m; T2p'])
+		printmat(xut, colNames=["TR", "T2"], rowNames=["Market"; FundNames])
+	end
 	
 end
 
@@ -552,12 +589,34 @@ md"""
 - Let's write a function to implement the style analysis regression.
 """
 
-# ╔═╡ 653d8f23-3a60-4778-897d-c092106ce20d
-
-
 # ╔═╡ 28c593e8-0ce6-4db6-a8bb-f64ec8307391
 begin
+	function StyleAnalysis(Y,X)
+		K = size(X,2)
+		b_ls = X\Y
 
+		b = Variable(K)
+		Q = X'X
+		L1 = quadform(b,Q)
+		c = X'Y
+		L2 = dot(c,b)
+
+		c1 = sum(b)==1
+		c2 = 0.0 <= b
+		c3 = b <= 1.0
+		sc = length(Q)./sum(abs,Q)
+
+		Sol = minimize(sc*L1 - 2*sc*L2,c1,c2,c3)
+		solve!(Sol, SCS.Optimizer; silent_solver=true)
+		if Sol.status == Convex.MOI.OPTIMAL
+			b_sa = vec(evaluate(b))
+		else
+			b_sa = NaN
+		end
+
+		return b_sa, b_ls
+
+	end
 end
 
 # ╔═╡ 49a66213-b8b7-4789-b967-7bdfb859de9d
@@ -569,7 +628,17 @@ md"""
 
 # ╔═╡ b22fb358-658a-44be-a99b-b5301c2dcadf
 let
-	
+	(b, b_ls) = StyleAnalysis(RFunds[:,1], Rb)
+
+	printblue("OLS and style analysis coeffs:")
+	colNames = ["OLS" "Restricted LS"]
+	xut = [b_ls b; sum([b_ls b], dims=1)]
+
+	with_terminal() do
+		printmat(xut, colNames=colNames, rowNames=[IndNames; "Sum"], width=15)
+
+		printred("Notice that the restricted LS has (approximately) no negative coeffs and that sum(coeffs)=1")
+	end
 	
 end
 
@@ -581,13 +650,40 @@ md"""
 # ╔═╡ 925fd389-4d7d-4fdd-b84c-c81c7f6408e4
 let
 
+	(T,K) = size(Rb)
 
+	WinSize = 104
+
+	b = fill(NaN,(T,K))
+
+	for t = (WinSize+1):T
+
+		vv = (t-WinSize):t
+		b[t,:] = StyleAnalysis(RFunds[vv,1], Rb[vv,:])[1]
+		
+	end
+
+	xTicksLoc = [Date(2000); Date(2005); Date(2010); Date(2015)]
+	xTicksLab = Dates.format.(xTicksLoc,"Y")
+
+	p1 = plot(dN, b, 
+		layout = @layout[a a a; a a a; a a _],
+		legend = false,
+		size(800,600),
+		linecolor=:blue,
+		xticks = (xTicksLoc, xTicksLab),
+		ylims = (0, 0.6),
+		title = reshape(string.(IndNames),1,:),
+		titlefont = font(10)
+	)
+	
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+Convex = "f65535da-76fb-5f13-bab9-19810c17039a"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
@@ -597,17 +693,20 @@ Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+SCS = "c946c3f1-0d1f-5ce8-9dea-7daa1f7e2d13"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 StatsModels = "3eaba693-59b7-5ba5-a881-562e759f1c8d"
 
 [compat]
 CSV = "~0.10.3"
+Convex = "~0.15.1"
 DataFrames = "~1.2.2"
 LaTeXStrings = "~1.3.0"
 LinearRegressionKit = "~0.7.4"
 Plots = "~1.27.0"
 PlutoUI = "~0.7.37"
+SCS = "~1.1.1"
 StatsBase = "~0.33.16"
 StatsModels = "~0.6.29"
 """
@@ -616,11 +715,22 @@ StatsModels = "~0.6.29"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
+[[AMD]]
+deps = ["Libdl", "LinearAlgebra", "SparseArrays", "Test"]
+git-tree-sha1 = "fc66ffc5cff568936649445f58a55b81eaf9592c"
+uuid = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
+version = "0.4.0"
+
 [[AbstractPlutoDingetjes]]
 deps = ["Pkg"]
 git-tree-sha1 = "8eaf9f1b4921132a4cff3f36a1d9ba923b14a481"
 uuid = "6e696c72-6542-2067-7265-42206c756150"
 version = "1.1.4"
+
+[[AbstractTrees]]
+git-tree-sha1 = "03e0550477d86222521d254b741d470ba17ea0b5"
+uuid = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
+version = "0.3.4"
 
 [[Adapt]]
 deps = ["LinearAlgebra"]
@@ -636,6 +746,12 @@ uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+
+[[BenchmarkTools]]
+deps = ["JSON", "Logging", "Printf", "Profile", "Statistics", "UUIDs"]
+git-tree-sha1 = "4c10eee4af024676200bc7752e536f858c6b8f93"
+uuid = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+version = "1.3.1"
 
 [[Bzip2_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -678,6 +794,12 @@ deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
 git-tree-sha1 = "bf98fa45a0a4cee295de98d4c1462be26345b9a1"
 uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
 version = "0.1.2"
+
+[[CodecBzip2]]
+deps = ["Bzip2_jll", "Libdl", "TranscodingStreams"]
+git-tree-sha1 = "2e62a725210ce3c3c2e1a3080190e7ca491f18d7"
+uuid = "523fee87-0ab8-5b00-afb7-3ecf72e48cfd"
+version = "0.7.2"
 
 [[CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -734,6 +856,12 @@ deps = ["StaticArrays"]
 git-tree-sha1 = "9f02045d934dc030edad45944ea80dbd1f0ebea7"
 uuid = "d38c429a-6771-53c6-b99e-75d170b6e991"
 version = "0.5.7"
+
+[[Convex]]
+deps = ["AbstractTrees", "BenchmarkTools", "LDLFactorizations", "LinearAlgebra", "MathOptInterface", "OrderedCollections", "SparseArrays", "Test"]
+git-tree-sha1 = "9573bc2746465b659785bf23b56ba8c423adeb88"
+uuid = "f65535da-76fb-5f13-bab9-19810c17039a"
+version = "0.15.1"
 
 [[Crayons]]
 git-tree-sha1 = "249fe38abf76d48563e2f4556bebd215aa317e15"
@@ -1055,6 +1183,12 @@ git-tree-sha1 = "f6250b16881adf048549549fba48b1161acdac8c"
 uuid = "c1c5ebd0-6772-5130-a774-d5fcae4a789d"
 version = "3.100.1+0"
 
+[[LDLFactorizations]]
+deps = ["AMD", "LinearAlgebra", "SparseArrays", "Test"]
+git-tree-sha1 = "736e01b9b2d443c4e3351aebe551b8a374ab9c05"
+uuid = "40e66cde-538c-5869-a4ad-c39174c6795b"
+version = "0.8.2"
+
 [[LERC_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "bf36f528eec6634efc60d7ec062008f171071434"
@@ -1174,6 +1308,12 @@ version = "0.5.9"
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
+[[MathOptInterface]]
+deps = ["BenchmarkTools", "CodecBzip2", "CodecZlib", "JSON", "LinearAlgebra", "MutableArithmetics", "OrderedCollections", "Printf", "SparseArrays", "Test", "Unicode"]
+git-tree-sha1 = "23c99cadd752cc0b70d4c74c969a679948b1bb6a"
+uuid = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
+version = "1.2.0"
+
 [[MbedTLS]]
 deps = ["Dates", "MbedTLS_jll", "Random", "Sockets"]
 git-tree-sha1 = "1c38e51c3d08ef2278062ebceade0e46cefc96fe"
@@ -1201,6 +1341,12 @@ uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 [[MozillaCACerts_jll]]
 uuid = "14a3606d-f60d-562e-9121-12d972cd8159"
 
+[[MutableArithmetics]]
+deps = ["LinearAlgebra", "SparseArrays", "Test"]
+git-tree-sha1 = "ba8c0f8732a24facba709388c74ba99dcbfdda1e"
+uuid = "d8a4904e-b15c-11e9-3269-09a3773c0cb0"
+version = "1.0.0"
+
 [[NaNMath]]
 git-tree-sha1 = "737a5957f387b17e74d4ad2f440eb330b39a62c5"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
@@ -1226,6 +1372,12 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "887579a3eb005446d514ab7aeac5d1d027658b8f"
 uuid = "e7412a2a-1a6e-54c0-be00-318e2571c051"
 version = "1.3.5+1"
+
+[[OpenBLAS32_jll]]
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "ba4a8f683303c9082e84afba96f25af3c7fb2436"
+uuid = "656ef2d0-ae68-5445-9ca0-591084a874a2"
+version = "0.3.12+1"
 
 [[OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -1328,6 +1480,10 @@ version = "1.3.1"
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
+[[Profile]]
+deps = ["Printf"]
+uuid = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
+
 [[Qt5Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "xkbcommon_jll"]
 git-tree-sha1 = "c6c0f690d0cc7caddb74cef7aa847b824a16b256"
@@ -1393,6 +1549,24 @@ deps = ["CommonSolve", "Printf", "Setfield"]
 git-tree-sha1 = "554149b8b82e167c1fa79df99aeabed4f8404119"
 uuid = "f2b01f46-fcfa-551c-844a-d8ac1e96c665"
 version = "1.3.15"
+
+[[SCS]]
+deps = ["MathOptInterface", "Requires", "SCS_GPU_jll", "SCS_jll", "SparseArrays"]
+git-tree-sha1 = "65ecfd7602cdb2aa617fb6034a75fa7ac7d318dc"
+uuid = "c946c3f1-0d1f-5ce8-9dea-7daa1f7e2d13"
+version = "1.1.1"
+
+[[SCS_GPU_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "OpenBLAS32_jll", "Pkg"]
+git-tree-sha1 = "f912271ecccb00acaddfab2943e9b33d5ec36d3b"
+uuid = "af6e375f-46ec-5fa0-b791-491b0dfa44a4"
+version = "3.2.0+0"
+
+[[SCS_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "OpenBLAS32_jll", "Pkg"]
+git-tree-sha1 = "ba5c0d3b23220d3598d2877b4cf913e3fcf8add3"
+uuid = "f4f2fc5b-1d94-523c-97ea-2ab488bedf4b"
+version = "3.2.0+0"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -1793,7 +1967,7 @@ version = "0.9.1+5"
 # ╔═╡ Cell order:
 # ╠═8b90477d-5887-49bd-bcf3-d2d7276885af
 # ╟─3820a86d-fefa-43ca-a308-40d9ff2b3599
-# ╟─72cce814-aa8f-4ac8-98c1-f556ce43ed6d
+# ╠═72cce814-aa8f-4ac8-98c1-f556ce43ed6d
 # ╟─960b2ed0-2394-11ec-17c0-5bdaeef72b5d
 # ╟─e7029f0e-832a-4b62-a4f4-09002dbd7159
 # ╟─ba9c36aa-e791-4411-85f6-5c230d19b017

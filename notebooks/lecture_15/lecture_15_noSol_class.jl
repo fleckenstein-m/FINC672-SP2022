@@ -299,7 +299,17 @@ md"""
 
 # ╔═╡ 49e65c75-ef1e-494e-9278-6d1550f2a78d
 let
+	μ = 8
+	σ = 16
 
+	q05 = μ - 1.64 * σ
+	VaR95 = - (μ - 1.64 * σ)
+
+	with_terminal() do
+		printred("with μ=$μ and σ=$σ, we have approximately:\n")
+		printmat([q05, VaR95], rowNames = ["5-th quantile", "VaR 95%"])
+	end
+	
 end
 
 # ╔═╡ 5383e1b6-eb9a-4461-a2e1-32bc45a86190
