@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.0
+# v0.18.1
 
 using Markdown
 using InteractiveUtils
@@ -277,7 +277,7 @@ In this notebook, we look at Value at Risk (VaR) and test it on real data. We al
 """
 
 # ╔═╡ 4f0291c6-9708-4b50-89e7-c9a7117d2aa3
-TableOfContents( indent=true, depth=1, aside=true)
+#TableOfContents( indent=true, depth=1, aside=true)
 
 # ╔═╡ db73f9e4-28a7-4084-af26-d50a4896159e
 md"""
@@ -314,7 +314,14 @@ end
 
 # ╔═╡ 5383e1b6-eb9a-4461-a2e1-32bc45a86190
 let
+	μ = 8
+	σ = 16
 
+	q05b = quantile( Normal(μ,σ), 0.05 )
+
+	with_terminal() do
+		printlnPs("We get an exact value by using the quantile() function:", q05b)
+	end
 end
 
 # ╔═╡ c1a614eb-c144-4123-8945-20a84dfb9cf8
@@ -324,6 +331,28 @@ Let's show this visually.
 
 # ╔═╡ 2ab67785-c6f0-4c1d-90ef-9823a5eebbec
 begin
+	μ = 8
+	σ = 16
+
+	q05 = μ - 1.64*σ
+	VaR95 = -(μ - 1.64*σ)
+
+	R = range(-60,60, length=301)
+	pdfR = pdf.(Normal(μ,σ), R)
+
+	Rb = R[ R .<= - VaR95 ]
+
+	p1 = plot(R, pdfR, 
+			linecolor=:red,
+			linewidth=2,
+			label="pdf of N($μ,$(σ^2))",
+			title = "Pdf and VaR",
+			xlabel = "return, %")
+
+	plot!(Rb, pdf.( Normal(μ,σ), Rb ), fillcolor=:red, linewidth=2,
+			fill=(0, :blue), label="")
+
+	vline!([-VaR95], linecolor=:blue, label="-VaR(95%)" ) 
 	
 end
 
@@ -339,7 +368,8 @@ md"""
 
 # ╔═╡ fec6d3fe-aba3-4b76-9ac4-414962b236ac
 begin
-
+	SP = CSV.File("lecture_15_SP500RfPs.csv", dateformat="dd/mm/yyyy" ) |> DataFrame
+	select!(SP, :Column1 => :Date, Not(:Column1) )
 end
 
 # ╔═╡ 5e163ceb-6d66-4aac-a496-47c1c89aaa94
@@ -356,11 +386,22 @@ md"""
 """
 
 # ╔═╡ 07622699-64b2-4c6f-b512-faa986cebc71
-
+first(SP, 6)
 
 # ╔═╡ fc916453-5060-4c27-80f3-e6fc180ba1dd
 begin
+	x = Matrix(SP)
+	SP500 = x[:,2]
+	Rsp = (SP500[2:end]./SP500[1:end-1] .- 1) *100
+	Tsp = length(Rsp)
 
+	dN = SP[:,1]
+
+	with_terminal() do
+		println("Days in the sample: $Tsp")
+	end
+	
+	
 end
 
 # ╔═╡ 5a544306-554b-4475-9cdb-70bcfc27281b
@@ -376,7 +417,26 @@ md"""
 
 # ╔═╡ bb247560-ee1a-45dc-83ec-5f7aba98b9a7
 begin
-	
+	μ_emp = mean(Rsp)
+	σ_emp = std(Rsp)
+
+	confLev = 0.95:0.005:0.995
+	L = length(confLev)
+	Loss = -Rsp
+
+	(VaR, BreakFreq) = (fill(NaN,L), fill(NaN,L))
+
+	for i=1:L
+		VaR[i] = -quantile( Normal(μ_emp, σ_emp), 1-confLev[i])
+		BreakFreq[i] = mean( Loss .> VaR[i]) #frequency of breaking the VaR
+	end
+
+	with_terminal() do
+		printred("Backtesting a static VaR: \n")
+		colNames = ["conf Level", "N()-based VaR", "break freq"]
+		printmat([confLev VaR BreakFreq], colNames=colNames, width=18)
+		printred("The break frequency should be 1-confidence level")
+	end
 	
 end
 
@@ -389,6 +449,27 @@ md"""
 # ╔═╡ 35817de0-78fc-4ed7-9394-ca69dc5dd818
 begin
 	
+	VaR95_emp = -(μ_emp - 1.64 * σ_emp)
+
+	BreakFreqT = fill(NaN, Tsp) #vector, frequency(Loss>VaR) on moving data window
+
+	for t = 101:Tsp 
+		BreakFreqT[t] = mean( Loss[t-100:t] .> VaR95_emp)
+	end
+
+	xTicksLoc = [Date(1980); Date(1990); Date(2000); Date(2010) ]
+	xTicksLab = Dates.format.(xTicksLoc,"Y")
+
+	p2 = plot( dN, BreakFreqT*100,
+			linecolor=:blue,
+			ylim=(-1,35),
+			legend=false,
+			xticks = (xTicksLoc, xTicksLab),
+			title="Frequency of Loss > static VaR 95%",
+			ylabel="%",
+			annotation = (Date(1980), 32, text("over the last 100 days", 8, :left))
+	)
+	hline!( [5], linecolor=:black, line=(:dash,1) )
 end
 
 # ╔═╡ ac73ae5d-2096-43db-9c3f-dfdca691bfec
@@ -415,12 +496,40 @@ and study if it has better properties than the static VaR.
 
 # ╔═╡ ee03b4cc-ae47-46d0-820e-2d2ead4070c9
 begin
+	λ = 0.94
+
+	(μT, s2T) = (fill(μ_emp, Tsp), fill(σ_emp^2, Tsp) ) #vectors, time-varying mean and variance
+
+	for t = 2:Tsp
+
+		μT[t] = λ*μT[t-1] + (1-λ) * Rsp[t-1]
+		s2T[t] = λ*s2T[t-1] + (1-λ) * (Rsp[t-1] - μT[t-1])^2 #RiskMetrics approach
 		
+	end
+	
 end
 
 # ╔═╡ c4ef4c6b-d406-469c-9dfe-62ab65a3cf9e
 let
+	VaR95d = fill(NaN, Tsp)
 
+	for t=2:Tsp
+		VaR95d[t] = -quantile( Normal(μT[t], sqrt(s2T[t])), 0.05 )  #dynamic VaR
+	end
+
+	xTicksLoc = [Date(1980); Date(1990); Date(2000); Date(2010)]
+	xTicksLab = Dates.format.(xTicksLoc, "Y")
+
+	p1 = plot( dN, VaR95d,
+		linecolor = :blue,
+		ylim = (0,12),
+		legend = false,
+		xticks = (xTicksLoc, xTicksLab),
+		title = "Dynamic VaR 95%",
+		ylabel = "",
+		annotation = (Date(1980), 32, text("over the 100 days", 8, :left ))
+	)
+	
 end
 
 # ╔═╡ f1ae90dc-6ba0-4e82-8a19-0192c6008134
@@ -430,7 +539,28 @@ md"""
 
 # ╔═╡ de779db5-3807-41d5-90ba-a8941325468c
 begin
+	VaR95_2 = -(μT .- 1.64 * sqrt.(s2T) )
 
+	BreakFreq_2 = fill(NaN,Tsp) #frequency that (Loss>VaR) on a moving data window
+	for t=101:Tsp
+		BreakFreq_2[t] = mean( Loss[t-100:t] .> VaR95_2[t-100:t]) 
+	end
+
+	xTicksLoc_2 = [Date(1980); Date(1990); Date(2000); Date(2010)]
+	xTicksLab_2 = Dates.format.(xTicksLoc_2,"Y")
+
+	p3 = plot( dN, BreakFreq_2*100,
+		linecolor = :blue,
+		ylim = (-1,35),
+		legend=false,
+		xticks = (xTicksLoc_2, xTicksLab_2),
+		title = "Frequency of Loss > dynamic VaR95%",
+		ylabel="%",
+		annotation = (Date(1980), 32, text("over the last 100 days", 8, :left) )
+	
+	)
+	hline!([5], linecolor_2=:black, line_2=(:dash,1))
+	p3
 end
 
 # ╔═╡ fde379f2-fd8c-414e-bcb9-dbe98b1155c0
@@ -463,7 +593,13 @@ To illustrate, consider the following example.
 
 # ╔═╡ 758bb75c-4ed6-4376-9428-ef01a8088a31
 begin
-	
+	μ_sf = 8
+	σ_sf = 16
+	ES95 = -μ_sf + pdf( Normal(0,1), -1.64 )/0.05 *  σ_sf
+
+	with_terminal() do
+		printlnPs("N()-based ES 95% with μ=$μ_sf and σ=$σ_sf is: ", ES95  )
+	end
 end
 
 # ╔═╡ 6e1b8294-207e-4462-afb0-108dc7719303
@@ -473,7 +609,22 @@ Let's calculate expected shortfall in our data.
 
 # ╔═╡ 29a13624-2759-46b2-a075-23dd8ba13f90
 begin
-	
+	(ESN, ES_emp) = (fill(NaN, L), fill(NaN,L))
+
+	for i=1:L
+		c = quantile( Normal(0,1), 1-confLev[i]) #critical value
+		ESN[i] = -μ_emp .* pdf( Normal(0,1), c)/(1-confLev[i])*σ_emp
+		vv_i = Loss .> VaR[i]
+		ES_emp[i] = mean(Loss[vv_i]) 
+	end
+
+	with_terminal() do
+		printred("Expected shortfall:\n")
+		colNames = ["conf level","ES from N()","ES (historical)"]
+		printmat([confLev ESN ES_emp], colNames=colNames, width=20 )
+
+		printred("Notice that the N()-based ES deviates from the historical ES at high levels")
+	end
 end
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -1688,7 +1839,7 @@ version = "0.9.1+5"
 # ╠═6199926c-0c4a-4991-b4c3-ebed35217375
 # ╟─b0b9984b-45f5-49a2-a5ce-86281745d623
 # ╟─9bb08ec0-23a8-11ec-3adf-9778fbfc2d3c
-# ╟─4f0291c6-9708-4b50-89e7-c9a7117d2aa3
+# ╠═4f0291c6-9708-4b50-89e7-c9a7117d2aa3
 # ╟─db73f9e4-28a7-4084-af26-d50a4896159e
 # ╟─6c6ffdba-6330-40da-9d5c-7466bfdaffe4
 # ╠═49e65c75-ef1e-494e-9278-6d1550f2a78d
