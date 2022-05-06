@@ -6,6 +6,6 @@
 Topic | Slides
 :-----: | :--------:
 Risk Measures    | [notebook](../lecture15_noSol_pluto)
-                 | [Partial Solution](../notebooks/lecture_15/lecture_15_wSol_partial_html.html)
+                 | [Solution](../notebooks/lecture_15/lecture_15_wSol_html.html)
 <!--  -->
 
