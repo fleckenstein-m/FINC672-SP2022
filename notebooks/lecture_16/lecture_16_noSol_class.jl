@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.0
+# v0.19.3
 
 using Markdown
 using InteractiveUtils
@@ -325,7 +325,7 @@ md"""
 """
 
 # ╔═╡ 34545087-b68d-4271-9771-4686b770c619
-#KEY, SECRET
+AlpacaMarkets.auth("PKN64AVCL7JD1YF2Q5XN","I9vzYuasn91liH1GkQZNITJ1SQzpQXgliZUtUcUy") #KEY, SECRET
 
 # ╔═╡ 4a235440-1810-4b18-85f9-377f9f5f6876
 md"""
@@ -339,7 +339,9 @@ md"""
 
 # ╔═╡ 8560c709-61bd-4d7b-a7cd-78c9861b54cc
 begin
-
+  aapl = AlpacaMarkets.get_stock_quotes("AAPL", 
+  DateTime("2022-01-27T15:00:00"),
+  DateTime("2022-01-27T15:00:01"))
 end
 
 # ╔═╡ 96ec6830-4c58-48b5-8538-236dc2a3c599
@@ -415,6 +417,23 @@ md"""
 # ╔═╡ bb9d0cfe-7f25-464e-bcd6-09d732c36eac
 begin
 
+	function convert_t_timestamp(x)
+		ts = first(x, 23)
+
+		if endswith(ts,"Z")
+			ts = chop(ts)
+		end
+		DateTime(ts)
+	end
+
+	function convert_t_time(x)
+		ts = split(x,"T")[2]
+		ts = first(ts,12)
+			if endswith(ts,"Z")
+				ts = chop(ts)
+			end
+		Time(ts)
+	end
 	
 end
 
@@ -424,7 +443,10 @@ md"""
 """
 
 # ╔═╡ 3a4c94b5-6fd3-4253-839b-e898ab9025be
-
+aapl2 = @chain aapl begin
+	transform(:t => (x-> convert_t_timestamp.(x)) => :TimeStamp,
+			  :t => (x-> TimeDate.(string.(chop.(x)))) => :TimeStamp_nano)
+end
 
 # ╔═╡ 3bf77a4e-5019-4ad6-9e05-60d2dff701e6
 md"""
@@ -433,7 +455,12 @@ md"""
 
 # ╔═╡ 435f564e-c550-4a54-bb7d-86ed3d3017bc
 begin
+	ticks = minimum( aapl2.TimeStamp):Millisecond(250):maximum(aapl2.TimeStamp)
+	tick_labels = Dates.format.(ticks, "HH:MM:SS.sss")
 
+	plot(aapl2.TimeStamp, aapl2.ap, label="Ask Price", seriestype=:steppre,
+		xticks=(ticks, tick_labels))
+	plot!(aapl2.TimeStamp, aapl2.bp, label="Bid Price", seriestype=:steppre)
 end
 
 # ╔═╡ 04c1af80-11cd-4a97-8d8c-5e35fd233d24
@@ -447,8 +474,11 @@ md"""
 """
 
 # ╔═╡ e398ea5c-575e-4aa5-ad3b-2dd3cc0c1164
-
-
+begin
+	aaplTrades = AlpacaMarkets.get_stock_trades("AAPL", 
+	DateTime("2022-01-27T15:00:00"), DateTime("2022-01-27T15:00:01") )
+	
+end
 
 # ╔═╡ b16c32a6-cf18-4854-bd7d-020e324b4ff1
 md"""
@@ -494,7 +524,12 @@ md"""
 """
 
 # ╔═╡ 03fcdb25-0b2d-4022-8945-f7a66df81419
+aaplTrades2 = @chain aaplTrades begin
+	unique(_,:i)
+	transform(:t => (x-> convert_t_timestamp.(x)) => :TimeStamp,
+			  :t => (x-> TimeDate.(string.(chop.(x)))) => :TimeStamp_nano)
 
+end
 
 # ╔═╡ 3760c655-d8a9-4893-a17a-0978ee1a4f40
 md"""
@@ -503,7 +538,13 @@ md"""
 
 # ╔═╡ a345db06-db99-4262-9b18-b4f4ce229515
 begin
+	plotTrades = plot(aapl2.TimeStamp, aapl2.ap, label="Ask Price", seriestype=:steppre, xticks=(ticks, tick_labels))
+	
+	plot!(plotTrades, aapl2.TimeStamp, aapl2.bp, label="Bid Price",
+	seriestype=:steppre, xticks=(ticks, tick_labels))
 
+	plot!(plotTrades, aaplTrades2.TimeStamp, aaplTrades2.p, label="Trades", 
+		seriestype=:scatter)
 end
 
 # ╔═╡ b861419a-6e7a-4708-91d1-f160015241c5
@@ -528,7 +569,7 @@ md"""
 """
 
 # ╔═╡ f9a3339a-4858-4fde-9967-427ea6fc933c
-
+aaplVenue = AlpacaMarkets.get_stock_quotes("AAPL", DateTime("2022-01-27T15:00:00"), DateTime("2022-01-27T16:00:00"))
 
 # ╔═╡ ddbf5a8f-083c-4796-9f92-150e050d963d
 md"""
@@ -536,11 +577,19 @@ md"""
 """
 
 # ╔═╡ 837cf9b4-92ba-4539-802d-e3e37e83182d
-
+function get_ns(x)
+    getfield(x, :value)
+end
 
 # ╔═╡ 7242e288-5eb3-42ab-8a7b-9b7cfdaa361e
 begin
-
+	aaplVenue2 = @chain aaplVenue begin
+		transform(:t => (x-> convert_t_timestamp.(x)) => :TimeStamp, 
+			      :t => (x-> TimeDate.(string.(chop.(x)))) => :TimeStamp_nano)
+		transform(:TimeStamp_nano => (x-> [diff(x); NaN]) => :TimeDelta)
+	end
+	aaplVenue2 = aaplVenue2[1:(end-1), :]
+	transform!(aaplVenue2, :TimeDelta => (x->get_ns.(x)) => :ns)
 end
 
 # ╔═╡ 9fba2de3-878b-4bcc-95b0-66aa868b925e
@@ -554,11 +603,29 @@ md"""
 
 # ╔═╡ 16689d26-739c-4581-b210-01998ace0d06
 begin
+	venue_bids = @chain aaplVenue2 begin
+		groupby(:bx)
+		combine(:c  => (x->length(x)) => :n_best_bid,
+				:as => (x->mean(x))   => :ave_size_bid,
+				:ns => (x->mean(x)*1e-9) => :avg_time_best_bid)
+		rename(["venue", "n_best_bid", "avg_size_bid", "avg_time_best_bid"])
+	end
+
+	venue_asks = @chain aaplVenue2 begin
+		groupby(:ax)
+		combine(:c  => (x->length(x)) => :n_best_bid,
+				:as => (x->mean(x)) => :ave_size_ask,
+				:ns => (x->mean(x)*1e-9) => :avg_time_best_ask)
+		rename(["venue", "n_best_ask", "avg_size_ask", "avg_time_best_ask"])
+	end
+	
+	venue = leftjoin(venue_bids, venue_asks, on = "venue")
+	venue = leftjoin(venue, rename!(AlpacaMarkets.STOCK_EXCHANGES, ["Name", "venue"]), on = "venue")
 	
 end
 
 # ╔═╡ 6f145c34-a0e9-47ec-99ac-f7cf0d11b4d2
-
+first(venue[!,["Name", "n_best_ask", "avg_size_ask", "avg_time_best_ask"]], 4)
 
 # ╔═╡ 191ddc32-d1f1-44c0-a1d8-2db523997791
 md"""
@@ -567,12 +634,24 @@ md"""
 
 # ╔═╡ 0cb113ad-75f0-433d-85f2-e242a18e24fd
 begin
-
+	plot(log.(venue.n_best_bid), venue.avg_size_bid, seriestype = :scatter, 
+    label = :none, group = venue.venue, 
+    series_annotations = text.(venue.Name, :bottom, pointsize=8),
+    xlabel = "log (Number of Times Best Bid)",
+    ylabel = "Average Bid Size")
+	hline!([mean(venue.avg_size_bid)], label=:none, color=:black)
+	vline!([mean(log.(venue.n_best_bid))], label=:none, color=:black)
 end
 
 # ╔═╡ 5ef1d64f-7854-4dd5-aa4b-d34c2aafdb89
 begin
-
+	plot(log.(venue.n_best_ask), venue.avg_time_best_ask, seriestype = :scatter, 
+    label = :none, group = venue.venue, 
+    series_annotations = text.(venue.Name, :bottom, pointsize=8),
+    xlabel = "log (Number of Times Best Ask)",
+    ylabel = "Average Time Best Ask (seconds)")
+	hline!([mean(venue.avg_time_best_ask)], label=:none, color=:black)
+	vline!([mean(log.(venue.n_best_ask))], label=:none, color=:black)
 end
 
 # ╔═╡ 581546d5-3e82-4a73-8b3a-b7cc4cd3633d
@@ -592,7 +671,7 @@ md"""
 """
 
 # ╔═╡ 0dcbae87-d41a-4926-ac88-462b1c6fb1f4
-
+plotTrades
 
 # ╔═╡ fbe5916a-5788-44a1-b822-233dec173825
 md"""
@@ -614,11 +693,22 @@ md"""
 
 # ╔═╡ 7bff09b3-a8eb-4c96-adc1-be5a89b6babb
 begin
+	aaplTrades3 = copy(aaplTrades2)
 	
+	tradeTimes = aaplTrades3.TimeStamp_nano
+	quoteTimes = aapl2.TimeStamp_nano
+	
+	quoteInds = searchsortedlast.([quoteTimes], tradeTimes)
+	#See: https://docs.julialang.org/en/v1/base/sort/#Base.Sort.searchsortedlast
+	
+	aaplTrades3[!, "ap"] = aapl2.ap[quoteInds]
+	aaplTrades3[!, "bp"] = aapl2.bp[quoteInds]
+	
+	transform!(aaplTrades3, [:ap, :bp] => ((a,b)-> (a .+ b) ./ 2) => :Mid)
 end
 
 # ╔═╡ 078763d8-8263-41fe-a5da-4e825357148c
-
+aaplTrades3[1:4, ["t", "TimeStamp_nano", "p", "ap", "bp", "Mid"]]
 
 # ╔═╡ 677a8ed3-eb0f-4d08-9379-41df5c9a0bd5
 md"""
