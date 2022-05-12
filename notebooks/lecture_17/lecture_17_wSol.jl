@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.0
+# v0.19.4
 
 using Markdown
 using InteractiveUtils
@@ -284,7 +284,7 @@ _Thanks to [Dean Markwick](https://dm13450.github.io/about/) for making the Coin
 
 # ╔═╡ 1897543d-5c47-41ee-9f13-a099df5d9ed1
 md"""
-- In this notebook, we will learn the basic of limit order books. For this purpose, we will use [Coinbase](https://www.coinbase.com/) which is an easy-to-use platform for accessing Bitcoin data.
+- In this notebook, we will learn the basics of limit order books. For this purpose, we will use [Coinbase](https://www.coinbase.com/) which is an easy-to-use platform for accessing Bitcoin data.
 - We will connect to Coinbase using the [CoinbasePro](https://github.com/dm13450/CoinbasePro.jl) API in Julia.
 - Using this API we can access
   - `products` lists the available currency pairs provided by Coinbase.
@@ -303,7 +303,7 @@ md"""
 # ╔═╡ 825c7258-ade5-48ad-83c9-acc362101715
 md"""
 - The limit order book (LOB) is the collection of orders at which people are willing to buy and sell assets (stocks, bond, Bitcoin, etc.). 
-  - Basically, an order in the order book is executed when the market price reaches the limit order price. By contrast, a market order typically is executed right-away at the current market price.
+  - Basically, an order in the order book is executed when the market price reaches the limit order price. By contrast, a market order is typically executed right-away at the current market price.
 """
 
 # ╔═╡ 16386405-896d-4cea-a733-41e298da1258
@@ -400,7 +400,7 @@ md"""
 # ╔═╡ 8e1246c0-3bf3-4bd0-b7e2-a87dc818831e
 begin
 	plot(askSize, (1e4 .* ((askCost ./ bookData[!, "price_ask"][1]) .- 1)), label="Ask", xlabel="Number of Bitcoins", ylabel="Cost (bps)")
-plot!(bidSize, abs.(1e4 .* ((bidCost ./ bookData[!, "price_bid"][1]) .- 1)), label="Bid", xlim=(0,1), ylim=(0,1))
+plot!(bidSize, abs.(1e4 .* ((bidCost ./ bookData[!, "price_bid"][1]) .- 1)), label="Bid", xlim=(0,1), ylim=(0,10))
 end
 
 # ╔═╡ f6d356b2-4b9a-4552-9d4a-7840ff1c253c
@@ -421,7 +421,7 @@ begin
 	bidBps = abs.(1e4 .* ((bidCost ./ bookData[!, "price_bid"][1]) .- 1))
 
 	plot(askSize .* mid , (askBps /1e4) .* askSize .* mid, label="Ask", xlabel="Dollars")
-	plot!(bidSize .* mid , (bidBps/1e4) .* bidSize .* mid, label="Bid", ylabel = "Cost (dollars)", xlim=(0,10000), ylim=(0,1))
+	plot!(bidSize .* mid , (bidBps/1e4) .* bidSize .* mid, label="Bid", ylabel = "Cost (dollars)", xlim=(0,10000), ylim=(0,5))
 end
 
 # ╔═╡ 64728fae-6674-4877-a19e-26767b96d7c4
