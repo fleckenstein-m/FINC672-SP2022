@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.0
+# v0.19.4
 
 using Markdown
 using InteractiveUtils
@@ -272,6 +272,21 @@ end
 # ╔═╡ cc9ed5ee-ef24-457a-806d-8bed26617b13
 using CoinbasePro
 
+# ╔═╡ 903dfdf7-ec30-4c22-a8da-2cbc8adb359d
+begin
+	using CategoricalArrays
+
+
+	
+	
+end
+
+# ╔═╡ 431ab113-2f60-4c1f-8997-73805833bac9
+begin
+	using GLM
+
+end
+
 # ╔═╡ 886b6ade-b8df-494c-be5f-13aae328b848
 md"""
 ## FINC 672: Bitcoin
@@ -284,7 +299,7 @@ _Thanks to [Dean Markwick](https://dm13450.github.io/about/) for making the Coin
 
 # ╔═╡ 1897543d-5c47-41ee-9f13-a099df5d9ed1
 md"""
-- In this notebook, we will learn the basic of limit order books. For this purpose, we will use [Coinbase](https://www.coinbase.com/) which is an easy-to-use platform for accessing Bitcoin data.
+- In this notebook, we will learn the basics of limit order books. For this purpose, we will use [Coinbase](https://www.coinbase.com/) which is an easy-to-use platform for accessing Bitcoin data.
 - We will connect to Coinbase using the [CoinbasePro](https://github.com/dm13450/CoinbasePro.jl) API in Julia.
 - Using this API we can access
   - `products` lists the available currency pairs provided by Coinbase.
@@ -303,7 +318,7 @@ md"""
 # ╔═╡ 825c7258-ade5-48ad-83c9-acc362101715
 md"""
 - The limit order book (LOB) is the collection of orders at which people are willing to buy and sell assets (stocks, bond, Bitcoin, etc.). 
-  - Basically, an order in the order book is executed when the market price reaches the limit order price. By contrast, a market order typically is executed right-away at the current market price.
+  - Basically, an order in the order book is executed when the market price reaches the limit order price. By contrast, a market order is typically executed right-away at the current market price.
 """
 
 # ╔═╡ 16386405-896d-4cea-a733-41e298da1258
@@ -322,7 +337,8 @@ md"""
 
 # ╔═╡ 451ecc21-b276-4009-ac12-561dd858e507
 begin
-	
+	l1 = CoinbasePro.book("btc-usd", 1)
+	first(l1, 5)
 end
 
 # ╔═╡ a4b4cb2a-03b4-4498-9978-d786a2663718
@@ -335,7 +351,8 @@ md"""
 
 # ╔═╡ 62eeb08c-9c02-47e0-9e44-8dda89fe7f3c
 begin
-	
+	bookData = CoinbasePro.book("btc-usd", 2)
+	first(bookData, 15)
 end
 
 # ╔═╡ 8d5c0e6b-ae4a-4f77-a0ff-8de784934136
@@ -350,11 +367,12 @@ md"""
 
 # ╔═╡ ec0eb792-f467-43ac-8f31-91d542b08e67
 begin
-	
+	l3 = CoinbasePro.book("btc-usd", 3)
+	first(l3, 5)
 end
 
 # ╔═╡ ab3fef5d-14d7-4528-ad4b-a395f844e0b9
-
+nrow(l3)
 
 # ╔═╡ 653dc5ac-245a-4bcd-bfaa-69567275a388
 md"""
@@ -376,14 +394,18 @@ md"""
 
 # ╔═╡ 8d6cbbed-e8bd-4b43-859d-d86e1a70e7ff
 begin
+askSize = cumsum(bookData[!, "size_ask"])
+askCost = map(n -> sum(bookData[!, "size_ask"][1:n] .* bookData[!, "price_ask"][1:n]) / askSize[n], 1:nrow(bookData))
 
+bidSize = cumsum(bookData[!, "size_bid"])
+bidCost = map(n -> sum(bookData[!, "size_bid"][1:n] .* bookData[!, "price_bid"][1:n]) / bidSize[n], 1:nrow(bookData));
 end
 
 # ╔═╡ 2ed85d07-b706-4ba9-83c2-3e3e0249c4a5
-
+df = DataFrame(Size=askSize,Cost=askCost)
 
 # ╔═╡ 417a13a8-0594-43fe-97d8-b49b7288992e
-
+bookData[!, "price_bid"][1]
 
 # ╔═╡ 1bdd1856-8f8b-490b-a6f6-224538fa7356
 md"""
@@ -391,7 +413,10 @@ md"""
 """
 
 # ╔═╡ 8e1246c0-3bf3-4bd0-b7e2-a87dc818831e
-
+begin
+	plot(askSize, (1e4 .* ((askCost ./ bookData[!, "price_ask"][1]) .- 1)), label="Ask", xlabel="Number of Bitcoins", ylabel="Cost (bps)")
+plot!(bidSize, abs.(1e4 .* ((bidCost ./ bookData[!, "price_bid"][1]) .- 1)), label="Bid", xlim=(0,1), ylim=(0,2))
+end
 
 # ╔═╡ f6d356b2-4b9a-4552-9d4a-7840ff1c253c
 md"""
@@ -400,14 +425,18 @@ md"""
 """
 
 # ╔═╡ ddffd1c1-75b0-463f-89bb-a1ddfb337f7e
-
+tickerStats = CoinbasePro.ticker("BTC-USD")
 
 # ╔═╡ 9c95c0b9-63b1-46c1-9457-3561c665b127
-
+mid = (tickerStats.ask + tickerStats.bid)/2
 
 # ╔═╡ 2940c863-1067-493d-8a96-e00aa7bd5d08
 begin
+	askBps = 1e4 .* ((askCost ./ bookData[!, "price_ask"][1]) .- 1)
+	bidBps = abs.(1e4 .* ((bidCost ./ bookData[!, "price_bid"][1]) .- 1))
 
+	plot(askSize .* mid , (askBps /1e4) .* askSize .* mid, label="Ask", xlabel="Dollars")
+	plot!(bidSize .* mid , (bidBps/1e4) .* bidSize .* mid, label="Bid", ylabel = "Cost (dollars)", xlim=(0,20000), ylim=(0,1))
 end
 
 # ╔═╡ 64728fae-6674-4877-a19e-26767b96d7c4
@@ -428,7 +457,8 @@ md"""
 
 # ╔═╡ 0f655a55-7da4-4f99-80e4-d0460c8d083d
 begin
-
+	trad, pages = CoinbasePro.trades("BTC-USD")
+	first(trad, 5)
 end
 
 # ╔═╡ 49b20294-14ce-408f-91e6-773fc7d15816
@@ -438,14 +468,23 @@ md"""
 """
 
 # ╔═╡ 2af218ec-0514-431a-a79b-736a83ada996
-
+trades = @chain trad begin
+	 transform(:time => ByRow(x-> split(string(x),".")) => [:time_2, :time_nano]) 
+	 transform(:time_2 => ByRow(x->DateTime(x)) => :time)
+	 select(Not([:time_2, :time_nano]))
+	sort(:time)
+ end
 
 # ╔═╡ b9c2b715-f99c-4d2b-8d42-10c1e68e1f75
-
+plot(trades.time, trades.price, group=trades.side, seriestype=:scatter, xlabel="Time", ylabel="Price")
 
 # ╔═╡ fc510d58-17b4-4067-bd6b-967a966bc35b
 begin
-
+	trades_g = groupby(trades, :side)
+	@combine(trades_g, AvgPrice = mean(:price), 
+	                   N = length(:price), 
+	                   TotalNotional = sum(:size),
+	                   AvgWPrice = mean(:price, Weights(:size)))
 end
 
 # ╔═╡ 45fd2d0e-2e10-43c6-9964-125648dba4ff
@@ -469,11 +508,6 @@ end
 # ╔═╡ a719d880-0847-4925-81e3-b9dc77407a6c
 begin
 
-end
-
-# ╔═╡ 903dfdf7-ec30-4c22-a8da-2cbc8adb359d
-begin
-	
 end
 
 # ╔═╡ 8918ea92-5792-4f4d-b640-e827410cf004
@@ -520,11 +554,6 @@ end
 md"""
 - We model the relationship as $\tau^\gamma$, where $\tau$ is the lag. We also remove some of the outliers to stop them influencing the result.
 """
-
-# ╔═╡ 431ab113-2f60-4c1f-8997-73805833bac9
-begin
-
-end
 
 # ╔═╡ 0bebe9bd-3314-4697-a95c-cde9d80d7966
 
@@ -578,11 +607,13 @@ md"""
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
+CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
 Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
 CoinbasePro = "3632ec16-99db-4259-aa88-30b9105699f8"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DataFramesMeta = "1313f7d8-7da2-5740-9ea0-a2ca25f37964"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+GLM = "38e38edf-8417-5370-95a0-9cbb8c7f171a"
 Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
@@ -590,10 +621,12 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 StatsModels = "3eaba693-59b7-5ba5-a881-562e759f1c8d"
 
 [compat]
+CategoricalArrays = "~0.10.4"
 Chain = "~0.4.10"
 CoinbasePro = "~0.1.3"
 DataFrames = "~1.2.2"
 DataFramesMeta = "~0.10.0"
+GLM = "~1.6.1"
 Plots = "~1.27.0"
 StatsBase = "~0.33.16"
 StatsModels = "~0.6.29"
@@ -635,6 +668,12 @@ deps = ["LinearAlgebra"]
 git-tree-sha1 = "f641eb0a4f00c343bbc32346e1217b86f3ce9dad"
 uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
 version = "0.5.1"
+
+[[CategoricalArrays]]
+deps = ["DataAPI", "Future", "Missings", "Printf", "Requires", "Statistics", "Unicode"]
+git-tree-sha1 = "5196120341b6dfe3ee5f33cf97392a05d6fe80d0"
+uuid = "324d7699-5711-5eae-9e2f-1d82baa6b597"
+version = "0.10.4"
 
 [[Chain]]
 git-tree-sha1 = "339237319ef4712e6e5df7758d0bccddf5c237d9"
@@ -740,9 +779,21 @@ uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 deps = ["Mmap"]
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
+[[DensityInterface]]
+deps = ["InverseFunctions", "Test"]
+git-tree-sha1 = "80c3e8639e3353e5d2912fb3a1916b8455e2494b"
+uuid = "b429d917-457f-4dbc-8f4c-0cc954292b1d"
+version = "0.4.0"
+
 [[Distributed]]
 deps = ["Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
+
+[[Distributions]]
+deps = ["ChainRulesCore", "DensityInterface", "FillArrays", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SparseArrays", "SpecialFunctions", "Statistics", "StatsBase", "StatsFuns", "Test"]
+git-tree-sha1 = "9d3c0c762d4666db9187f363a76b47f7346e673b"
+uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
+version = "0.25.49"
 
 [[DocStringExtensions]]
 deps = ["LibGit2"]
@@ -789,6 +840,12 @@ git-tree-sha1 = "d8a578692e3077ac998b50c0217dfd67f21d1e5f"
 uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
 version = "4.4.0+0"
 
+[[FillArrays]]
+deps = ["LinearAlgebra", "Random", "SparseArrays", "Statistics"]
+git-tree-sha1 = "0dbc5b9683245f905993b51d2814202d75b34f1a"
+uuid = "1a297f60-69ca-5386-bcde-b61e274b549b"
+version = "0.13.1"
+
 [[FixedPointNumbers]]
 deps = ["Statistics"]
 git-tree-sha1 = "335bfdceacc84c5cdf16aadc768aa5ddfc5383cc"
@@ -828,6 +885,12 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcu
 git-tree-sha1 = "51d2dfe8e590fbd74e7a842cf6d13d8a2f45dc01"
 uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
 version = "3.3.6+0"
+
+[[GLM]]
+deps = ["Distributions", "LinearAlgebra", "Printf", "Reexport", "SparseArrays", "SpecialFunctions", "Statistics", "StatsBase", "StatsFuns", "StatsModels"]
+git-tree-sha1 = "fb764dacfa30f948d52a6a4269ae293a479bbc62"
+uuid = "38e38edf-8417-5370-95a0-9cbb8c7f171a"
+version = "1.6.1"
 
 [[GR]]
 deps = ["Base64", "DelimitedFiles", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Printf", "Random", "RelocatableFolders", "Serialization", "Sockets", "Test", "UUIDs"]
@@ -1150,6 +1213,12 @@ git-tree-sha1 = "b2a7af664e098055a7529ad1a900ded962bca488"
 uuid = "2f80f16e-611a-54ab-bc61-aa92de5b98fc"
 version = "8.44.0+0"
 
+[[PDMats]]
+deps = ["LinearAlgebra", "SparseArrays", "SuiteSparse"]
+git-tree-sha1 = "e8185b83b9fc56eb6456200e873ce598ebc7f262"
+uuid = "90014a1f-27ba-587c-ab20-58faa44d9150"
+version = "0.11.7"
+
 [[Parsers]]
 deps = ["Dates"]
 git-tree-sha1 = "85b5da0fa43588c75bb1ff986493443f821c70b7"
@@ -1211,6 +1280,12 @@ deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll
 git-tree-sha1 = "c6c0f690d0cc7caddb74cef7aa847b824a16b256"
 uuid = "ea2cea3b-5b76-57ae-a6ef-0a8af62496e1"
 version = "5.15.3+1"
+
+[[QuadGK]]
+deps = ["DataStructures", "LinearAlgebra"]
+git-tree-sha1 = "78aadffb3efd2155af139781b8a8df1ef279ea39"
+uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
+version = "2.4.2"
 
 [[REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
@@ -1345,6 +1420,10 @@ deps = ["Adapt", "DataAPI", "StaticArrays", "Tables"]
 git-tree-sha1 = "57617b34fa34f91d536eb265df67c2d4519b8b98"
 uuid = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 version = "0.6.5"
+
+[[SuiteSparse]]
+deps = ["Libdl", "LinearAlgebra", "Serialization", "SparseArrays"]
+uuid = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [[TOML]]
 deps = ["Dates"]

@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.3
+# v0.18.1
 
 using Markdown
 using InteractiveUtils
@@ -716,7 +716,14 @@ md"""
 """
 
 # ╔═╡ 8296b9a4-38bf-4381-b10f-9c32cf8b540e
-
+function classify_trade(x)
+	if x==0
+		return "Unknown"
+	elseif x==1
+		return "Buy"
+	else
+		return "Sell"
+	end
 
 # ╔═╡ ba17bd98-556c-4033-b8f9-3978f8aedd9e
 begin
